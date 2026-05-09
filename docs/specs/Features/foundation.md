@@ -92,11 +92,11 @@ The linux-migration audit already documents every issue with file:line precision
 
 > Priority: fix Windows-isms first (Tasks 1-4), then packaging (Tasks 5-6), then docs (Task 7), then verify (Task 8).
 
-- [ ] **Task 1:** Fix XDG data path in `backend/db/client.py:11`
-- [ ] **Task 2:** Fix XDG data path in `backend/generator.py:10-13`
-- [ ] **Task 3:** Fix XDG data paths in `backend/main.py:658,827`
-- [ ] **Task 4:** Refactor `backend/agents/browser_runtime.py:8-17` — use `$BROWSER` env var, no hardcoded paths, graceful fallback, warnings
-- [ ] **Task 5:** Fix PyInstaller spec `backend/backend.spec:11` for Linux (venv path + file/directory conflict)
+- [x] **Task 1:** Fix XDG data path in `backend/db/client.py` — created `data_base()` helper ✓
+- [x] **Task 2:** Fix XDG data path in `backend/agents/generator.py:11` — now imports `data_base()` ✓
+- [x] **Task 3:** Fix XDG data paths in `backend/main.py:738,907` — now uses `data_base()` ✓
+- [x] **Task 4:** Refactor `backend/agents/browser_runtime.py` — `$BROWSER` env var + PATH lookup (Chrome, Chromium, Firefox, Brave), warning logged ✓
+- [ ] **Task 5:** Fix PyInstaller build cleanup (stale build output at `src-tauri/resources/backend/`)
 - [ ] **Task 6:** Add AppImage target to `src-tauri/tauri.conf.json` + `package:linux` npm script
 - [ ] **Task 7:** Update README and linux-migration docs (Linux setup deps, `$BROWSER` env var)
 - [ ] **Task 8:** Test full cycle — `npm run tauri dev`, backend health, scan, package:fast
@@ -210,9 +210,15 @@ def _find_browser() -> str | None:
 
 ## 10. Decisions Log
 
+| Date | Decision | Reason | Alternatives considered |
+|------|----------|--------|-------------------------|
 | 2026-05-09 | AppImage as sole Linux bundle target | User preference — lightweight, self-contained | deb, rpm, both |
 | 2026-05-09 | `$BROWSER` env var for browser detection | No hardcoded paths — matches user's "no hardcodes" rule | Hardcoded Linux paths, which pollute both platforms |
 | 2026-05-09 | Packaging deferred after Windows-isms | User: "resolve Windows issues first" | Packaging in parallel (would slow down fixing core issues) |
+| 2026-05-09 | Created shared `data_base()` in `db/client.py` | Avoids duplicating path logic across 3+ files | Inline fix per file |
+| 2026-05-09 | Priority: `JHM_APP_DATA_DIR` → `XDG_DATA_HOME` → `LOCALAPPDATA` → home | Tauri sets `JHM_APP_DATA_DIR` at runtime; XDG is standard on Linux | Only fixing LOCALAPPDATA fallback |
+| 2026-05-09 | Also set `XDG_DATA_HOME` in Tauri sidecar env on Linux | Ensures `browser_runtime.py:24` resolves correctly | Only relying on JHM_APP_DATA_DIR |
+| 2026-05-09 | Fixed stale doc paths: `backend/generator.py` → `backend/agents/generator.py`, line numbers in audit | Docs referenced wrong paths and stale line numbers | N/A |
 
 ---
 

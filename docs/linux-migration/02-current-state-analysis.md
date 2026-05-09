@@ -98,49 +98,17 @@ let candidates = if cfg!(windows) {
 
 ### 2.2 Python Backend (`backend/main.py`)
 
-#### Windows Path Fallback (line 658, 827)
+#### Windows Path Fallback (resolved)
 
-```python
-# main.py:658 - get_lead_versions()
-base_dir = os.path.join(os.environ.get("LOCALAPPDATA", os.path.expanduser("~")), "JustHireMe", "assets")
+**Status:** ✅ FIXED — `main.py` now uses `data_base()` from `db.client` (priority: `JHM_APP_DATA_DIR` → `XDG_DATA_HOME` → `LOCALAPPDATA` → home fallback). See `backend/db/client.py:data_base()`.
 
-# main.py:827 - similar pattern in other functions
-base_dir = os.path.join(os.environ.get("LOCALAPPDATA", os.path.expanduser("~")), "JustHireMe", "assets")
-```
+### 2.3 Database Client (`backend/db/client.py`)
 
-**Impact:** On Linux, creates `~/JustHireMe/assets/` instead of XDG-compliant `~/.local/share/JustHireMe/assets/`.
+**Status:** ✅ FIXED — `data_base()` helper resolves per XDG spec. Priority: `JHM_APP_DATA_DIR` (Tauri runtime) → `XDG_DATA_HOME` → `LOCALAPPDATA` → `~/.local/share` fallback.
 
-**Assessment:** ⚠️ Works but non-standard. Should use `$XDG_DATA_HOME` or `~/.local/share/`.
+### 2.4 Asset Directory (`backend/agents/generator.py`)
 
-**Fix (for future):**
-```python
-# backend/db/client.py:11 (same pattern)
-_b = os.path.join(
-    os.environ.get("XDG_DATA_HOME", os.path.expanduser("~/.local/share")),
-    "JustHireMe"
-)
-```
-
-### 2.3 Database Client (`backend/db/client.py:11`)
-
-```python
-_b = os.path.join(os.environ.get("LOCALAPPDATA", os.path.expanduser("~")), "JustHireMe")
-```
-
-**Impact:** Same issue - non-standard path on Linux.
-
-**Assessment:** ⚠️ HIGH - data location nonstandard, breaks backup/restore conventions.
-
-### 2.4 Asset Directory (`backend/generator.py:10-13`)
-
-```python
-_assets = os.path.join(
-    os.environ.get("LOCALAPPDATA", os.path.expanduser("~")),
-    "JustHireMe", "assets",
-)
-```
-
-**Assessment:** ⚠️ MEDIUM - same non-standard path issue.
+**Status:** ✅ FIXED — now uses `data_base()` from `db.client`.
 
 ### 2.5 Build Configuration (`tauri.conf.json`)
 

@@ -4,6 +4,9 @@ cd "$(dirname "$0")/.."
 
 TARGET_DIR="src-tauri/resources/backend"
 
+echo "Cleaning previous build output..."
+rm -rf "$TARGET_DIR"
+
 echo "Building Python sidecar..."
 cd backend
 uv run pyinstaller backend.spec --distpath ../src-tauri/resources --noconfirm

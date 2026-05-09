@@ -128,8 +128,8 @@ User clicks Scan → backend generates queries → scout scrapes → quality gat
 | Location (file:line) | Hardcoded value | Risk | Action required |
 |----------------------|-----------------|------|-----------------|
 | `backend/db/client.py:11` | `LOCALAPPDATA` | `Medium` | XDG-compliant fallback |
-| `backend/generator.py:10-13` | `LOCALAPPDATA` | `Medium` | XDG-compliant fallback |
-| `backend/main.py:658,827` | `LOCALAPPDATA` | `Medium` | XDG-compliant fallback |
+| `backend/agents/generator.py:11` | `LOCALAPPDATA` | `Medium` | XDG-compliant fallback |
+| `backend/main.py:738,907` (now using `data_base()`) | `LOCALAPPDATA` | `Medium` | ✅ Fixed — uses `data_base()` from `db.client` |
 | `backend/agents/browser_runtime.py:8-17` | Windows-only Chrome paths | `High` | Add Linux browser paths |
 | `backend/agents/scout.py:580` | Windows User-Agent | `Low` | Make UA configurable |
 | `backend/backend.spec:11` | Windows venv path | `Medium` | Cross-platform spec |
