@@ -217,7 +217,17 @@ pub fn run() {
                 let app_data = app_data_dir.to_string_lossy().to_string();
                 sidecar_cmd = sidecar_cmd
                     .env("LOCALAPPDATA", app_data.clone())
-                    .env("JHM_APP_DATA_DIR", app_data);
+                    .env("JHM_APP_DATA_DIR", app_data.clone());
+                #[cfg(target_os = "linux")]
+                {
+                    // Linux: derive XDG_DATA_HOME from Tauri's app data dir
+                    if let Some(parent) = std::path::Path::new(&app_data).parent() {
+                        sidecar_cmd = sidecar_cmd.env(
+                            "XDG_DATA_HOME",
+                            parent.to_string_lossy().to_string(),
+                        );
+                    }
+                }
             }
             if let Ok(resource_dir) = handle.path().resource_dir() {
                 let bundled_browsers_path = resource_dir

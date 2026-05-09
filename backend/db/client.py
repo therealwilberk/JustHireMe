@@ -1,4 +1,5 @@
 import os
+import sys
 import sqlite3 as _sq
 import json
 from datetime import UTC, datetime, timedelta
@@ -22,7 +23,24 @@ else:
 
 _log = get_logger(__name__)
 
-_b = os.path.join(os.environ.get("LOCALAPPDATA", os.path.expanduser("~")), "JustHireMe")
+
+def data_base() -> str:
+    """Resolve the base data directory.
+
+    Priority: JHM_APP_DATA_DIR (set by Tauri) → XDG_DATA_HOME (Linux) → LOCALAPPDATA (Windows) → home fallback.
+    """
+    app_data = os.environ.get("JHM_APP_DATA_DIR")
+    if app_data:
+        return app_data
+    if sys.platform == "win32":
+        return os.path.join(os.environ.get("LOCALAPPDATA", os.path.expanduser("~")), "JustHireMe")
+    return os.path.join(
+        os.environ.get("XDG_DATA_HOME", os.path.expanduser("~/.local/share")),
+        "JustHireMe",
+    )
+
+
+_b = data_base()
 _g, _v = os.path.join(_b, "graph"), os.path.join(_b, "vector")
 sql = os.path.join(_b, "crm.db")
 

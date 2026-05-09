@@ -3,11 +3,15 @@ from __future__ import annotations
 import os
 import platform
 import shutil
+import sys
 import tempfile
 import urllib.request
 import zipfile
 from pathlib import Path
 
+from logger import get_logger
+
+_log = get_logger(__name__)
 
 _RELEASE_DOWNLOAD_BASE = "https://github.com/vasu-devs/JustHireMe/releases/latest/download"
 
@@ -46,16 +50,39 @@ def browser_runtime_url() -> str:
 
 
 def chromium_executable() -> str | None:
-    candidates = [
-        os.environ.get("PLAYWRIGHT_CHROMIUM_EXECUTABLE", ""),
-        r"C:\Program Files\Google\Chrome\Application\chrome.exe",
-        r"C:\Program Files (x86)\Google\Chrome\Application\chrome.exe",
-        r"C:\Program Files\Microsoft\Edge\Application\msedge.exe",
-        r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe",
-    ]
-    for candidate in candidates:
-        if candidate and os.path.exists(candidate):
-            return candidate
+    env_browser = os.environ.get("BROWSER")
+    if env_browser:
+        resolved = shutil.which(env_browser)
+        if resolved:
+            return resolved
+        _log.warning("$BROWSER set to '%s' but binary not found in PATH", env_browser)
+
+    pw_exe = os.environ.get("PLAYWRIGHT_CHROMIUM_EXECUTABLE")
+    if pw_exe and os.path.exists(pw_exe):
+        return pw_exe
+
+    if os.name == "nt":
+        candidates = [
+            r"C:\Program Files\Google\Chrome\Application\chrome.exe",
+            r"C:\Program Files (x86)\Google\Chrome\Application\chrome.exe",
+            r"C:\Program Files\Microsoft\Edge\Application\msedge.exe",
+            r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe",
+        ]
+        for candidate in candidates:
+            if os.path.exists(candidate):
+                return candidate
+    else:
+        for name in [
+            "google-chrome", "google-chrome-stable",
+            "chromium", "chromium-browser",
+            "firefox", "firefox-esr",
+            "brave-browser", "brave",
+        ]:
+            resolved = shutil.which(name)
+            if resolved:
+                return resolved
+
+    _log.warning("no browser found — set $BROWSER or install Chrome/Firefox/Brave")
     return None
 
 
