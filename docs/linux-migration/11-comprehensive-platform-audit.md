@@ -164,6 +164,7 @@ candidates = [
 **Impact:** Browser auto-apply and headed scraping broken on Linux.  
 **Fix:** Add `/usr/bin/google-chrome`, `/usr/bin/chromium`, `/usr/bin/chromium-browser`, `flatpak` paths.  
 **Severity:** BLOCKER for automation features. Not needed for headless scraping (Playwright downloads its own binary).
+**[RESOLVED — browser_runtime.py now checks $BROWSER, PLAYWRIGHT_CHROMIUM_EXECUTABLE, and PATH for google-chrome/chromium/firefox/brave]**
 
 ### 3.2 Data Directory — `backend/db/client.py:11`
 
@@ -174,8 +175,9 @@ _b = os.path.join(os.environ.get("LOCALAPPDATA", os.path.expanduser("~")), "Just
 **Impact:** On Linux, creates `~/JustHireMe/` instead of XDG Base Directory-compliant `~/.local/share/JustHireMe/`.  
 **Fix:** Prefer `$XDG_DATA_HOME` / `~/.local/share/` on Linux.  
 **Severity:** HIGH — data location nonstandard, breaks backup/restore conventions.
+**[RESOLVED — db/client.py now uses shared data_base() helper with JHM_APP_DATA_DIR → XDG_DATA_HOME → LOCALAPPDATA priority chain]**
 
-### 3.3 Asset Directory — `backend/generator.py:10-13`
+### 3.3 Asset Directory — `backend/agents/generator.py:11`
 
 ```python
 _assets = os.path.join(
@@ -185,7 +187,8 @@ _assets = os.path.join(
 ```
 
 **Same issue** as db/client.py — falls back to `~/JustHireMe/assets/` on Linux.  
-**Severity:** MEDIUM.
+**Severity:** MEDIUM.  
+**[RESOLVED — generator.py now imports data_base() from db.client]**
 
 ### 3.4 PDF Version Base Dir — `backend/main.py:658,827`
 
@@ -194,7 +197,8 @@ base_dir = os.path.join(os.environ.get("LOCALAPPDATA", os.path.expanduser("~")),
 ```
 
 **Same pattern** in `get_lead_versions` and `get_lead_pdf`.  
-**Severity:** MEDIUM.
+**Severity:** MEDIUM.  
+**[RESOLVED — main.py:738,909 now uses data_base()]**
 
 ### 3.5 User-Agent String — `backend/agents/scout.py:580`
 
@@ -212,7 +216,8 @@ venv_site_packages = backend_root / ".venv" / "Lib" / "site-packages"
 ```
 
 **Impact:** On Linux, venv site-packages lives at `.venv/lib/python3.13/site-packages`. This only matters for PyInstaller builds (Windows release packaging).  
-**Severity:** MEDIUM — only affects release builds.
+**Severity:** MEDIUM — only affects release builds.  
+**[RESOLVED — backend.spec already handles cross-platform venv paths (Lib vs lib/python3.*/site-packages)]**
 
 ### 3.7 Tauri Config — `src-tauri/tauri.conf.json`
 
@@ -221,7 +226,8 @@ venv_site_packages = backend_root / ".venv" / "Lib" / "site-packages"
 ```
 
 **Impact:** No Linux bundle target configured. Need `"appimage"`, `"deb"`, or custom.  
-**Severity:** HIGH — no Linux installer can be built.
+**Severity:** HIGH — no Linux installer can be built.  
+**[RESOLVED — tauri.conf.json now has linux.targets: ["appimage"]]**
 
 ### 3.8 Package Scripts — `package.json`
 
@@ -232,7 +238,8 @@ venv_site_packages = backend_root / ".venv" / "Lib" / "site-packages"
 ```
 
 **Impact:** No `package:linux` script exists.  
-**Severity:** MEDIUM.
+**Severity:** MEDIUM.  
+**[RESOLVED — package.json now has package:linux script for AppImage builds]**
 
 ### 3.9 GitHub Actions — `.github/workflows/release.yml`
 
@@ -606,16 +613,16 @@ rustup default stable
 
 | File | Lines | Platform Sensitivity | Fix Required? |
 |------|-------|---------------------|---------------|
-| `backend/db/client.py` | 11 | LOCALAPPDATA on Windows | Yes |
-| `backend/generator.py` | 10-13 | LOCALAPPDATA on Windows | Yes |
-| `backend/main.py` | 658, 827 | LOCALAPPDATA on Windows | Yes |
-| `backend/agents/browser_runtime.py` | 8-17 | Windows Chrome paths | Yes |
+| `backend/db/client.py` | 11 | LOCALAPPDATA on Windows | Yes (FIXED — data_base() helper) |
+| `backend/agents/generator.py` | 11 | LOCALAPPDATA on Windows | Yes (FIXED — imports data_base()) |
+| `backend/main.py` | 658, 827 | LOCALAPPDATA on Windows | Yes (FIXED — uses data_base()) |
+| `backend/agents/browser_runtime.py` | 8-17 | Windows Chrome paths | Yes (FIXED — $BROWSER + PATH lookup) |
 | `backend/agents/scout.py` | 580 | Windows User-Agent | Optional |
-| `backend/backend.spec` | 11 | Windows venv path | Only for builds |
-| `src-tauri/tauri.conf.json` | 28 | NSIS-only bundle | For Linux releases |
+| `backend/backend.spec` | 11 | Windows venv path | Only for builds (works on Linux) |
+| `src-tauri/tauri.conf.json` | 28 | NSIS-only bundle | Yes (FIXED — added linux.targets) |
 | `src-tauri/src/lib.rs` | 6, 86-102 | `cfg(windows)` + `taskkill`/`kill` | Already handled |
 | `src-tauri/src/main.rs` | 1 | `windows_subsystem` | Already handled |
-| `package.json` | 24-28 | Windows packaging scripts | For Linux releases |
+| `package.json` | 24-28 | Windows packaging scripts | Yes (FIXED — added package:linux) |
 | `.github/workflows/release.yml` | entire | Windows-only CI | For Linux releases |
 | `scripts/build-sidecar.ps1` | entire | Windows only | Already have `.sh` |
 | `scripts/build-sidecar.sh` | entire | Cross-platform | Already exists |

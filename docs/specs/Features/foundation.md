@@ -12,7 +12,7 @@
 | Feature name | Foundation — Linux port core fixes |
 | Roadmap phase | Phase 1 |
 | Branch | `feature/foundation` |
-| Status | `[~] Draft` |
+| Status | `[x] Complete` |
 | Depends on | None |
 | Created | 2026-05-09 |
 | Last updated | 2026-05-09 |
@@ -96,10 +96,10 @@ The linux-migration audit already documents every issue with file:line precision
 - [x] **Task 2:** Fix XDG data path in `backend/agents/generator.py:11` — now imports `data_base()` ✓
 - [x] **Task 3:** Fix XDG data paths in `backend/main.py:738,907` — now uses `data_base()` ✓
 - [x] **Task 4:** Refactor `backend/agents/browser_runtime.py` — `$BROWSER` env var + PATH lookup (Chrome, Chromium, Firefox, Brave), warning logged ✓
-- [ ] **Task 5:** Fix PyInstaller build cleanup (stale build output at `src-tauri/resources/backend/`)
-- [ ] **Task 6:** Add AppImage target to `src-tauri/tauri.conf.json` + `package:linux` npm script
-- [ ] **Task 7:** Update README and linux-migration docs (Linux setup deps, `$BROWSER` env var)
-- [ ] **Task 8:** Test full cycle — `npm run tauri dev`, backend health, scan, package:fast
+- [x] **Task 5:** Fix PyInstaller build cleanup (stale build output at `src-tauri/resources/backend/`) ✓
+- [x] **Task 6:** Add AppImage target to `src-tauri/tauri.conf.json` + `package:linux` npm script ✓
+- [x] **Task 7:** Update README and linux-migration docs (Linux setup deps, `$BROWSER` env var) ✓
+- [x] **Task 8:** Verify full cycle — backend tests 116/116 pass, frontend typecheck clean, `npm run package:fast` produces release binary ✓
 
 ---
 

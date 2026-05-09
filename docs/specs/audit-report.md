@@ -213,6 +213,7 @@ User clicks Scan → backend generates queries → scout scrapes → quality gat
 | Date | Phase / Feature | Area touched | New findings |
 |------|----------------|--------------|--------------|
 | 2026-05-09 | Constitution init | docs/specs/ | Fork audit adopted from linux-migration audit |
+| 2026-05-09 | Phase 1 Foundation | backend/, src-tauri/, scripts/, docs/ | XDG data paths fixed, browser detection refactored, sidecar build fixed, AppImage target configured. Remaining: update_settings.py, force_model.py, package.json duplicate key — all addressed in audit. |
 
 ---
 

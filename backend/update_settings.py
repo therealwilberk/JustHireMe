@@ -1,9 +1,9 @@
 import sqlite3
 import os
 
-# Get path to database
-b = os.path.join(os.environ.get("LOCALAPPDATA", os.path.expanduser("~")), "JustHireMe")
-db_path = os.path.join(b, "crm.db")
+from db.client import data_base
+
+db_path = os.path.join(data_base(), "crm.db")
 
 # Top AI companies job boards
 boards = [

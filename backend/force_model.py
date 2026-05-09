@@ -1,8 +1,9 @@
 import sqlite3
 import os
 
-b = os.path.join(os.environ.get("LOCALAPPDATA", os.path.expanduser("~")), "JustHireMe")
-db_path = os.path.join(b, "crm.db")
+from db.client import data_base
+
+db_path = os.path.join(data_base(), "crm.db")
 
 conn = sqlite3.connect(db_path)
 # Use a high-end, reliable model
