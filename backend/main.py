@@ -733,9 +733,10 @@ async def get_lead_versions(job_id: str):
         lead.get("resume_asset") or lead.get("asset") or "",
         lead.get("cover_letter_asset") or "",
     ]
-        base_dir = next((os.path.dirname(path) for path in paths if path), None)
+    base_dir = next((os.path.dirname(path) for path in paths if path), None)
     if not base_dir:
         from db.client import data_base
+
         base_dir = os.path.join(data_base(), "assets")
     return _versioned_assets(job_id, base_dir)
 
