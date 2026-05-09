@@ -47,6 +47,9 @@
         "language": "en-US"
       }
     },
+    "linux": {
+      "targets": ["appimage"]
+    },
     "macOS": {
       "signingIdentity": "-"
     }
