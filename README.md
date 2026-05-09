@@ -275,6 +275,25 @@ Release notes include SHA256 checksums for the installer assets. The Windows ins
 | uv | latest stable |
 | Git | any modern version |
 
+### Linux System Dependencies (Arch Linux)
+
+```bash
+sudo pacman -S webkit2gtk-4.1 gtk3 libayatana-appindicator librsvg \
+  libsoup3 cairo gdk-pixbuf2 pango dbus openssl base-devel
+```
+
+For other distributions, install the equivalent packages for WebKit2GTK 4.1, GTK3, and AppIndicator support.
+
+### Browser Detection
+
+The app looks for a browser binary in this order:
+1. `$BROWSER` environment variable
+2. `PLAYWRIGHT_CHROMIUM_EXECUTABLE` environment variable
+3. Common browser names in PATH (`google-chrome`, `chromium`, `firefox`, `brave-browser`, etc.)
+4. Windows hardcoded paths (Windows only)
+
+Set `$BROWSER` to your preferred browser if automatic detection doesn't find one.
+
 Optional:
 
 - Ollama for local model experiments
