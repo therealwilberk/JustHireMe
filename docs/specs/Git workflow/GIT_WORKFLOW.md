@@ -8,7 +8,7 @@
 | Remote | Points To | Purpose |
 |--------|-----------|---------|
 | `upstream` | `vasu-devs/JustHireMe` | Original repo. Never push here. |
-| `origin` | `Wilber/JustHireMe` | Your fork. All pushes go here. |
+| `origin` | `therealwilberk/JustHireMe` | Your fork. All pushes go here. |
 
 **Setup (one time only):**
 ```bash

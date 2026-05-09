@@ -160,7 +160,7 @@ These apply to every line of code you write or modify. No exceptions, no shortcu
 
 ## 4. Git Protocol
 
-* Check /home/kamaa/dev/code-base/specs/Git workflow/GIT_WORKFLOW.md for more info on this project.
+* Check `docs/specs/Git workflow/GIT_WORKFLOW.md` for more info on this project.
 ### Branch naming
 ```
 feature/[phase-name]-[short-description]

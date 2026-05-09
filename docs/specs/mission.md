@@ -7,81 +7,69 @@
 
 ## Project Name
 
-<!-- The canonical name used everywhere: repo, docs, comms. -->
-`[PROJECT_NAME]`
+JustHireMe (Linux fork)
 
 ---
 
 ## One-Line Purpose
 
-<!-- What does this project do, for whom, and why does it matter?
-     Write it so a new developer understands the point in one sentence. -->
-
-_[e.g. "A self-hosted job-search intelligence tool that aggregates engineering roles from multiple boards into a single terminal UI."]_
+A fully independent Linux port of JustHireMe — a local-first AI job intelligence workbench — that runs natively on Arch Linux + Hyprland with feature parity to the Windows upstream.
 
 ---
 
 ## Problem Statement
 
-<!-- What specific pain or gap does this project address?
-     Be honest about what currently fails without it. -->
-
-_[Describe the problem in 2–4 sentences. Avoid marketing language.]_
+The upstream JustHireMe is cross-platform by design but Windows-focused: release pipeline, packaging, documentation, and testing all target Windows. Linux users — particularly on Arch/Hyprland — have no supported path to build, run, or package the app. System dependencies are undocumented, hardcoded Windows paths break at runtime, and the PyInstaller sidecar build fails on Linux. This fork closes that gap.
 
 ---
 
 ## Target Users
 
-<!-- Who actually uses this? Be specific — not "developers" but "junior EE graduates job-hunting in sub-Saharan Africa."
-     Include technical literacy level if relevant. -->
-
 | User Type | Description | Technical Level |
 |-----------|-------------|-----------------|
-| Primary   |             |                 |
-| Secondary |             |                 |
+| Primary   | The maintainer — Linux-using job seeker on Arch/Hyprland | High — comfortable with Rust/Python/React, Tauri, Arch packaging |
+| Secondary | Linux-using job seekers who find this fork via public sharing | Moderate-High — can follow setup docs, install Arch packages |
 
 ---
 
 ## Core Objectives
 
-<!-- What must be true for this project to be considered successful?
-     These are not features — they are outcomes.
-     Keep to 3–5. More than 5 means scope is unclear. -->
-
-1.
-2.
-3.
+1. JustHireMe builds and runs on Arch Linux + Hyprland with all core features functional
+2. All Windows-isms (hardcoded paths, missing bundle targets, PyInstaller build) are resolved
+3. Linux packaging (AppImage/deb) exists alongside documented release process
+4. Fork is maintainable — can rebase on upstream changes without constant breakage
 
 ---
 
 ## Explicit Non-Goals
 
-<!-- What is this project deliberately NOT trying to do?
-     This prevents scope creep and misaligned features. -->
-
-- [ ] _[e.g. "This is not a multi-tenant SaaS product."]_
-- [ ] _[e.g. "We are not building a mobile client."]_
+- [ ] Multi-platform support beyond Arch Linux (no Ubuntu/Fedora/NixOS packages planned)
+- [ ] Mobile client or web deployment
+- [ ] KE-specific scrapers (deferred until core Linux port is stable)
+- [ ] Upstream contributions (operating as fully independent fork)
+- [ ] Commercial licensing or monetization
+- [ ] OS keychain / encrypted API key storage (upstream hasn't built it either)
 
 ---
 
 ## Success Criteria
 
-<!-- How do we know the project is achieving its mission?
-     These should be observable, not aspirational. -->
-
 | Criterion | Indicator |
 |-----------|-----------|
-|           |           |
+| Builds on Arch | `npm run tauri build` succeeds on Arch with Hyprland |
+| All core features work | Scan, rank, evaluate, generate produce same results as Windows |
+| Linux bundle exists | `npm run package:linux` produces valid AppImage or deb |
+| Data dirs XDG-compliant | App stores data in `~/.local/share/JustHireMe/` |
+| No Windows paths in code | `LOCALAPPDATA` references replaced with XDG equivalents |
+| Fork can rebase upstream | `git rebase main` on linux-base succeeds with minimal conflicts |
 
 ---
 
 ## Project Type
 
-<!-- Check all that apply -->
-
 - [ ] Greenfield (new project from scratch)
 - [ ] Brownfield (existing codebase being extended)
-- [ ] Fork (based on upstream project — see `audit-report.md`)
+- [x] Fork (based on upstream project — see `audit-report.md`)
 - [ ] Prototype / spike
 - [ ] Production system
 
@@ -89,25 +77,19 @@ _[Describe the problem in 2–4 sentences. Avoid marketing language.]_
 
 ## Relationship to Upstream (Forks Only)
 
-<!-- If this is a fork, define the relationship clearly.
-     What do we keep? What do we override? How do we handle upstream changes? -->
-
-- **Upstream repo:** `[URL]`
-- **Fork strategy:** _[e.g. "Track upstream main. Cherry-pick bug fixes. Do not merge upstream features without review."]_
-- **Divergence intent:** _[e.g. "We strip the web UI entirely and replace it with a CLI layer."]_
+- **Upstream repo:** `vasu-devs/JustHireMe`
+- **Fork strategy:** Track upstream main via periodic rebase. Keep Linux-specific changes in `linux-base`. Cherry-pick upstream bug fixes. Do not merge upstream features without review — test against Linux first.
+- **Divergence intent:** Add Linux support layer (XDG paths, bundle targets, CI, docs, browser paths) while keeping the core feature set identical. Later divergence possible but not planned.
 
 ---
 
 ## Stakeholders
 
-<!-- Who has decision-making authority or is affected by this project? -->
-
 | Role | Name / Handle | Responsibility |
 |------|---------------|----------------|
-| Owner |              | Final decisions on scope and direction |
-| Developer |          |                |
-| Reviewer |           |                |
+| Owner | @therealwilberk | Final decisions on scope and direction |
+| Developer | Agent | Implementation per approved specs |
 
 ---
 
-_Last updated: [DATE] — [AUTHOR]_
+*Last updated: 2026-05-09 — Agent*
