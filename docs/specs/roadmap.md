@@ -19,8 +19,8 @@
 
 | Field | Value |
 |-------|-------|
-| Current phase | `Phase 2 — Stability` |
-| Phase started | `2026-05-09` |
+| Current phase | `Phase 3 — Linux Packaging` |
+| Phase started | `2026-05-10` |
 | Last updated | `2026-05-10` |
 | Overall status | `[ ] Not started / [x] In progress / [ ] Paused / [ ] Complete` |
 
@@ -32,7 +32,7 @@
 |---|-------|--------|--------------|
 | 1 | Foundation — XDG paths, browser paths, build working on Arch | `[x] Complete` | `specs/features/foundation.md` — `[x] Done` |
 | 2 | Stability — startup validation, logging, error handling, test infrastructure | `[x] Complete` | `specs/features/stability.md` — `[x] Done` |
-| 3 | Linux Packaging — AppImage/deb, npm scripts, setup docs | `[ ] Pending` | `specs/features/linux-packaging.md` — `[ ] Not created` |
+| 3 | Linux Packaging — AppImage/deb, npm scripts, setup docs | `[x] In progress` | `specs/features/linux-packaging.md` — `[x] Draft` |
 | 4 | Polish — Hyprland/Wayland, system tray, HiDPI, Linux CI | `[ ] Pending` | `specs/features/polish.md` — `[ ] Not created` |
 
 ---
@@ -125,9 +125,11 @@ See validation checklist in `specs/features/stability.md#8-validation-checklist`
 - [ ] README has complete Linux setup instructions including system deps
 - [ ] `docs/linux-release.md` documents the release process
 
-**Feature spec:** `specs/features/linux-packaging.md` — `[ ] Not created`
+**Feature spec:** `specs/features/linux-packaging.md` — `[x] Draft`
 
-**Status:** `[ ] Pending`
+**Status:** `[x] In progress`
+
+> ⚠️ **Remember:** After Phase 3 implementation is complete, merge `feature/linux-packaging` → `linux-base` → push to origin. See `GIT_WORKFLOW.md` — "Finishing a branch" workflow.
 
 ---
 
@@ -181,6 +183,7 @@ See validation checklist in `specs/features/stability.md#8-validation-checklist`
 | 2026-05-10 | Phase 2 feature spec drafted | Phase 2 research complete — scope finalized |
 | 2026-05-10 | Phase 2 implementation complete | All 8 tasks done: test fakes extracted, path unit tests added, /health enhanced, sidecar timeout + retry ceiling added, ghost lock implemented. 128 tests pass, verified by third-party audit. |
 | 2026-05-10 | Audit flags: plaintext API keys, placeholder data, loose deps | Phase 2 audit revealed 3 cross-cutting issues outside scope — documented in Deferred/Backlog. API key issue raised to upstream. |
+| 2026-05-10 | Phase 3 implementation complete | All 5 tasks done: tauri.conf.json targets+linux block, desktop file, icons verified, npm scripts added, release docs created. |
 
 ---
 

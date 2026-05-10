@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=JustHireMe
+Comment=Local-first AI job intelligence workbench
+Exec=justhireme
+Icon=justhireme
+Terminal=false
+Categories=Office;
+StartupNotify=true

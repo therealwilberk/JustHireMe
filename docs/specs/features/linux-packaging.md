@@ -9,10 +9,10 @@
 
 | Field | Value |
 |-------|-------|
-| Feature name | Linux Packaging — AppImage, deb, tar.gz |
+| Feature name | Linux Packaging — AppImage, deb |
 | Roadmap phase | Phase 3 |
 | Branch | `feature/linux-packaging` |
-| Status | `[x] Draft / [ ] Approved / [ ] In Progress / [ ] Done` |
+| Status | `[ ] Draft / [ ] Approved / [x] In Progress / [ ] Done` |
 | Depends on | Phase 1 + Phase 2 complete |
 | Created | 2026-05-10 |
 | Last updated | 2026-05-10 |
@@ -21,7 +21,7 @@
 
 ## 1. Goal
 
-Linux users can install JustHireMe via standard package formats. A developer can run `npm run package:linux:all` and produce AppImage (portable), `.deb` (Debian/Ubuntu), and `.tar.gz` (other distros) artifacts. The app appears in the system launcher with a proper `.desktop` file and icon. The release pipeline builds Linux packages alongside Windows.
+Linux users can install JustHireMe via standard package formats. A developer can run `npm run package:linux:all` and produce AppImage (portable) and `.deb` (Debian/Ubuntu) artifacts. The app appears in the system launcher with a proper `.desktop` file and icon. The release pipeline builds Linux packages alongside Windows.
 
 ---
 
@@ -36,10 +36,10 @@ Phase 1 already seeded several packaging pieces:
 
 However, three gaps remain:
 
-1. **Only AppImage is configured** — `package:linux` builds `--bundles appimage` only. No deb or tar.gz.
+1. **Only AppImage is configured** — `package:linux` builds `--bundles appimage` only. No deb.
 2. **No `.desktop` file** — the app won't appear in launcher menus after install. Required for proper `.deb` packaging.
 3. **No Linux icons** — AppImage requires a 256x256 PNG, and the deb bundle expects standard icon paths.
-4. **No linux bundle config in tauri.conf.json** — deb package dependencies, AppImage config, and desktopTemplate are not set.
+4. **No linux bundle config in tauri.conf.json** — deb package dependencies not set.
 5. **No `docs/linux-release.md`** — the release checklist doc doesn't exist yet.
 
 The `release.yml` expects `.deb` and `.AppImage` on Linux (line 367), but `package:linux` only builds AppImage — so the existing CI would fail to find artifacts.
@@ -50,11 +50,11 @@ The `release.yml` expects `.deb` and `.AppImage` on Linux (line 367), but `packa
 
 ### In scope
 
-- [ ] Update `tauri.conf.json` bundle targets to `["appimage", "deb", "tar.gz"]`
-- [ ] Add Linux-specific bundle config to `tauri.conf.json` (deb depends, AppImage config, desktopTemplate)
-- [ ] Create `resources/JustHireMe.desktop` — desktop entry file
+- [ ] Update `tauri.conf.json` bundle targets — keep `["appimage"]` at config level, CLI `--bundles` flag overrides per-format
+- [ ] Add Linux-specific bundle config to `tauri.conf.json` (deb depends)
+- [ ] Create `resources/JustHireMe.desktop` — desktop entry file (reference — Tauri auto-generates for packages)
 - [ ] (No icon changes needed — `icon.png` is 512x512, Tauri scales for AppImage)
-- [ ] Add npm scripts: `package:deb`, `package:tarball`, `package:linux:all`
+- [x] Add npm scripts: `package:deb`, `package:linux:all`
 - [ ] Create `docs/linux-release.md` — release checklist for Linux builds
 
 ### Out of scope
@@ -73,22 +73,21 @@ The `release.yml` expects `.deb` and `.AppImage` on Linux (line 367), but `packa
 
 | # | Requirement | Priority |
 |---|-------------|----------|
-| F1 | `npm run package:linux:all` produces `.AppImage`, `.deb`, and `.tar.gz` | `Must` |
+| F1 | `npm run package:linux:all` produces `.AppImage` and `.deb` | `Must` |
 | F2 | `npm run package:appimage` produces AppImage | `Must` |
 | F3 | `npm run package:deb` produces `.deb` | `Must` |
-| F4 | `npm run package:tarball` produces `.tar.gz` | `Must` |
-| F5 | Installed `.deb` registers app in system launcher via `.desktop` file | `Must` |
-| F6 | AppImage includes launcher integration metadata | `Should` |
-| F7 | `docs/linux-release.md` documents the full release process | `Must` |
+| F4 | Installed `.deb` registers app in system launcher via `.desktop` file | `Must` |
+| F5 | AppImage includes launcher integration metadata | `Should` |
+| F6 | `docs/linux-release.md` documents the full release process | `Must` |
 
 ### Non-Functional Requirements
 
 | # | Requirement | Notes |
 |---|-------------|-------|
 | NF1 | Existing Windows packaging is unchanged | No regressions on existing workflows |
-| NF2 | Backward-compatible `package:linux` alias | Existing `package:linux` either remains AppImage-only or delegates to `package:linux:all` |
+| NF2 | Backward-compatible `package:linux` alias | Existing `package:linux` stays AppImage-only |
 | NF3 | deb package declares correct system dependencies | Depends list prevents missing-lib errors on install |
-| NF4 | AppImage runs on Ubuntu 22.04+ and Arch | FUSE2 or FUSE3 required at runtime |
+| NF4 | AppImage runs on Ubuntu 22.04+ and Arch | FUSE2 or FUSE3 required at runtime. Note: on Arch, `NO_STRIP=1` may be needed due to linuxdeploy's old `strip` binary |
 
 ---
 
@@ -99,8 +98,8 @@ The `release.yml` expects `.deb` and `.AppImage` on Linux (line 367), but `packa
 **File:** `src-tauri/tauri.conf.json`
 
 Changes:
-- Change `"targets": ["appimage"]` to `"targets": ["appimage", "deb", "tar.gz"]`
-- Add `linux` block with deb depends and desktopTemplate path:
+- Keep `"targets": ["appimage"]` at config level (Tauri 2 CLI `--bundles` flag overrides for per-format builds)
+- Add `linux` block with deb depends only:
 
 ```json
 "linux": {
@@ -110,14 +109,13 @@ Changes:
       "libwebkit2gtk-4.1-0",
       "libappindicator3-1",
       "librsvg2-2",
-      "libssl3",
-      "libxdo0"
+      "libssl3"
     ]
   }
 }
 ```
 
-Point `desktopTemplate` at the new `.desktop` file.
+Note: `files` under `linux.deb` is not supported in Tauri 2. The `.desktop` file is auto-generated by Tauri for deb packages. The custom `.desktop` file at `resources/JustHireMe.desktop` is kept for reference/manual-install use but not referenced by the config.
 
 ### Task 2 — Create `.desktop` file
 
@@ -134,11 +132,11 @@ Standard desktop entry referencing the installed binary and icon. Use `%k` for e
 **File:** `package.json`
 
 Add:
+- `"package:appimage": "tauri build --bundles appimage"`
 - `"package:deb": "tauri build --bundles deb"`
-- `"package:tarball": "tauri build --bundles tar.gz"`
-- `"package:linux:all": "tauri build --bundles appimage,deb,tar.gz"`
+- `"package:linux:all": "tauri build --bundles appimage,deb"`
 
-Decide: keep `package:linux` as-is (AppImage-only, backward compat) or point it at `package:linux:all`.
+Note: Tauri 2 supports `appimage`, `deb`, and `rpm` as Linux bundle targets (rpm deferred — no `rpmbuild` tooling available locally). No `tar.gz` support. `package:linux` stays AppImage-only (backward compat).
 
 ### Task 5 — Create release documentation
 
@@ -178,28 +176,26 @@ No API changes. This is entirely packaging config, static resources, and npm scr
 
 ### Build verification
 
-- [ ] `npm run package:appimage` produces `.AppImage` in `src-tauri/target/release/bundle/appimage/`
-- [ ] `npm run package:deb` produces `.deb` in `src-tauri/target/release/bundle/deb/`
-- [ ] `npm run package:tarball` produces `.tar.gz` in `src-tauri/target/release/bundle/tar.gz/`
-- [ ] `npm run package:linux:all` produces all three formats
-- [ ] `npm run package:linux` still works (backward compat check)
-- [ ] `.desktop` file validates with `desktop-file-validate`
-- [ ] deb declares correct depends: `dpkg -I justhireme_x64.deb | grep Depends`
+- [x] `npm run package:appimage` produces `.AppImage` (316MB — verified with `NO_STRIP=1` on Arch)
+- [x] `npm run package:deb` produces `.deb` (225MB — verified)
+- [x] `npm run package:linux:all` produces both formats (`NO_STRIP=1` needed on Arch for AppImage)
+- [x] `npm run package:linux` still works (backward compat)
+- [x] `.desktop` file validates with `desktop-file-validate`
+- [ ] `npm run package:rpm` deferred (no rpmbuild tooling — tracked in roadmap backlog)
 
 ### Manual install test
 
-- [ ] AppImage launches on Arch: `chmod +x ./JustHireMe*.AppImage && ./JustHireMe*.AppImage`
-- [ ] deb installs on Ubuntu: `sudo dpkg -i justhireme_x64.deb`
-- [ ] App appears in application launcher after deb install
-- [ ] App runs after deb install (backend sidecar included)
+- [ ] AppImage launches: `chmod +x ./JustHireMe*.AppImage && ./JustHireMe*.AppImage`
+- [ ] deb installs on Ubuntu: `sudo dpkg -i justhireme_*.deb`
+- [ ] App runs after package install (backend sidecar included)
 
 ### Code quality gates
 
-- [ ] `tauri.conf.json` validates against Tauri 2 schema
-- [ ] No Windows packaging broken (verify CI would still produce NSIS)
-- [ ] `.desktop` file follows [freedesktop.org spec](https://specifications.freedesktop.org/desktop-entry-spec/latest/)
-- [ ] All new files committed on `feature/linux-packaging` branch
-- [ ] Branch is clean — no unrelated changes
+- [x] `tauri.conf.json` validates against Tauri 2 schema
+- [x] No Windows packaging broken (verify CI would still produce NSIS)
+- [x] `.desktop` file follows [freedesktop.org spec](https://specifications.freedesktop.org/desktop-entry-spec/latest/)
+- [x] All changes on `feature/linux-packaging` branch
+- [x] Branch is clean — no unrelated changes
 
 ---
 
@@ -209,7 +205,7 @@ No API changes. This is entirely packaging config, static resources, and npm scr
 
 | File | Nature of change | Cascade |
 |------|------------------|---------|
-| `src-tauri/tauri.conf.json` | Add `deb`, `tar.gz` targets, linux block, desktopTemplate | ⚠️ CI `release.yml` line 367 now finds actual artifacts instead of potentially empty glob |
+| `src-tauri/tauri.conf.json` | Add linux block with deb depends | ⚠️ CI `release.yml` line 367 now finds actual artifacts instead of potentially empty glob |
 | `src-tauri/tauri.conf.json` | Linux deb depends | Must match Ubuntu 22.04 package names (CI runs on ubuntu-latest) |
 
 ### Task 2 — .desktop file
@@ -244,15 +240,16 @@ No API changes. This is entirely packaging config, static resources, and npm scr
 
 | # | Question | Raised by | Status |
 |---|----------|-----------|--------|
-| Q1 | Should `package:linux` (existing script) stay AppImage-only (backward compat), or delegate to `package:linux:all`? | Agent | `[ ] Open` — Recommendation: keep AppImage-only, since existing CI/tutorials reference this script. `package:linux:all` is the new comprehensive command. |
+| Q1 | Should `package:linux` (existing script) stay AppImage-only (backward compat), or delegate to `package:linux:all`? | Agent | `[x] Closed` — Keep AppImage-only. `package:linux:all` is the new comprehensive command. |
 
 ## 11. Decisions Log
 
 | Date | Decision | Reason | Alternatives considered |
 |------|----------|--------|-------------------------|
-| 2026-05-10 | All three formats (AppImage, deb, tar.gz) | Covers all Linux users, CI already expects deb | AppImage-only (too narrow) |
+| 2026-05-10 | Both formats (AppImage, deb) | Covers the majority of Linux users. rpm deferred — no local rpmbuild tooling. | AppImage-only (too narrow), rpm (needs CI tooling) |
 | 2026-05-10 | GitHub Actions CI deferred | Not blocking — can add later when release process is tested | Adding now (would delay Phase 3) |
-| 2026-05-10 | `.desktop` file as Tauri template | Clean integration, Tauri handles install paths | Manual placement (fragile) |
+| 2026-05-10 | `.desktop` auto-generated by Tauri 2 | Tauri 2 doesn't support `desktopTemplate` or `files` under deb. Auto-generated `.desktop` is sufficient for launcher integration. | `desktopTemplate` (Tauri 1) / `deb.files` (not in v2 schema) |
+| 2026-05-10 | `package:linux` stays AppImage-only | Backward compat for existing CI/tutorials | Making it delegate to `package:linux:all` |
 
 ---
 
