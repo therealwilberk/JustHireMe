@@ -19,10 +19,10 @@
 
 | Field | Value |
 |-------|-------|
-| Current phase | `Phase 1 — Foundation` |
+| Current phase | `Phase 2 — Stability` |
 | Phase started | `2026-05-09` |
 | Last updated | `2026-05-09` |
-| Overall status | `[ ] Not started / [~] In progress / [ ] Paused / [ ] Complete` |
+| Overall status | `[ ] Not started / [ ] In progress / [~] Paused / [ ] Complete` |
 
 ---
 
@@ -30,8 +30,8 @@
 
 | # | Phase | Status | Feature Spec |
 |---|-------|--------|--------------|
-| 1 | Foundation — XDG paths, browser paths, build working on Arch | `[~] Active` | `specs/features/foundation.md` — `[ ] Not created` |
-| 2 | Stability — PyInstaller fix, startup validation, logging, error handling | `[ ] Pending` | `specs/features/stability.md` — `[ ] Not created` |
+| 1 | Foundation — XDG paths, browser paths, build working on Arch | `[x] Complete` | `specs/features/foundation.md` — `[x] Done` |
+| 2 | Stability — startup validation, logging, error handling, test infrastructure | `[~] Active` | `specs/features/stability.md` — `[ ] Not created` |
 | 3 | Linux Packaging — AppImage/deb, npm scripts, setup docs | `[ ] Pending` | `specs/features/linux-packaging.md` — `[ ] Not created` |
 | 4 | Polish — Hyprland/Wayland, system tray, HiDPI, Linux CI | `[ ] Pending` | `specs/features/polish.md` — `[ ] Not created` |
 
@@ -66,40 +66,38 @@
 - [ ] Backend starts, WebSocket connects, scan cycle runs without errors
 - [ ] `npm run package:fast` produces a working binary (no bundle)
 
-**Feature spec:** `specs/features/foundation.md` — `[ ] Not created`
+**Feature spec:** `specs/features/foundation.md` — `[x] Done`
 
-**Status:** `[~] Active`
+**Status:** `[x] Complete`
+
+> Phase 1 scope expanded during implementation: AppImage target, `package:linux` script, and PyInstaller fix were pulled forward from Phase 2/3. Test refactoring deferred to Phase 2 assessment.
 
 ---
 
 ### Phase 2 — Stability
 
-**Goal:** The sidecar build works on Linux, errors are caught and surfaced, and the app fails fast with clear messages instead of silent degradation.
+**Goal:** Backend is reliable, debuggable, and testable. Errors surface clearly, logging is structured, and tests are maintainable.
 
-**Scope:**
-- Fix PyInstaller `_internal/aiohttp` file/directory conflict on Linux
-- Replace `print()` calls with structured logging (`logging` module with JSON format)
-- Add startup validation: DB writability, Chromium availability, API key presence
-- Fix fragile stdout-based port discovery (handshake file or env var)
-- Add error recovery: retry logic for port binding, progressive backoff for ghost mode
-- Add concurrency lock for ghost mode (prevent overlapping scans)
+**Scope (tentative — being defined):**
+- Test infrastructure cleanup: extract shared fakes, remove global monkey-patches
+- Startup validation: DB writability, browser availability, API key presence
+- Replace `print()` with structured logging
+- Fix fragile stdout-based port discovery
+- Add ghost mode concurrency lock
 
 **Out of scope for this phase:**
 - Linux packaging/distribution (Phase 3)
 - Wayland-specific rendering tweaks (Phase 4)
+- Full test coverage for all agents (separate effort)
 
 **Dependencies:** Phase 1 complete
 
 **Validation:**
-- [ ] `npm run package:fast` succeeds on Linux (PyInstaller builds cleanly)
-- [ ] No bare `print()` in production code paths
-- [ ] App startup validates DB paths, browser binary, and configured API keys
-- [ ] Ghost mode cannot overlap with manual scan
-- [ ] Stdout parsing is reliable — extra output doesn't break sidecar startup
+TODO — being defined in feature spec
 
-**Feature spec:** `specs/features/stability.md` — `[ ] Not created`
+**Feature spec:** `specs/features/stability.md` — `[ ] Being drafted`
 
-**Status:** `[ ] Pending`
+**Status:** `[~] Being defined — deep research in progress`
 
 ---
 

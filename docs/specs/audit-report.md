@@ -214,6 +214,7 @@ User clicks Scan → backend generates queries → scout scrapes → quality gat
 |------|----------------|--------------|--------------|
 | 2026-05-09 | Constitution init | docs/specs/ | Fork audit adopted from linux-migration audit |
 | 2026-05-09 | Phase 1 Foundation | backend/, src-tauri/, scripts/, docs/ | XDG data paths fixed, browser detection refactored, sidecar build fixed, AppImage target configured. Remaining: update_settings.py, force_model.py, package.json duplicate key — all addressed in audit. |
+| 2026-05-09 | Test infrastructure audit | backend/tests/ | Identified 3x copy-pasted fake storage classes (~60 lines each), global `os.makedirs` monkey-patch, duplicated env setup across test files. Coverage gaps: no tests for `data_base()` XDG path, `chromium_executable()` Linux behavior. Mitigation and refactoring deferred to Phase 2. |
 
 ---
 
