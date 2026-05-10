@@ -12,10 +12,10 @@
 | Feature name | Stability — test infra, startup validation, error handling, concurrency |
 | Roadmap phase | Phase 2 |
 | Branch | `feature/phase2` |
-| Status | `[ ] Draft / [ ] Approved / [ ] In Progress / [ ] Done` |
+| Status | `[ ] Draft / [ ] Approved / [ ] In Progress / [x] Done` |
 | Depends on | Phase 1 complete |
 | Created | 2026-05-10 |
-| Last updated | 2026-05-10 |
+| Last updated | 2026-05-10 (implementation complete) |
 
 ---
 
@@ -35,13 +35,13 @@ Phase 1 delivered on XDG paths, browser detection, and Linux builds, but left th
 
 ### In scope
 
-- [ ] Extract triplicated fakes into `tests/fakes.py` — shared `_FakeResult`, `_FakeConnection`, `_FakeSqlConnection`, `_FakeVectorStore`, `_install_storage_fakes()`, plus the `_FakeSemantic*` classes used by `test_regressions.py` and `test_api.py`
-- [ ] Remove global `os.makedirs = lambda ...` monkey-patch from all three test files — replace with `unittest.mock.patch` targeting `db.client._ensure_dir`
-- [ ] Add direct unit tests for `data_base()` covering the full priority chain (`JHM_APP_DATA_DIR` → `XDG_DATA_HOME` → `LOCALAPPDATA` → `~`) and the `_ensure_dir` fallback behaviour
-- [ ] Add direct unit tests for `chromium_executable()` covering `$BROWSER` env var, `PLAYWRIGHT_CHROMIUM_EXECUTABLE`, Linux PATH candidates (google-chrome, chromium, firefox, brave), and the `None` fallback
-- [ ] Enhance `/health` endpoint to probe DB writability, browser binary availability, and LLM API key presence — return structured dependency status alongside the existing alive/uptime response
-- [ ] Add timeout to sidecar port/token stdout scanning in Rust (`tokio::time::timeout` around `rx.recv().await`) and a retry ceiling in the frontend polling loop
-- [ ] Add concurrency lock for ghost mode — prevent `_ghost_tick()` from running concurrently with manual scans (`POST /api/v1/scan`) or re-evaluations (`POST /api/v1/leads/reevaluate`)
+- [x] Extract triplicated fakes into `tests/fakes.py` — shared `_FakeResult`, `_FakeConnection`, `_FakeSqlConnection`, `_FakeVectorStore`, `_install_storage_fakes()`, plus the `_FakeSemantic*` classes used by `test_regressions.py` and `test_api.py`
+- [x] Remove global `os.makedirs = lambda ...` monkey-patch from all three test files — replace with `unittest.mock.patch` targeting `db.client._ensure_dir`
+- [x] Add direct unit tests for `data_base()` covering the full priority chain (`JHM_APP_DATA_DIR` → `XDG_DATA_HOME` → `LOCALAPPDATA` → `~`) and the `_ensure_dir` fallback behaviour
+- [x] Add direct unit tests for `chromium_executable()` covering `$BROWSER` env var, `PLAYWRIGHT_CHROMIUM_EXECUTABLE`, Linux PATH candidates (google-chrome, chromium, firefox, brave), and the `None` fallback
+- [x] Enhance `/health` endpoint to probe DB writability, browser binary availability, and LLM API key presence — return structured dependency status alongside the existing alive/uptime response
+- [x] Add timeout to sidecar port/token stdout scanning in Rust (`tokio::time::timeout` around `rx.recv().await`) and a retry ceiling in the frontend polling loop
+- [x] Add concurrency lock for ghost mode — prevent `_ghost_tick()` from running concurrently with manual scans (`POST /api/v1/scan`) or re-evaluations (`POST /api/v1/leads/reevaluate`)
 
 ### Out of scope
 
@@ -83,14 +83,14 @@ Phase 1 delivered on XDG paths, browser detection, and Linux builds, but left th
 
 ## 5. Implementation Plan
 
-- [ ] **Task 1 (parallel):** Create `tests/fakes.py` — extract shared fakes + `_install_storage_fakes()` from all three test files. Update imports in `test_api.py`, `test_graph.py`, `test_regressions.py`
-- [ ] **Task 2 (parallel):** Remove global `os.makedirs` monkey-patch from `test_api.py`, `test_graph.py`, `test_regressions.py`. Replace with targeted `mock.patch.object(os, "makedirs")` inside `_install_storage_fakes()` so it's applied before any backend module loads
-- [ ] **Task 3 (parallel):** Write unit tests for `data_base()` in a new `test_paths.py` — cover priority chain, `_ensure_dir` fallback
-- [ ] **Task 4 (parallel):** Write unit tests for `chromium_executable()` in the same `test_paths.py` — cover `$BROWSER`, `PLAYWRIGHT_CHROMIUM_EXECUTABLE`, Linux candidates, `None` fallback
-- [ ] **Task 5:** Enhance `GET /health` — add `dependencies` block with lightweight probes for DB (try `SELECT 1` against SQLite), browser (`chromium_executable()` result), and API keys (check configured settings / env vars)
-- [ ] **Task 6:** Add timeout to Rust sidecar stdout scanning — wrap `rx.recv().await` with `tokio::time::timeout`. Kill sidecar process on timeout. Add `tokio` dep to `Cargo.toml`
-- [ ] **Task 7:** Add retry ceiling to frontend polling in `useWS.ts` — stop after 30 attempts (30s), set user-visible sidecar error. Tear down event listeners on exhaustion
-- [ ] **Task 8:** Add concurrency lock for ghost mode — use `asyncio.Lock()` with non-blocking `wait_for(lock.acquire(), timeout=0)` so `_ghost_tick()` skips silently if lock is held, and manual scan/reevaluate return 409. Preserve existing `_scan_task.done()` / `_reevaluate_task.done()` guards as complementary layer
+- [x] **Task 1 (parallel):** Create `tests/fakes.py` — extract shared fakes + `_install_storage_fakes()` from all three test files. Update imports in `test_api.py`, `test_graph.py`, `test_regressions.py`
+- [x] **Task 2 (parallel):** Remove global `os.makedirs` monkey-patch from `test_api.py`, `test_graph.py`, `test_regressions.py`. Replace with targeted `mock.patch.object(os, "makedirs")` inside `_install_storage_fakes()` so it's applied before any backend module loads
+- [x] **Task 3 (parallel):** Write unit tests for `data_base()` in a new `test_paths.py` — cover priority chain, `_ensure_dir` fallback
+- [x] **Task 4 (parallel):** Write unit tests for `chromium_executable()` in the same `test_paths.py` — cover `$BROWSER`, `PLAYWRIGHT_CHROMIUM_EXECUTABLE`, Linux candidates, `None` fallback
+- [x] **Task 5:** Enhance `GET /health` — add `dependencies` block with lightweight probes for DB (try `SELECT 1` against SQLite), browser (`chromium_executable()` result), and API keys (check configured settings / env vars)
+- [x] **Task 6:** Add timeout to Rust sidecar stdout scanning — wrap `rx.recv().await` with `tokio::time::timeout`. Kill sidecar process on timeout. Add `tokio` dep to `Cargo.toml`
+- [x] **Task 7:** Add retry ceiling to frontend polling in `useWS.ts` — stop after 30 attempts (30s), set user-visible sidecar error. Tear down event listeners on exhaustion
+- [x] **Task 8:** Add concurrency lock for ghost mode — use `asyncio.Lock()` with non-blocking `wait_for(lock.acquire(), timeout=0)` so `_ghost_tick()` skips silently if lock is held, and manual scan/reevaluate return 409. Preserve existing `_scan_task.done()` / `_reevaluate_task.done()` guards as complementary layer
 
 > Tasks 1–4 can run in parallel. Tasks 5–8 are sequential (each builds on the test infra from 1–4).
 
@@ -155,37 +155,37 @@ _ghost_lock = asyncio.Lock()
 
 ### Automated tests
 
-- [ ] `tests/fakes.py` exists and is imported by all three test files
-- [ ] All existing tests pass with fakes imported from shared module: `cd backend && uv run python -m pytest tests/ -v`
-- [ ] `os.makedirs` monkey-patch removed — grep confirms zero occurrences in test files
-- [ ] `test_paths.py::test_data_base_jhm_app_data_dir` — env var takes priority
-- [ ] `test_paths.py::test_data_base_xdg_data_home` — XDG used on Linux when JHM not set
-- [ ] `test_paths.py::test_data_base_localappdata` — LOCALAPPDATA used on Windows
-- [ ] `test_paths.py::test_data_base_fallback` — expanduser used when no env var set
-- [ ] `test_paths.py::test_data_base_ensure_dir_fallback` — fallback dir used when makedirs fails
-- [ ] `test_paths.py::test_chromium_executable_browser_env` — $BROWSER resolved via PATH
-- [ ] `test_paths.py::test_chromium_executable_playwright_env` — PLAYWRIGHT_CHROMIUM_EXECUTABLE
-- [ ] `test_paths.py::test_chromium_executable_linux_candidates` — candidate names via shutil.which
-- [ ] `test_paths.py::test_chromium_executable_not_found` — returns None
-- [ ] `test_paths.py` does not import from kuzu/lancedb/sqlite3 (stays fast)
+- [x] `tests/fakes.py` exists and is imported by all three test files
+- [x] All existing tests pass with fakes imported from shared module: `cd backend && uv run python -m pytest tests/ -v` — 128 passed
+- [x] `os.makedirs` monkey-patch removed — grep confirms zero occurrences in test files
+- [x] `test_paths.py::test_data_base_jhm_app_data_dir` — env var takes priority
+- [x] `test_paths.py::test_data_base_xdg_data_home` — XDG used on Linux when JHM not set
+- [x] `test_paths.py::test_data_base_localappdata` — LOCALAPPDATA used on Windows
+- [x] `test_paths.py::test_data_base_fallback` — expanduser used when no env var set
+- [x] `test_paths.py::test_data_base_ensure_dir_fallback` — fallback dir used when makedirs fails
+- [x] `test_paths.py::test_chromium_executable_browser_env` — $BROWSER resolved via PATH
+- [x] `test_paths.py::test_chromium_executable_playwright_env` — PLAYWRIGHT_CHROMIUM_EXECUTABLE
+- [x] `test_paths.py::test_chromium_executable_linux_candidates` — candidate names via shutil.which
+- [x] `test_paths.py::test_chromium_executable_not_found` — returns None
+- [x] `test_paths.py` does not import from kuzu/lancedb/sqlite3 (stays fast)
 
 ### Manual checks
 
-- [ ] `curl GET /health` — verify dependencies block present with correct statuses
-- [ ] Sidecar startup without browser binary — confirm `/health` shows `browser.not_found`
-- [ ] Trigger ghost mode while scan is running — confirm ghost skips (log check)
-- [ ] Trigger manual scan while ghost is running — confirm 409 returned
-- [ ] Run tests on Windows — confirm no regression (no `os.makedirs` monkey-patch to break)
+- [ ] `curl GET /health` — verify dependencies block present with correct statuses (manual — needs running server)
+- [ ] Sidecar startup without browser binary — confirm `/health` shows `browser.not_found` (manual)
+- [ ] Trigger ghost mode while scan is running — confirm ghost skips (manual — needs running server)
+- [ ] Trigger manual scan while ghost is running — confirm 409 returned (manual — needs running server)
+- [ ] Run tests on Windows — confirm no regression (no `os.makedirs` monkey-patch to break) (manual — needs Windows env)
 
 ### Code quality gates
 
-- [ ] No hardcoded values in any new or modified file
-- [ ] All error paths handled and logged
-- [ ] `.env.example` updated if new env vars added
-- [ ] No `console.log` / `print()` left in code
-- [ ] All new functions have explicit return types / type hints
-- [ ] Branch is clean — no unrelated changes
-- [ ] Windows paths still work (no regression)
+- [x] No hardcoded values in any new or modified file
+- [x] All error paths handled and logged
+- [x] `.env.example` updated if new env vars added
+- [x] No `console.log` / `print()` left in code
+- [x] All new functions have explicit return types / type hints
+- [x] Branch is clean — no unrelated changes
+- [ ] Windows paths still work (no regression) — not tested on Windows
 
 ---
 
@@ -301,9 +301,9 @@ from db.client import data_base
 
 | # | Question | Raised by | Status |
 |---|----------|-----------|--------|
-| Q1 | What timeout value for sidecar stdout scan? | Agent | `[ ] Open` |
-| Q2 | How many retries for frontend polling ceiling? | Agent | `[ ] Open` |
-| Q3 | Should health endpoint remain open (no auth) or require valid token? | Agent | `[ ] Open` — currently no auth for `/health` |
+| Q1 | What timeout value for sidecar stdout scan? | Agent | `[x] Closed` — 15s (`tokio::time::timeout(Duration::from_secs(15))`) |
+| Q2 | How many retries for frontend polling ceiling? | Agent | `[x] Closed` — 30 attempts (MAX_SIDECAR_RETRIES = 30) |
+| Q3 | Should health endpoint remain open (no auth) or require valid token? | Agent | `[x] Closed` — kept unauthenticated, matches current behaviour |
 
 ---
 
@@ -314,7 +314,11 @@ from db.client import data_base
 | 2026-05-10 | Fakes extracted into `tests/fakes.py` | Single source of truth, no copy-paste drift | Inline per file (current mess) |
 | 2026-05-10 | `asyncio.Lock` for ghost mode concurrency | Simple, matches existing asyncio pattern | threading.Lock, APScheduler coalesce, Redis lock |
 | 2026-05-10 | Health endpoint stays unauthenticated | Matches current behaviour; breaking change to require auth | Requiring auth (would break monitoring tools) |
+| 2026-05-10 | Sidecar timeout: 15s (tokio) | Matches spec guidance, reasonable window for sidecar init | 10s (too tight for cold starts), 30s (too long for UX) |
+| 2026-05-10 | Frontend retry ceiling: 30 attempts | 30 × 1s polling ≈ 30s window, matches Rust timeout | 15 (too few if backend is slow), 60 (too long for UX) |
+| 2026-05-10 | Ghost lock uses asyncio.Lock with wait_for(timeout=0) | Non-blocking skip pattern avoids deadlocks, matches asyncio pattern | threading.Lock, APScheduler coalesce, Redis lock |
+| 2026-05-10 | `_install_storage_fakes()` patches os.makedirs via mock.patch.object | Applied before backend imports, clean MagicMock with assert support | Global lambda monkey-patch (old approach) |
 
 ---
 
-*Last updated: 2026-05-10 — Agent*
+*Last updated: 2026-05-10 — All 8 tasks implemented and merged into `linux-base`*
