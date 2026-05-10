@@ -31,7 +31,7 @@
 | # | Phase | Status | Feature Spec |
 |---|-------|--------|--------------|
 | 1 | Foundation — XDG paths, browser paths, build working on Arch | `[x] Complete` | `specs/features/foundation.md` — `[x] Done` |
-| 2 | Stability — startup validation, logging, error handling, test infrastructure | `[~] Active` | `specs/features/stability.md` — `[x] Drafted` |
+| 2 | Stability — startup validation, logging, error handling, test infrastructure | `[x] Complete` | `specs/features/stability.md` — `[x] Done` |
 | 3 | Linux Packaging — AppImage/deb, npm scripts, setup docs | `[ ] Pending` | `specs/features/linux-packaging.md` — `[ ] Not created` |
 | 4 | Polish — Hyprland/Wayland, system tray, HiDPI, Linux CI | `[ ] Pending` | `specs/features/polish.md` — `[ ] Not created` |
 
@@ -95,9 +95,9 @@
 **Validation:**
 See validation checklist in `specs/features/stability.md#8-validation-checklist`
 
-**Feature spec:** `specs/features/stability.md` — `[x] Drafted`
+**Feature spec:** `specs/features/stability.md` — `[x] Done`
 
-**Status:** `[~] In progress`
+**Status:** `[x] Complete` (implementation done; manual verification pending third-party review)
 
 ---
 
@@ -177,6 +177,7 @@ See validation checklist in `specs/features/stability.md#8-validation-checklist`
 |------|--------|--------|
 | 2026-05-09 | Initial roadmap drafted | Constitution init |
 | 2026-05-10 | Phase 2 feature spec drafted | Phase 2 research complete — scope finalized |
+| 2026-05-10 | Phase 2 implementation complete | All 8 tasks done: test fakes extracted, path unit tests added, /health enhanced, sidecar timeout + retry ceiling added, ghost lock implemented. 128 tests pass. Pending manual verification. |
 
 ---
 
