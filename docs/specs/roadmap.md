@@ -166,7 +166,9 @@ See validation checklist in `specs/features/stability.md#8-validation-checklist`
 | Item | Notes | Why deferred |
 |------|-------|--------------|
 | KE-specific scrapers (BrighterMonday, etc.) | Being developed in separate repo | Separate project, not part of fork |
-| OS keychain for API keys | Upstream hasn't built it either | No point diverging until upstream does it |
+| API key encryption | **SECURITY CRITICAL:** Docs claim AES-256 / Windows DPAPI but keys stored in plaintext in SQLite `settings` table (`project.md`, `SPEC.md`, `ARCHITECTURE.md` all contradict reality). Raised as upstream issue. | Upstream concern — fork will adopt upstream fix when available |
+| Placeholder data in `generator.py:536` | LLM prompt template has real-ish example phone (`+91-XXXXXXXXXX`). Minor. | Low priority — can fix alongside any feature work |
+| Loose dependency pins (`>=` in `pyproject.toml`) | Risk of unexpected breaking changes on `uv sync`. `uv.lock` mitigates for dev. | Low priority — pinned versions would improve reproducibility |
 | Upstream tracking | Rebase `linux-base` onto `main` when upstream has meaningful updates | Ongoing background task, not a phase |
 
 ---
@@ -177,7 +179,8 @@ See validation checklist in `specs/features/stability.md#8-validation-checklist`
 |------|--------|--------|
 | 2026-05-09 | Initial roadmap drafted | Constitution init |
 | 2026-05-10 | Phase 2 feature spec drafted | Phase 2 research complete — scope finalized |
-| 2026-05-10 | Phase 2 implementation complete | All 8 tasks done: test fakes extracted, path unit tests added, /health enhanced, sidecar timeout + retry ceiling added, ghost lock implemented. 128 tests pass. Pending manual verification. |
+| 2026-05-10 | Phase 2 implementation complete | All 8 tasks done: test fakes extracted, path unit tests added, /health enhanced, sidecar timeout + retry ceiling added, ghost lock implemented. 128 tests pass, verified by third-party audit. |
+| 2026-05-10 | Audit flags: plaintext API keys, placeholder data, loose deps | Phase 2 audit revealed 3 cross-cutting issues outside scope — documented in Deferred/Backlog. API key issue raised to upstream. |
 
 ---
 
