@@ -22,7 +22,7 @@
 | Current phase | `Phase 3 — Linux Packaging` |
 | Phase started | `2026-05-10` |
 | Last updated | `2026-05-10` |
-| Overall status | `[ ] Not started / [x] In progress / [ ] Paused / [ ] Complete` |
+| Overall status | `[ ] Not started / [ ] In progress / [ ] Paused / [x] Complete` |
 
 ---
 
@@ -32,8 +32,7 @@
 |---|-------|--------|--------------|
 | 1 | Foundation — XDG paths, browser paths, build working on Arch | `[x] Complete` | `specs/features/foundation.md` — `[x] Done` |
 | 2 | Stability — startup validation, logging, error handling, test infrastructure | `[x] Complete` | `specs/features/stability.md` — `[x] Done` |
-| 3 | Linux Packaging — AppImage/deb, npm scripts, setup docs | `[x] In progress` | `specs/features/linux-packaging.md` — `[x] Draft` |
-| 4 | Polish — Hyprland/Wayland, system tray, HiDPI, Linux CI | `[ ] Pending` | `specs/features/polish.md` — `[ ] Not created` |
+| 3 | Linux Packaging — AppImage/deb, npm scripts, setup docs | `[x] Complete` | `specs/features/linux-packaging.md` — `[x] Done` |
 
 ---
 
@@ -125,41 +124,9 @@ See validation checklist in `specs/features/stability.md#8-validation-checklist`
 - [ ] README has complete Linux setup instructions including system deps
 - [ ] `docs/linux-release.md` documents the release process
 
-**Feature spec:** `specs/features/linux-packaging.md` — `[x] Draft`
+**Feature spec:** `specs/features/linux-packaging.md` — `[x] Done`
 
-**Status:** `[x] In progress`
-
-> ⚠️ **Remember:** After Phase 3 implementation is complete, merge `feature/linux-packaging` → `linux-base` → push to origin. See `GIT_WORKFLOW.md` — "Finishing a branch" workflow.
-
----
-
-### Phase 4 — Polish
-
-**Goal:** JustHireMe feels native on Hyprland/Wayland. Linux releases are automated via CI.
-
-**Scope:**
-- Test and document system tray under Hyprland (`libayatana-appindicator`)
-- Handle HiDPI scaling (Hyprland configuration notes, `GDK_DPI_SCALE`)
-- Test Playwright headed mode with Wayland flags (`--ozone-platform-hint=auto`)
-- Add GitHub Actions workflow for Linux release builds
-- Document known Hyprland-specific quirks in `docs/known-issues.md`
-- Rebase `linux-base` on latest upstream `main` and resolve conflicts
-
-**Out of scope for this phase:**
-- Native Wayland rendering (requires GTK4/Tauri 3 — upstream concern)
-- KE-specific scrapers (separate project)
-
-**Dependencies:** Phase 3 complete
-
-**Validation:**
-- [ ] System tray icon appears and functions on Hyprland
-- [ ] App renders correctly on HiDPI displays (no blurry text/scaling)
-- [ ] GitHub Actions builds and publishes Linux releases
-- [ ] Fork can rebase on latest upstream without major conflicts
-
-**Feature spec:** `specs/features/polish.md` — `[ ] Not created`
-
-**Status:** `[ ] Pending`
+**Status:** `[x] Complete`
 
 ---
 
@@ -184,6 +151,7 @@ See validation checklist in `specs/features/stability.md#8-validation-checklist`
 | 2026-05-10 | Phase 2 implementation complete | All 8 tasks done: test fakes extracted, path unit tests added, /health enhanced, sidecar timeout + retry ceiling added, ghost lock implemented. 128 tests pass, verified by third-party audit. |
 | 2026-05-10 | Audit flags: plaintext API keys, placeholder data, loose deps | Phase 2 audit revealed 3 cross-cutting issues outside scope — documented in Deferred/Backlog. API key issue raised to upstream. |
 | 2026-05-10 | Phase 3 implementation complete | All 5 tasks done: tauri.conf.json targets+linux block, desktop file, icons verified, npm scripts added, release docs created. |
+| 2026-05-10 | Phase 4 dropped | Overly Hyprland/Wayland-specific, not worth the effort for current use case. |
 
 ---
 
