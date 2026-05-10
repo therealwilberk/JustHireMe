@@ -3,6 +3,8 @@ import { listen } from "@tauri-apps/api/event";
 import { invoke } from "@tauri-apps/api/core";
 import type { ConnSt, Lead, LogLine } from "../types";
 
+const MAX_SIDECAR_RETRIES = 30;
+
 export function useWS() {
   const [conn, setConn] = useState<ConnSt>("disconnected");
   const [port, setPort] = useState<number | null>(null);
@@ -84,8 +86,17 @@ export function useWS() {
         if (token && currentPort) connect(currentPort, token);
       };
       await syncSidecar();
+      let retryCount = 0;
       poll = window.setInterval(() => {
-        if (!cancelled && (!token || !currentPort)) void syncSidecar();
+        if (cancelled) return;
+        if (retryCount >= MAX_SIDECAR_RETRIES) {
+          setSidecarError("Sidecar failed to start — check logs");
+          if (poll !== undefined) window.clearInterval(poll);
+          unlisten?.();
+          return;
+        }
+        retryCount++;
+        if (!token || !currentPort) void syncSidecar();
       }, 1000);
       try {
         unlisten = await listen<number>("sidecar-port", ev => {
