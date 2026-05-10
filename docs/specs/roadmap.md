@@ -21,8 +21,8 @@
 |-------|-------|
 | Current phase | `Phase 2 — Stability` |
 | Phase started | `2026-05-09` |
-| Last updated | `2026-05-09` |
-| Overall status | `[ ] Not started / [ ] In progress / [~] Paused / [ ] Complete` |
+| Last updated | `2026-05-10` |
+| Overall status | `[ ] Not started / [x] In progress / [ ] Paused / [ ] Complete` |
 
 ---
 
@@ -31,7 +31,7 @@
 | # | Phase | Status | Feature Spec |
 |---|-------|--------|--------------|
 | 1 | Foundation — XDG paths, browser paths, build working on Arch | `[x] Complete` | `specs/features/foundation.md` — `[x] Done` |
-| 2 | Stability — startup validation, logging, error handling, test infrastructure | `[~] Active` | `specs/features/stability.md` — `[ ] Not created` |
+| 2 | Stability — startup validation, logging, error handling, test infrastructure | `[~] Active` | `specs/features/stability.md` — `[x] Drafted` |
 | 3 | Linux Packaging — AppImage/deb, npm scripts, setup docs | `[ ] Pending` | `specs/features/linux-packaging.md` — `[ ] Not created` |
 | 4 | Polish — Hyprland/Wayland, system tray, HiDPI, Linux CI | `[ ] Pending` | `specs/features/polish.md` — `[ ] Not created` |
 
@@ -78,12 +78,12 @@
 
 **Goal:** Backend is reliable, debuggable, and testable. Errors surface clearly, logging is structured, and tests are maintainable.
 
-**Scope (tentative — being defined):**
-- Test infrastructure cleanup: extract shared fakes, remove global monkey-patches
-- Startup validation: DB writability, browser availability, API key presence
-- Replace `print()` with structured logging
-- Fix fragile stdout-based port discovery
-- Add ghost mode concurrency lock
+**Scope (finalized — see `specs/features/stability.md`):**
+- Test infrastructure cleanup: extract shared fakes into `tests/fakes.py`, remove global `os.makedirs` monkey-patch, add unit tests for `data_base()` and `chromium_executable()`
+- Startup validation: enhance `/health` endpoint to probe DB writability, browser availability, API key presence
+- Sidecar port/token timeout: add `tokio::time::timeout` in Rust, retry ceiling in frontend polling
+- Ghost mode concurrency lock: prevent `_ghost_tick()` from racing with manual scans via `asyncio.Lock`
+- Print/logging: confirmed clean at 0 `print()` calls in prod code — no action needed
 
 **Out of scope for this phase:**
 - Linux packaging/distribution (Phase 3)
@@ -93,11 +93,11 @@
 **Dependencies:** Phase 1 complete
 
 **Validation:**
-TODO — being defined in feature spec
+See validation checklist in `specs/features/stability.md#8-validation-checklist`
 
-**Feature spec:** `specs/features/stability.md` — `[ ] Being drafted`
+**Feature spec:** `specs/features/stability.md` — `[x] Drafted`
 
-**Status:** `[~] Being defined — deep research in progress`
+**Status:** `[~] In progress`
 
 ---
 
@@ -176,6 +176,7 @@ TODO — being defined in feature spec
 | Date | Change | Reason |
 |------|--------|--------|
 | 2026-05-09 | Initial roadmap drafted | Constitution init |
+| 2026-05-10 | Phase 2 feature spec drafted | Phase 2 research complete — scope finalized |
 
 ---
 
