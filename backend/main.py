@@ -36,6 +36,7 @@ _sched = AsyncIOScheduler()
 _API_TOKEN: str = secrets.token_hex(32)
 _LOCAL_ORIGIN_RE = r"^(tauri://localhost|https?://(localhost|127\.0\.0\.1|tauri\.localhost|\[::1\])(?::\d+)?)$"
 _bearer = HTTPBearer(auto_error=False)
+# Comment on stability-task8: add _ghost_lock = asyncio.Lock() here
 
 
 async def _require_ws_token(ws: WebSocket) -> bool:
@@ -472,6 +473,7 @@ def _job_eval_document(lead: dict) -> str:
 
 
 async def _ghost_tick():
+    # Comment on stability-task8: acquire _ghost_lock with wait_for(..., timeout=0) — skip silently if held
     from db.client import get_setting, get_settings, get_discovered_leads, update_lead_score, get_profile, save_asset_package
     from agents.scout import run as _scout
     from agents.evaluator import score as _score
@@ -645,12 +647,63 @@ async def require_http_token(request: Request, call_next):
 
 @app.get("/health", dependencies=[])
 async def health():
+    """Lightweight health check with real dependency probes.
+
+    Returns alive/uptime plus per-dependency status for database,
+    browser binary, and configured API keys.
+    """
+    from agents.browser_runtime import chromium_executable
+    from db.client import get_settings
+
+    db_status = "ok"
+    db_latency = 0.0
+    try:
+        import sqlite3
+        from db.client import sql
+        t0 = time.monotonic()
+        sqlite3.connect(sql).execute("SELECT 1")
+        db_latency = round((time.monotonic() - t0) * 1000, 1)
+    except Exception as exc:
+        db_status = "error"
+        _log.warning("health: db probe failed — %s", exc)
+
+    browser_path = chromium_executable()
+    browser_status = "found" if browser_path else "not_found"
+
+    cfg = get_settings()
+    configured_providers = _configured_api_providers(cfg)
+
     return {
         "status": "alive",
         "uptime_seconds": round(time.monotonic() - _UP, 2),
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "log_level": os.environ.get("JHM_LOG_LEVEL", "INFO"),
+        "dependencies": {
+            "database": {
+                "status": db_status,
+                "latency_ms": db_latency,
+            },
+            "browser": {
+                "status": browser_status,
+                "path": browser_path,
+            },
+            "api_keys": {
+                "status": "configured" if configured_providers else "missing",
+                "configured_providers": configured_providers,
+            },
+        },
     }
+
+
+def _configured_api_providers(settings: dict) -> list:
+    """Return names of API providers that have a key configured."""
+    providers = []
+    for key, val in settings.items():
+        if key.endswith("_api_key") or key.endswith("_key") or key.endswith("_token"):
+            if val:
+                provider = key.replace("_api_key", "").replace("_key", "").replace("_token", "")
+                providers.append(provider)
+    return providers
 
 
 def _annotate_job_lead(lead: dict) -> dict:
@@ -1040,6 +1093,7 @@ async def delete_project_endpoint(pid: str):
 
 @app.post("/api/v1/scan")
 async def scan():
+    # Comment on stability-task8: check _ghost_lock.locked() — return 409 if ghost mode is active
     global _scan_task
     if _scan_task and not _scan_task.done():
         raise HTTPException(status_code=409, detail="Scan already running")
@@ -1061,6 +1115,7 @@ async def stop_scan():
 
 @app.post("/api/v1/leads/reevaluate")
 async def reevaluate_jobs():
+    # Comment on stability-task8: check _ghost_lock.locked() — return 409 if ghost mode is active
     global _reevaluate_task
     if _reevaluate_task and not _reevaluate_task.done():
         raise HTTPException(status_code=409, detail="Re-evaluation already running")
@@ -1124,6 +1179,7 @@ async def help_chat(body: HelpChatBody):
 
 
 async def _run_scan_task():
+    # Comment on stability-task8: acquire _ghost_lock with wait_for(..., timeout=0)
     global _scan_task
     try:
         await _run_scan()
@@ -1135,6 +1191,7 @@ async def _run_scan_task():
 
 
 async def _run_reevaluate_jobs_task():
+    # Comment on stability-task8: acquire _ghost_lock with wait_for(..., timeout=0)
     global _reevaluate_task
     try:
         await _run_reevaluate_jobs()
