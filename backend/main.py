@@ -36,7 +36,6 @@ _sched = AsyncIOScheduler()
 _API_TOKEN: str = secrets.token_hex(32)
 _LOCAL_ORIGIN_RE = r"^(tauri://localhost|https?://(localhost|127\.0\.0\.1|tauri\.localhost|\[::1\])(?::\d+)?)$"
 _bearer = HTTPBearer(auto_error=False)
-# Comment on stability-task8: add _ghost_lock = asyncio.Lock() here
 
 
 async def _require_ws_token(ws: WebSocket) -> bool:
@@ -454,6 +453,7 @@ _scan_stop = asyncio.Event()
 _scan_task: asyncio.Task | None = None
 _reevaluate_stop = asyncio.Event()
 _reevaluate_task: asyncio.Task | None = None
+_ghost_lock = asyncio.Lock()
 
 _REEVALUATION_STATUS_LOCKS = {"approved", "applied", "interviewing", "rejected", "accepted", "discarded"}
 
@@ -473,7 +473,19 @@ def _job_eval_document(lead: dict) -> str:
 
 
 async def _ghost_tick():
-    # Comment on stability-task8: acquire _ghost_lock with wait_for(..., timeout=0) — skip silently if held
+    """Run one ghost cycle. Skips if another scan/reevaluate is active."""
+    try:
+        await asyncio.wait_for(_ghost_lock.acquire(), timeout=0)
+    except asyncio.TimeoutError:
+        _log.info("ghost tick skipped — another scan or re-evaluation is running")
+        return
+    try:
+        await _ghost_tick_impl()
+    finally:
+        _ghost_lock.release()
+
+
+async def _ghost_tick_impl():
     from db.client import get_setting, get_settings, get_discovered_leads, update_lead_score, get_profile, save_asset_package
     from agents.scout import run as _scout
     from agents.evaluator import score as _score
@@ -496,7 +508,6 @@ async def _ghost_tick():
         await cm.broadcast({"type": "agent", "event": "ghost_warn", "msg": "Ghost Mode: no job boards configured — skipping"})
         return
 
-    # ── Step 1: Scout ──────────────────────────────────────────────
     await cm.broadcast({"type": "agent", "event": "ghost_scout", "msg": "Ghost Mode: scout cycle starting"})
     try:
         boards = await asyncio.to_thread(_gen_queries, profile, boards, cfg.get("job_market_focus", "global"))
@@ -512,7 +523,6 @@ async def _ghost_tick():
         await cm.broadcast({"type": "agent", "event": "ghost_error", "msg": f"Scout failed: {exc}"})
         return
 
-    # ── Step 2: Evaluate ───────────────────────────────────────────
     profile = _profile_for_discovery(await asyncio.to_thread(get_profile), cfg)
     discovered = await asyncio.to_thread(get_discovered_leads)
     await cm.broadcast({"type": "agent", "event": "ghost_eval",
@@ -544,7 +554,6 @@ async def _ghost_tick():
         await cm.broadcast({"type": "agent", "event": "ghost_done", "msg": "Ghost Mode: no approved leads this cycle"})
         return
 
-    # ── Step 3: Generate (always) ──────────────────────────────────
     await cm.broadcast({"type": "agent", "event": "ghost_gen",
                         "msg": f"Ghost Mode: generating assets for {len(approved)} leads"})
     generated = []
@@ -573,10 +582,9 @@ async def _ghost_tick():
             await cm.broadcast({"type": "agent", "event": "ghost_error",
                                 "msg": f"Generation failed for {lead.get('title','?')}: {exc}"})
 
-    # ── Step 4: Actuate only if auto_apply is enabled ──────────────
     if get_setting("auto_apply", "false") != "true":
         await cm.broadcast({"type": "agent", "event": "ghost_done",
-                            "msg": f"Ghost cycle complete — {len(generated)} leads ready. Auto-apply is OFF — waiting for manual approval in Sniper view."})
+                            "msg": f"Ghost cycle complete — {len(generated)} leads ready. Auto-apply is OFF."})
         return
 
     from agents.actuator import run as _act
@@ -1093,7 +1101,8 @@ async def delete_project_endpoint(pid: str):
 
 @app.post("/api/v1/scan")
 async def scan():
-    # Comment on stability-task8: check _ghost_lock.locked() — return 409 if ghost mode is active
+    if _ghost_lock.locked():
+        raise HTTPException(status_code=409, detail="Scan already in progress (ghost mode active)")
     global _scan_task
     if _scan_task and not _scan_task.done():
         raise HTTPException(status_code=409, detail="Scan already running")
@@ -1115,7 +1124,8 @@ async def stop_scan():
 
 @app.post("/api/v1/leads/reevaluate")
 async def reevaluate_jobs():
-    # Comment on stability-task8: check _ghost_lock.locked() — return 409 if ghost mode is active
+    if _ghost_lock.locked():
+        raise HTTPException(status_code=409, detail="Re-evaluation already in progress (ghost mode active)")
     global _reevaluate_task
     if _reevaluate_task and not _reevaluate_task.done():
         raise HTTPException(status_code=409, detail="Re-evaluation already running")
@@ -1179,8 +1189,12 @@ async def help_chat(body: HelpChatBody):
 
 
 async def _run_scan_task():
-    # Comment on stability-task8: acquire _ghost_lock with wait_for(..., timeout=0)
     global _scan_task
+    try:
+        await asyncio.wait_for(_ghost_lock.acquire(), timeout=0)
+    except asyncio.TimeoutError:
+        _log.warning("scan task skipped — ghost lock held")
+        return
     try:
         await _run_scan()
     except Exception as exc:
@@ -1188,11 +1202,16 @@ async def _run_scan_task():
         await cm.broadcast({"type": "agent", "event": "eval_done", "msg": f"Scan failed: {exc}"})
     finally:
         _scan_task = None
+        _ghost_lock.release()
 
 
 async def _run_reevaluate_jobs_task():
-    # Comment on stability-task8: acquire _ghost_lock with wait_for(..., timeout=0)
     global _reevaluate_task
+    try:
+        await asyncio.wait_for(_ghost_lock.acquire(), timeout=0)
+    except asyncio.TimeoutError:
+        _log.warning("reevaluate task skipped — ghost lock held")
+        return
     try:
         await _run_reevaluate_jobs()
     except Exception as exc:
@@ -1200,6 +1219,7 @@ async def _run_reevaluate_jobs_task():
         await cm.broadcast({"type": "agent", "event": "reeval_done", "msg": f"Re-evaluation failed: {exc}"})
     finally:
         _reevaluate_task = None
+        _ghost_lock.release()
 
 
 async def _run_reevaluate_jobs():

@@ -91,7 +91,12 @@ class _FakeSemanticStore:
 
 
 def _install_storage_fakes():
-    """Replace storage backends with fakes. Must call before importing any backend module."""
+    """Replace storage backends with fakes. Must call before importing any backend module.
+
+    Patches os.makedirs so that db.client._ensure_dir() doesn't touch the filesystem
+    at module-load time. Stubs kuzu, sqlite3, and lancedb in sys.modules so their
+    imports resolve to fakes instead of the real libraries.
+    """
     mock.patch.object(os, "makedirs", return_value=None).start()
     sys.modules.setdefault(
         "kuzu",
