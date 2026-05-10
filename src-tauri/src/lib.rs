@@ -278,9 +278,16 @@ pub fn run() {
 
             let app_handle = handle.clone();
             tauri::async_runtime::spawn(async move {
-                while let Some(event) = rx.recv().await {
-                    match event {
-                        CommandEvent::Stdout(b) => {
+                use std::time::Duration;
+                use tokio::time::timeout;
+
+                let startup_deadline = Duration::from_secs(15);
+                let mut port_received = false;
+                let mut token_received = false;
+
+                loop {
+                    match timeout(startup_deadline, rx.recv()).await {
+                        Ok(Some(CommandEvent::Stdout(b))) => {
                             let line = String::from_utf8_lossy(&b).trim().to_string();
                             if let Some(port_str) = line.strip_prefix("PORT:") {
                                 if let Ok(port) = port_str.parse::<u16>() {
@@ -289,15 +296,20 @@ pub fn run() {
                                     }
                                     let _ = app_handle.emit("sidecar-port", port);
                                     eprintln!("[tauri] Sidecar port: {port}");
+                                    port_received = true;
                                 }
                             } else if let Some(token) = line.strip_prefix("JHM_TOKEN=") {
                                 if let Ok(mut g) = app_handle.state::<ApiTokenState>().0.lock() {
                                     *g = Some(token.to_string());
                                 }
                                 let _ = app_handle.emit("sidecar-token", token.to_string());
+                                token_received = true;
+                            }
+                            if port_received && token_received {
+                                break;
                             }
                         }
-                        CommandEvent::Stderr(b) => {
+                        Ok(Some(CommandEvent::Stderr(b))) => {
                             let line = String::from_utf8_lossy(&b).trim().to_string();
                             if !line.is_empty() {
                                 eprintln!("[sidecar] {line}");
@@ -307,14 +319,52 @@ pub fn run() {
                                 let _ = app_handle.emit("sidecar-error", line);
                             }
                         }
-                        CommandEvent::Terminated(s) => {
-                            eprintln!("[tauri] Sidecar terminated: {:?}", s.code);
+                        Ok(Some(CommandEvent::Terminated(s))) => {
                             let msg = format!("Sidecar terminated before startup: {:?}", s.code);
+                            eprintln!("[tauri] {msg}");
                             if let Ok(mut guard) = app_handle.state::<SidecarError>().0.lock() {
                                 *guard = Some(msg.clone());
                             }
                             let _ = app_handle.emit("sidecar-error", msg);
                             let _ = app_handle.emit("sidecar-terminated", ());
+                            return;
+                        }
+                        Ok(None) => {
+                            eprintln!("[tauri] Sidecar stdout channel closed");
+                            return;
+                        }
+                        Err(_) => {
+                            let msg = "Sidecar startup timed out".to_string();
+                            eprintln!("[tauri] {msg}");
+                            if let Ok(mut guard) = app_handle.state::<SidecarError>().0.lock() {
+                                *guard = Some(msg.clone());
+                            }
+                            let _ = app_handle.emit("sidecar-error", msg);
+                            if let Ok(mut guard) = app_handle.state::<SidecarChild>().0.lock() {
+                                if let Some(child) = guard.take() {
+                                    let _ = child.kill();
+                                }
+                            }
+                            let _ = app_handle.emit("sidecar-terminated", ());
+                            return;
+                        }
+                        _ => {}
+                    }
+                }
+
+                while let Some(event) = rx.recv().await {
+                    match event {
+                        CommandEvent::Stdout(_) => {}
+                        CommandEvent::Stderr(b) => {
+                            let line = String::from_utf8_lossy(&b).trim().to_string();
+                            if !line.is_empty() {
+                                eprintln!("[sidecar] {line}");
+                            }
+                        }
+                        CommandEvent::Terminated(s) => {
+                            eprintln!("[tauri] Sidecar terminated: {:?}", s.code);
+                            let _ = app_handle.emit("sidecar-terminated", ());
+                            break;
                         }
                         _ => {}
                     }
