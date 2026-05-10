@@ -7,75 +7,8 @@ from unittest import mock
 
 # ── Must run before any backend module is imported ───────────────────────────
 os.environ["LOCALAPPDATA"] = str(Path(__file__).resolve().parent)
-os.makedirs = lambda *_args, **_kwargs: None
 
-
-class _FakeResult:
-    def has_next(self):
-        return False
-
-    def get_next(self):
-        return [0]
-
-
-class _FakeConnection:
-    def execute(self, *_args, **_kwargs):
-        return _FakeResult()
-
-
-class _FakeSqlConnection:
-    def executescript(self, *_args, **_kwargs):
-        return self
-
-    def execute(self, *_args, **_kwargs):
-        return self
-
-    def fetchone(self):
-        return None
-
-    def fetchall(self):
-        return []
-
-    def commit(self):
-        return None
-
-    def close(self):
-        return None
-
-
-class _FakeVectorStore:
-    def list_tables(self):
-        return []
-
-    def create_table(self, *_args, **_kwargs):
-        return None
-
-    def open_table(self, *_args, **_kwargs):
-        return self
-
-    def add(self, *_args, **_kwargs):
-        return None
-
-
-def _install_storage_fakes():
-    sys.modules.setdefault(
-        "kuzu",
-        types.SimpleNamespace(
-            Database=lambda _path: object(),
-            Connection=lambda _db: _FakeConnection(),
-        ),
-    )
-    sys.modules["sqlite3"] = types.SimpleNamespace(
-        connect=lambda _path: _FakeSqlConnection()
-    )
-    sys.modules.setdefault(
-        "lancedb",
-        types.SimpleNamespace(
-            LanceDBConnection=_FakeVectorStore,
-            connect=lambda _path: _FakeVectorStore(),
-        ),
-    )
-
+from tests.fakes import _install_storage_fakes
 
 _install_storage_fakes()
 
