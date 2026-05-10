@@ -64,6 +64,9 @@ src-tauri/resources/backend/
 src-tauri/resources/backend-*/
 src-tauri/resources/backend-*
 
+# Superpowers agent artifacts (temporary, do not commit)
+docs/superpowers/
+
 # Local data / DBs
 *.db
 *.db-shm
