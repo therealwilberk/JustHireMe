@@ -97,7 +97,7 @@ See validation checklist in `specs/features/stability.md#8-validation-checklist`
 
 **Feature spec:** `specs/features/stability.md` — `[x] Done`
 
-**Status:** `[x] Complete` (implementation done; manual verification pending third-party review)
+**Status:** `[x] Complete` (verified by third-party audit — all 8 tasks match spec, 128 tests pass)
 
 ---
 
