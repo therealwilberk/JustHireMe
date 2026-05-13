@@ -7,81 +7,65 @@
 
 ## Project Name
 
-<!-- The canonical name used everywhere: repo, docs, comms. -->
-`[PROJECT_NAME]`
+`JustHireMe`
 
 ---
 
 ## One-Line Purpose
 
-<!-- What does this project do, for whom, and why does it matter?
-     Write it so a new developer understands the point in one sentence. -->
-
-_[e.g. "A self-hosted job-search intelligence tool that aggregates engineering roles from multiple boards into a single terminal UI."]_
+A local-first AI-powered job search intelligence desktop app that scrapes, scores, and tracks engineering roles — with tailored application generation.
 
 ---
 
 ## Problem Statement
 
-<!-- What specific pain or gap does this project address?
-     Be honest about what currently fails without it. -->
-
-_[Describe the problem in 2–4 sentences. Avoid marketing language.]_
+Job hunting across multiple boards produces context-switching overhead, inconsistent tracking, and manual application material tailoring. This tool centralizes discovery, ranking, and generation so the user focuses on interviewing instead of admin.
 
 ---
 
 ## Target Users
 
-<!-- Who actually uses this? Be specific — not "developers" but "junior EE graduates job-hunting in sub-Saharan Africa."
-     Include technical literacy level if relevant. -->
-
 | User Type | Description | Technical Level |
 |-----------|-------------|-----------------|
-| Primary   |             |                 |
-| Secondary |             |                 |
+| Primary   | Technical professionals (SWE, data, infra) actively job-hunting | Comfortable with CLI, env vars, basic config |
+| Secondary | Career switchers or passive candidates exploring the market | Varies |
 
 ---
 
 ## Core Objectives
 
-<!-- What must be true for this project to be considered successful?
-     These are not features — they are outcomes.
-     Keep to 3–5. More than 5 means scope is unclear. -->
-
-1.
-2.
-3.
+1. Aggregate jobs from 15+ sources into a unified, searchable pipeline
+2. Score and rank leads objectively using deterministic rubrics + optional LLM
+3. Generate tailored resumes and cover letters from the user's profile
+4. Track application progress through a pipeline with follow-up reminders
 
 ---
 
 ## Explicit Non-Goals
 
-<!-- What is this project deliberately NOT trying to do?
-     This prevents scope creep and misaligned features. -->
-
-- [ ] _[e.g. "This is not a multi-tenant SaaS product."]_
-- [ ] _[e.g. "We are not building a mobile client."]_
+- [x] This is NOT a multi-tenant SaaS product — local-first, single-user desktop app
+- [x] This is NOT a general-purpose AI platform — LLMs are optional for scoring
+- [x] This is NOT a mobile client — Tauri 2 desktop only (Linux primary target)
 
 ---
 
 ## Success Criteria
 
-<!-- How do we know the project is achieving its mission?
-     These should be observable, not aspirational. -->
-
 | Criterion | Indicator |
 |-----------|-----------|
-|           |           |
+| User can configure scraping sources without editing code | Config files in data dir replace hardcoded source lists |
+| All 150+ hardcoded values moved to typed config objects | No magic URLs, thresholds, or model names in source code |
+| No silent failures | Zero `except: pass` in production code paths |
+| API keys not stored in plaintext | Keys resolved from env vars, not SQLite |
+| Full test suite passes in CI | All 100+ backend tests run on every push |
 
 ---
 
 ## Project Type
 
-<!-- Check all that apply -->
-
 - [ ] Greenfield (new project from scratch)
 - [ ] Brownfield (existing codebase being extended)
-- [ ] Fork (based on upstream project — see `audit-report.md`)
+- [x] Fork (based on upstream project — see `audit-report.md`)
 - [ ] Prototype / spike
 - [ ] Production system
 
@@ -89,25 +73,19 @@ _[Describe the problem in 2–4 sentences. Avoid marketing language.]_
 
 ## Relationship to Upstream (Forks Only)
 
-<!-- If this is a fork, define the relationship clearly.
-     What do we keep? What do we override? How do we handle upstream changes? -->
-
-- **Upstream repo:** `[URL]`
-- **Fork strategy:** _[e.g. "Track upstream main. Cherry-pick bug fixes. Do not merge upstream features without review."]_
-- **Divergence intent:** _[e.g. "We strip the web UI entirely and replace it with a CLI layer."]_
+- **Upstream repo:** `https://github.com/vasu-devs/JustHireMe`
+- **Fork strategy:** Solo fork. Watch upstream for major updates and cherry-pick valuable changes manually. Do not push changes upstream.
+- **Divergence intent:** Our fork focuses on infrastructure hardening, Linux-first packaging, and user-configurable customization. Upstream features are evaluated per-merge.
 
 ---
 
 ## Stakeholders
 
-<!-- Who has decision-making authority or is affected by this project? -->
-
 | Role | Name / Handle | Responsibility |
 |------|---------------|----------------|
-| Owner |              | Final decisions on scope and direction |
-| Developer |          |                |
-| Reviewer |           |                |
+| Owner | @kamaa | Final decisions on scope and direction |
+| Developer | Agent (big-pickle) | Implementation per approved specs |
 
 ---
 
-_Last updated: [DATE] — [AUTHOR]_
+_Last updated: 2026-05-13 — Agent_

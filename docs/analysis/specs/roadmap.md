@@ -21,24 +21,24 @@
 
 | Field | Value |
 |-------|-------|
-| Current phase | `[PHASE_NAME]` |
-| Phase started | `[DATE]` |
-| Last updated | `[DATE]` |
-| Overall status | `[ ] Not started / [ ] In progress / [ ] Paused / [ ] Complete` |
+| Current phase | `Phase A — Config Architecture & Validation Foundation` |
+| Phase started | `2026-05-13` |
+| Last updated | `2026-05-13` |
+| Overall status | `[~] In progress` |
 
 ---
 
 ## Phase Overview
 
-<!-- High-level summary of all phases. Detail lives in each phase block below.
-     Type: Feature (vertical slice) | Infra (horizontal ok) | Chore
-     Mode: AFK (agent works solo) | HITL (user present during execution) -->
-
 | # | Phase | Type | Mode | Status | Blocks | Feature Spec |
 |---|-------|------|------|--------|--------|--------------|
-| 1 | [Name] | `Feature` / `Infra` / `Chore` | `AFK` / `HITL` | `[ ] Pending / [~] Active / [x] Done` | `none` / `#2, #3` | `specs/features/[name].md` |
-| 2 | | | | | | |
-| 3 | | | | | | |
+| A | Config Architecture & Validation Foundation | `Infra` | `TBD` | `[~] Active` | `B, C` | `features/phase-a-config-architecture.md` |
+| B | Security Remediation & Migration Paths | `Infra` | `TBD` | `[ ] Pending` | `D+` | `[ ] Not created` |
+| C | Reliability, Observability & Concurrency | `Infra` | `TBD` | `[ ] Pending` | `D+` | `[ ] Not created` |
+| D | Locale & Scraping Model | `Feature` | `TBD` | `[ ] Pending` | `none` | `[ ] Not created` |
+| E | PDF Quality | `Feature` | `TBD` | `[ ] Pending` | `none` | `[ ] Not created` |
+| F | UI Clarity | `Feature` | `TBD` | `[ ] Pending` | `none` | `[ ] Not created` |
+| G | End-User Customization | `Feature` | `TBD` | `[ ] Pending` | `none` | `[ ] Not created` |
 
 ---
 
@@ -46,85 +46,229 @@
 
 ---
 
-### Phase 1 — [Name]
+### Phase A — Config Architecture & Validation Foundation
 
-**Type:** `Feature` / `Infra` / `Chore`
-**Mode:** `AFK` / `HITL`
-**Blocks:** `none` / `Phase 2, Phase 3`
-**Blocked by:** `none` / `Phase X`
+**Type:** `Infra` (horizontal — exempt from vertical-slice rule)
+**Mode:** `TBD`
+**Blocks:** `Phase B, Phase C`
+**Blocked by:** `none`
 
-**Goal:** _[One sentence: what capability exists at the end of this phase that didn't before?]_
+**Goal:** A typed, validated config layer with clear authority boundaries that replaces all 150+ hardcoded values — providing the foundation every subsequent phase builds on.
 
 **Vertical slice check** _(Feature phases only):_
-- [ ] Touches data layer
-- [ ] Touches logic / service layer
-- [ ] Touches interface layer (API endpoint, CLI output, or UI)
-- [ ] Produces something observable/testable at end of phase
+- N/A (Infra phase)
 
 **Scope:**
-- _[Specific deliverable 1]_
-- _[Specific deliverable 2]_
+- Config infrastructure: extract 150+ hardcoded values into typed Pydantic schemas organized by domain boundary (`backend/config/scoring.py`, `backend/config/llm.py`, `backend/config/scraping.py`, etc.)
+- Config resolution hierarchy: CLI flag → env var → XDG path → local fallback
+- Centralized settings accessor — no scattered `os.getenv()` calls
+- Config validation at startup — malformed config fails fast with clear error
+- CI: run full test suite on every push (needed to validate config extraction doesn't break anything)
 
 **Out of scope for this phase:**
-- _[What is explicitly deferred]_
+- Security remediation (API keys, URL tokens, stdout leaks — Phase B)
+- Error handling overhaul (except:pass → logged warnings — Phase C)
+- Concurrency fixes (WebSocket race — Phase C)
+- Frontend error handling fixes (SettingsModal, ProfileView — Phase C)
+- Build config fixes (updater, bundle targets — Phase C)
+- OS keychain integration (deferred — not on current roadmap)
+- SQLite WAL mode (Phase C)
+- Monolith splitting (deferred)
+- All feature work (locale, PDF, UI, customization — Phase D+)
 
-**Dependencies:** _[What must be true before this phase can start — e.g. "Database schema finalized", "Auth system in place"]_
+**Dependencies:** None
 
 **Validation:**
-- [ ] _[Checklist item]_
-- [ ] _[Checklist item]_
+- [ ] All 150+ hardcoded values extracted into typed config objects
+- [ ] Config resolution hierarchy works: CLI override → env var → XDG → fallback
+- [ ] Config validates at startup — malformed file or missing value fails fast with clear message
+- [ ] No scattered `os.getenv()` calls added; all env access through config layer
+- [ ] Full backend test suite passes (validates config extraction didn't break anything)
+- [ ] Config modules organized by domain, not monolithic
+- [ ] Authority boundaries documented: dev constants in Python, operator config in env, user config in data dir, ephemeral in DB
 
-**Feature spec:** `specs/features/[phase-name].md` — `[ ] Not created / [ ] Draft / [ ] Approved`
+**Feature spec:** `features/phase-a-config-architecture.md` — `[~] Draft`
+
+**Status:** `[~] Active`
+
+---
+
+### Phase B — Security Remediation & Migration Paths
+
+**Type:** `Infra` (horizontal — exempt from vertical-slice rule)
+**Mode:** `TBD`
+**Blocks:** `Phase D+`
+**Blocked by:** `Phase A`
+
+**Goal:** API keys resolved from env vars only, no secrets in URLs or stdout, with a graceful deprecation path for existing SQLite-stored credentials.
+
+**Scope:**
+- C1: Env-var-only auth — API keys no longer stored in SQLite settings table
+- C2: Auth token to stderr, not stdout
+- C3/C4: Apify/Hunter API keys moved from URL query params to headers
+- Migration path: startup checks for legacy SQLite keys, logs WARN-level deprecation with migration instructions, reads old values as fallback (read-only — never writes back)
+- Removal milestone defined in roadmap
+
+**Out of scope for this phase:**
+- OS keychain integration (deferred)
+- Non-security hardcoded values (Phase A)
+- Error handling or concurrency fixes (Phase C)
+
+**Dependencies:** Phase A (needs config layer for env resolution)
+
+**Validation:**
+- [ ] Zero API keys stored in SQLite settings table
+- [ ] All keys resolved from env vars through config layer
+- [ ] Legacy SQLite keys trigger WARN-level deprecation with migration instructions
+- [ ] Fallback reads old keys but never writes them back to SQLite
+- [ ] Apify/Hunter tokens not present in URL query params
+- [ ] Auth token not present in stdout
+
+**Feature spec:** `features/phase-b-security-migration.md` — `[ ] Not created`
 
 **Status:** `[ ] Pending`
 
 ---
 
-### Phase 2 — [Name]
+### Phase C — Reliability, Observability & Concurrency
 
-**Goal:**
+**Type:** `Infra` (horizontal — exempt from vertical-slice rule)
+**Mode:** `TBD`
+**Blocks:** `Phase D+`
+**Blocked by:** `Phase A`
+
+**Goal:** Silent failures become visible, concurrent operations are safe, and the application emits structured logs with correlation context.
 
 **Scope:**
--
+- Replace 50+ `except: pass` with logged warnings across all production code
+- Structured logging: format, levels, required context fields, destination (stderr + optional file)
+- Frontend error handling fixes (SettingsModal, ProfileView silent save failures)
+- WebSocket broadcast async-safety (`_CM` class — coroutine-safe mutation)
+- SQLite WAL mode
+- Build config fixes (`createUpdaterArtifacts`, platform-specific bundle targets)
 
 **Out of scope for this phase:**
--
+- Monolith splitting (deferred)
+- New feature work (Phase D+)
 
-**Dependencies:**
+**Dependencies:** Phase A (config layer needed for constants extracted from error paths)
 
 **Validation:**
-- [ ]
+- [ ] Zero `except: pass` remaining in production code
+- [ ] Structured logging with correlation context on all error paths
+- [ ] SettingsModal save failure shows user-facing error
+- [ ] ProfileView save failure shows user-facing error
+- [ ] WebSocket `_CM` class is async-safe — no concurrent mutation
+- [ ] SQLite uses WAL journaling mode
+- [ ] Updater artifacts generate on build
+- [ ] Bundle targets are platform-specific
 
-**Feature spec:** `specs/features/[phase-name].md` — `[ ] Not created`
+**Feature spec:** `features/phase-c-reliability-observability.md` — `[ ] Not created`
 
 **Status:** `[ ] Pending`
 
 ---
 
-### Phase 3 — [Name]
+### Phase D — Locale & Scraping Model
 
-<!-- Duplicate the block above for each additional phase -->
+**Goal:** User can add their own locale's job sources and understand the scraping architecture.
+
+**Scope:**
+- Document scraping model: how sources are defined, queried, and processed
+- Config-driven source definitions (sources.yaml)
+- Example: add one new locale's job boards
+
+**Out of scope for this phase:**
+- Full multi-locale support — just the plumbing for one new locale
+- UI overhauls
+
+**Feature spec:** `features/phase-d-locale-scraping.md` — `[ ] Not created`
+
+**Status:** `[ ] Pending`
+
+---
+
+### Phase E — PDF Quality
+
+**Goal:** Resume and cover letter PDF output matches user expectations for layout, fonts, and formatting.
+
+**Scope:**
+- Debug PDF generation pipeline in `generator.py`
+- Fix font rendering, scaling, margins
+- Add user-configurable templates
+
+**Out of scope for this phase:**
+- Multi-language PDF support
+- Real-time PDF preview
+
+**Feature spec:** `features/phase-e-pdf-quality.md` — `[ ] Not created`
+
+**Status:** `[ ] Pending`
+
+---
+
+### Phase F — UI Clarity
+
+**Goal:** Tab labels, navigation, and user-facing terminology are unambiguous.
+
+**Scope:**
+- Audit all tab/button labels across 8 views
+- Rename unclear labels, add tooltips where helpful
+- Fix inconsistent terminology
+
+**Feature spec:** `features/phase-f-ui-clarity.md` — `[ ] Not created`
+
+**Status:** `[ ] Pending`
+
+---
+
+### Phase G — End-User Customization
+
+**Goal:** Non-developer users can customize behavior without editing code.
+
+**Scope:**
+- User-facing config files in data dir
+- Config UI in SettingsModal for common options
+- Ghost mode interval, score thresholds, source toggles exposed without env vars
+
+**Feature spec:** `features/phase-g-customization.md` — `[ ] Not created`
+
+**Status:** `[ ] Pending`
+
+---
+
+### Phase E — End-User Customization
+
+**Goal:** Non-developer users can customize behavior without editing code.
+
+**Scope:**
+- User-facing config files in data dir
+- Config UI in SettingsModal for common options
+- Ghost mode interval, score thresholds, source toggles exposed without env vars
+
+**Feature spec:** `specs/features/phase-e-customization.md` — `[ ] Not created`
+
+**Status:** `[ ] Pending`
 
 ---
 
 ## Deferred / Backlog
 
-<!-- Ideas and features that are acknowledged but not scheduled.
-     These are not commitments — they are a memory buffer. -->
-
 | Item | Notes | Why deferred |
 |------|-------|--------------|
-|      |       |              |
+| OS keychain integration | Encrypt API keys at rest | Needs system-level integration (libsecret), not blocking Phase A config extraction |
+| Monolith splitting (main.py, db/client.py) | Route-level extraction | Too risky without test coverage — revisit after Phase A |
+| Frontend component tests | Full React UI test suite | Upstream problem — fork focuses on backend correctness |
+| Upstream merge tracking | Watch vasu-devs/JustHireMe for changes | Cadence TBD |
 
 ---
 
 ## Change Log
 
-<!-- Record scope changes and the reason for them. Keeps the roadmap honest. -->
-
 | Date | Change | Reason |
 |------|--------|--------|
-|      |        |        |
+| 2026-05-13 | Initial population after grill session | Phase structure from codebase audit + user decisions |
+| 2026-05-13 | Phase 4 (Hyprland-specific) removed from roadmap | Too narrow, cancelled per audit review |
 
 ---
 

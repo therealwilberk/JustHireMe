@@ -98,7 +98,11 @@ Dual-process desktop application. Tauri (parent process) spawns a Python FastAPI
 ```
 JustHireMe/
 ├── src/              # React + TypeScript frontend
-├── backend/          # Python FastAPI sidecar
+├── backend/
+│   ├── config/       # Typed config by domain (scoring.py, llm.py, scraping.py, etc.)
+│   └── ...           # FastAPI sidecar
+├── data/
+│   └── config/       # User-facing config (sources.yaml, filters.yaml, ghost_mode.yaml)
 ├── src-tauri/        # Rust Tauri shell
 ├── docs/             # Architecture, migration, specs
 ├── scripts/          # Build scripts
@@ -189,6 +193,8 @@ JustHireMe/
 | 2026-05-09 | Keep upstream tech stack unchanged for core | Fork is about Linux porting, not re-architecting | Rewriting backend in Rust, switching DBs |
 | 2026-05-09 | No containerization or cloud deployment | Local-first is a core value of the upstream project | Docker dev environment |
 | 2026-05-09 | Full independent fork (no upstream PRs) | Focus on Linux port first. Upstream contributions deferred. | Contributing changes upstream |
+| 2026-05-13 | Authority-boundary config layers for Phase A | Prevents chaos from extracting 150+ hardcodes. Uses Pydantic validation + domain-aligned file structure. | Monolithic settings.py, flat config.yaml, OS.getenv everywhere |
+| 2026-05-13 | Solo fork strategy (watch upstream, don't contribute) | Phase A makes deep structural changes upstream wouldn't accept | Keeping changes PR-friendly from start |
 
 ---
 
