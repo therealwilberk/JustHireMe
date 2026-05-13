@@ -168,6 +168,13 @@ class BearerTokenEnvConfig(BaseModel):
     twitter_bearer_token: str = "TWITTER_BEARER_TOKEN"
 
 
+class AppSettingsKeyNames(BaseModel):
+    # from backend/agents/x_scout.py:400-401, backend/main.py:1372, backend/agents/free_scout.py:89-96
+    x_bearer_token: str = "x_bearer_token"
+    linkedin_cookie: str = "linkedin_cookie"
+    custom_connector_headers: str = "custom_connector_headers"
+
+
 class AppConfig(BaseModel):
     ghost_mode: GhostModeConfig = GhostModeConfig()
     websocket: WebSocketConfig = WebSocketConfig()
@@ -188,6 +195,7 @@ class AppConfig(BaseModel):
     browser: BrowserEnvConfig = BrowserEnvConfig()
     auto_apply: AutoApplyEnvConfig = AutoApplyEnvConfig()
     bearer_tokens: BearerTokenEnvConfig = BearerTokenEnvConfig()
+    settings_key_names: AppSettingsKeyNames = AppSettingsKeyNames()
 
 
 config = AppConfig()
