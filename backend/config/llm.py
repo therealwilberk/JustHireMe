@@ -56,6 +56,26 @@ class LLMKeyNames(BaseModel):
     custom: str = "OPENAI_COMPAT_API_KEY"
 
 
+class LLMSettingsKeyNames(BaseModel):
+    # from backend/llm.py:15-32 — maps provider id to SQLite settings key
+    anthropic: str = "anthropic_key"
+    gemini: str = "gemini_api_key"
+    groq: str = "groq_api_key"
+    nvidia: str = "nvidia_api_key"
+    openai: str = "openai_api_key"
+    deepseek: str = "deepseek_api_key"
+    xai: str = "xai_api_key"
+    kimi: str = "kimi_api_key"
+    mistral: str = "mistral_api_key"
+    openrouter: str = "openrouter_api_key"
+    together: str = "together_api_key"
+    fireworks: str = "fireworks_api_key"
+    cerebras: str = "cerebras_api_key"
+    perplexity: str = "perplexity_api_key"
+    huggingface: str = "huggingface_api_key"
+    custom: str = "custom_api_key"
+
+
 class LLMProviderSpecific(BaseModel):
     # from backend/llm.py
     nvidia_base_url: str = "https://integrate.api.nvidia.com/v1"  # llm.py:146
@@ -87,6 +107,7 @@ class LLMConfig(BaseModel):
     default_models: LLMProviderDefaults = LLMProviderDefaults()
     compat_endpoints: LLMProviderEndpoints = LLMProviderEndpoints()
     env_key_names: LLMKeyNames = LLMKeyNames()
+    settings_key_names: LLMSettingsKeyNames = LLMSettingsKeyNames()
     provider_specific: LLMProviderSpecific = LLMProviderSpecific()
 
 

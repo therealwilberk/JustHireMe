@@ -243,7 +243,7 @@ See [`AGENTS.md`](../../../AGENTS.md) for config architecture usage, branch rule
 
 ---
 
-### Phase E — End-User Customization
+### Phase H — End-User Customization
 
 **Goal:** Non-developer users can customize behavior without editing code.
 
@@ -252,7 +252,7 @@ See [`AGENTS.md`](../../../AGENTS.md) for config architecture usage, branch rule
 - Config UI in SettingsModal for common options
 - Ghost mode interval, score thresholds, source toggles exposed without env vars
 
-**Feature spec:** `specs/features/phase-e-customization.md` — `[ ] Not created`
+**Feature spec:** `specs/features/phase-h-customization.md` — `[ ] Not created`
 
 **Status:** `[ ] Pending`
 
@@ -266,6 +266,10 @@ See [`AGENTS.md`](../../../AGENTS.md) for config architecture usage, branch rule
 | Monolith splitting (main.py, db/client.py) | Route-level extraction | Too risky without test coverage — revisit after Phase A |
 | Frontend component tests | Full React UI test suite | Upstream problem — fork focuses on backend correctness |
 | Upstream merge tracking | Watch vasu-devs/JustHireMe for changes | Cadence TBD |
+| Replace `main.py:37` hardcoded `_LOCAL_ORIGIN_RE` with `settings.app.cors.local_origin_regex` | Phase B (Security) — CORS tightening | Credential/scope hygiene |
+| Verify `.env.example` contains all env vars declared in config schemas | Phase B (Security) — onboarding | Missing vars cause silent auth failures |
+| Consolidate `db/client.py:get_setting()` SQLite table vs Pydantic config boundary | Phase C (Reliability) — data model | Dual config paths cause inconsistent state |
+| Manual test: app startup with no config files, empty config dir, config removal fallback | Phase C (Reliability) — startup | Edge cases for headless deployment |
 
 ---
 

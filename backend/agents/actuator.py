@@ -5,11 +5,12 @@ import os
 import sys
 from pydantic import BaseModel, Field
 from typing import List
+from config import settings
 from logger import get_logger
 
 _log = get_logger(__name__)
 
-_AUTO_APPLY_ENABLED = os.environ.get("JHM_AUTO_APPLY", "false").lower() == "true"
+_AUTO_APPLY_ENABLED = os.environ.get(settings.app.auto_apply.env_var, "false").lower() == "true"
 
 _TYPE_TO_CANDIDATE_KEY = {
     "first_name":      lambda c: (c.get("name") or "").split()[0] if c.get("name") else c.get("first_name", ""),

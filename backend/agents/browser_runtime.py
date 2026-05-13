@@ -17,15 +17,17 @@ _RELEASE_DOWNLOAD_BASE = "https://github.com/vasu-devs/JustHireMe/releases/lates
 
 
 def browser_runtime_dir() -> Path:
-    configured = os.environ.get("JHM_BROWSER_RUNTIME_DIR") or os.environ.get("PLAYWRIGHT_BROWSERS_PATH")
+    from config import settings
+
+    configured = os.environ.get(settings.app.browser.runtime_dir) or os.environ.get(settings.app.browser.playwright_browsers_path)
     if configured:
         return Path(configured)
     if os.name == "nt":
-        root = Path(os.environ.get("LOCALAPPDATA") or Path.home() / "AppData" / "Local")
+        root = Path(os.environ.get(settings.app.app_data.localappdata) or Path.home() / "AppData" / "Local")
     elif sys_platform() == "darwin":
         root = Path.home() / "Library" / "Application Support"
     else:
-        root = Path(os.environ.get("XDG_DATA_HOME") or Path.home() / ".local" / "share")
+        root = Path(os.environ.get(settings.app.app_data.xdg_data_home) or Path.home() / ".local" / "share")
     return root / "JustHireMe" / "browser-runtime" / "ms-playwright"
 
 
@@ -43,21 +45,25 @@ def browser_runtime_asset_name() -> str:
 
 
 def browser_runtime_url() -> str:
+    from config import settings
+
     return os.environ.get(
-        "JHM_BROWSER_RUNTIME_URL",
+        settings.app.browser.runtime_url,
         f"{_RELEASE_DOWNLOAD_BASE}/{browser_runtime_asset_name()}",
     )
 
 
 def chromium_executable() -> str | None:
-    env_browser = os.environ.get("BROWSER")
+    from config import settings
+
+    env_browser = os.environ.get(settings.app.browser.browser)
     if env_browser:
         resolved = shutil.which(env_browser)
         if resolved:
             return resolved
         _log.warning("$BROWSER set to '%s' but binary not found in PATH", env_browser)
 
-    pw_exe = os.environ.get("PLAYWRIGHT_CHROMIUM_EXECUTABLE")
+    pw_exe = os.environ.get(settings.app.browser.playwright_chromium_executable)
     if pw_exe and os.path.exists(pw_exe):
         return pw_exe
 

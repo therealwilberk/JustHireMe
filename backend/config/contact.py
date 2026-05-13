@@ -58,19 +58,29 @@ class ManagerNamePatterns(BaseModel):
     )
 
 
+class ContactAPIKeyNames(BaseModel):
+    # from backend/agents/contact_lookup.py:206-207
+    hunter: str = "HUNTER_API_KEY"
+    proxycurl: str = "PROXYCURL_API_KEY"
+
+
 class SkillsDetection(BaseModel):
-    # from backend/agents/contact_lookup.py:170
+    # from backend/agents/contact_lookup.py:170,178
     tech_pattern: str = r"\b(?:Python|FastAPI|React|TypeScript|AWS|Docker|Kubernetes|LLM|AI|PostgreSQL|Kafka|CI/CD)\b"
-    max_skills_in_email: int = 4  # contact_lookup.py:178
+    max_skills_in_email: int = 4
 
 
 class ContactConfig(BaseModel):
+    request_timeout: int = Field(default=30, ge=1, le=120)
+    max_lookups_per_session: int = Field(default=50, ge=1, le=500)
+
     hunter: HunterConfig = HunterConfig()
     proxycurl: ProxycurlConfig = ProxycurlConfig()
     ats_hosts: ATSHosts = ATSHosts()
-    contact_priority: ContactPriority = ContactPriority()
-    manager_name_patterns: ManagerNamePatterns = ManagerNamePatterns()
-    skills_detection: SkillsDetection = SkillsDetection()
+    priority_roles: ContactPriority = ContactPriority()
+    manager_patterns: ManagerNamePatterns = ManagerNamePatterns()
+    api_key_names: ContactAPIKeyNames = ContactAPIKeyNames()
+    skills: SkillsDetection = SkillsDetection()
 
 
 config = ContactConfig()

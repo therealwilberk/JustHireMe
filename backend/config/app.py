@@ -141,6 +141,33 @@ class ScanConfig(BaseModel):
     max_leads_per_scan: int = 1000  # backend/main.py:1149 default limit for cleanup
 
 
+class AppDataEnvConfig(BaseModel):
+    # from backend/db/client.py:32-38
+    app_data_dir: str = "JHM_APP_DATA_DIR"
+    localappdata: str = "LOCALAPPDATA"
+    xdg_data_home: str = "XDG_DATA_HOME"
+
+
+class BrowserEnvConfig(BaseModel):
+    # from backend/agents/browser_runtime.py:20,24,28,46,53,60
+    runtime_dir: str = "JHM_BROWSER_RUNTIME_DIR"
+    playwright_browsers_path: str = "PLAYWRIGHT_BROWSERS_PATH"
+    browser: str = "BROWSER"
+    playwright_chromium_executable: str = "PLAYWRIGHT_CHROMIUM_EXECUTABLE"
+    runtime_url: str = "JHM_BROWSER_RUNTIME_URL"
+
+
+class AutoApplyEnvConfig(BaseModel):
+    # from backend/agents/actuator.py:12
+    env_var: str = "JHM_AUTO_APPLY"
+
+
+class BearerTokenEnvConfig(BaseModel):
+    # from backend/main.py:363, x_scout.py:400
+    x_bearer_token: str = "X_BEARER_TOKEN"
+    twitter_bearer_token: str = "TWITTER_BEARER_TOKEN"
+
+
 class AppConfig(BaseModel):
     ghost_mode: GhostModeConfig = GhostModeConfig()
     websocket: WebSocketConfig = WebSocketConfig()
@@ -157,6 +184,10 @@ class AppConfig(BaseModel):
     evaluator_profile_keys: EvaluatorProfileKeys = EvaluatorProfileKeys()
     reevaluation: ReEvaluationConfig = ReEvaluationConfig()
     scan: ScanConfig = ScanConfig()
+    app_data: AppDataEnvConfig = AppDataEnvConfig()
+    browser: BrowserEnvConfig = BrowserEnvConfig()
+    auto_apply: AutoApplyEnvConfig = AutoApplyEnvConfig()
+    bearer_tokens: BearerTokenEnvConfig = BearerTokenEnvConfig()
 
 
 config = AppConfig()

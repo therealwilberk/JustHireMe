@@ -4,39 +4,16 @@ import re
 import urllib.parse
 import urllib.request
 
+import config as cfg
 from db.client import get_profile, get_settings
 from logger import get_logger
 
 _log = get_logger(__name__)
 
 
-ATS_HOSTS = {
-    "boards.greenhouse.io",
-    "jobs.lever.co",
-    "jobs.ashbyhq.com",
-    "apply.workable.com",
-    "wellfound.com",
-    "linkedin.com",
-    "www.linkedin.com",
-    "indeed.com",
-    "www.indeed.com",
-}
+ATS_HOSTS = cfg.settings.contact.ats_hosts.hosts
 
-
-CONTACT_PRIORITY = (
-    "founder",
-    "co-founder",
-    "ceo",
-    "cto",
-    "head of engineering",
-    "vp engineering",
-    "engineering manager",
-    "hiring manager",
-    "recruiter",
-    "talent",
-    "people",
-    "hr",
-)
+CONTACT_PRIORITY = cfg.settings.contact.priority_roles.roles
 
 
 def _setting(settings: dict, *keys: str) -> str:
@@ -167,7 +144,7 @@ def _skills_line(lead: dict) -> str:
     stack = lead.get("tech_stack") if isinstance(lead.get("tech_stack"), list) else []
     terms = [str(x).strip() for x in stack if str(x).strip()]
     if not terms:
-        terms = re.findall(r"\b(?:Python|FastAPI|React|TypeScript|AWS|Docker|Kubernetes|LLM|AI|PostgreSQL|Kafka|CI/CD)\b", str(lead.get("description") or ""), re.I)
+        terms = re.findall(cfg.settings.contact.skills.tech_pattern, str(lead.get("description") or ""), re.I)
     uniq: list[str] = []
     for term in terms:
         clean = term.upper() if term.lower() == "ci/cd" else term
@@ -175,7 +152,7 @@ def _skills_line(lead: dict) -> str:
             uniq.append(clean)
     if not uniq:
         return "the stack and product needs in the role"
-    return ", ".join(uniq[:4])
+    return ", ".join(uniq[:cfg.settings.contact.skills.max_skills_in_email])
 
 
 def _personalized_email(lead: dict, contact: dict) -> str:
@@ -203,8 +180,8 @@ def run(lead: dict) -> dict:
     if not domain:
         return {"status": "no_domain", "contacts": [], "message": "Could not infer company domain from this job URL."}
 
-    hunter_key = _setting(settings, "hunter_api_key") or os.environ.get("HUNTER_API_KEY", "")
-    proxycurl_key = _setting(settings, "proxycurl_api_key") or os.environ.get("PROXYCURL_API_KEY", "")
+    hunter_key = _setting(settings, "hunter_api_key") or os.environ.get(cfg.settings.contact.api_key_names.hunter, "")
+    proxycurl_key = _setting(settings, "proxycurl_api_key") or os.environ.get(cfg.settings.contact.api_key_names.proxycurl, "")
     if not hunter_key:
         return {"status": "missing_hunter_key", "domain": domain, "contacts": [], "message": "Add a Hunter.io API key in Settings to find company contacts."}
 

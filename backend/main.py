@@ -360,7 +360,9 @@ def _profile_x_queries(profile: dict, market_focus: str = "global") -> str:
 
 
 def _has_x_token(cfg: dict) -> bool:
-    return bool(cfg.get("x_bearer_token") or os.environ.get("X_BEARER_TOKEN") or os.environ.get("TWITTER_BEARER_TOKEN"))
+    from config import settings
+    bt = settings.app.bearer_tokens
+    return bool(cfg.get("x_bearer_token") or os.environ.get(bt.x_bearer_token) or os.environ.get(bt.twitter_bearer_token))
 
 
 def _int_cfg(cfg: dict, key: str, default: int, min_value: int, max_value: int) -> int:
@@ -675,6 +677,7 @@ async def health():
     Returns alive/uptime plus per-dependency status for database,
     browser binary, and configured API keys.
     """
+    from config import settings
     from agents.browser_runtime import chromium_executable
     from db.client import get_settings
 
@@ -700,7 +703,7 @@ async def health():
         "status": "alive",
         "uptime_seconds": round(time.monotonic() - _UP, 2),
         "timestamp": datetime.now(timezone.utc).isoformat(),
-        "log_level": os.environ.get("JHM_LOG_LEVEL", "INFO"),
+        "log_level": os.environ.get(settings.logging.env_var, settings.logging.default_level),
         "dependencies": {
             "database": {
                 "status": db_status,
@@ -1438,8 +1441,11 @@ async def _probe_provider_key(provider: str, key: str) -> dict:
 
 @app.get("/api/v1/settings/validate")
 async def validate_settings():
+    from config import settings as cfg_settings
     from db.client import get_settings
-    from llm import _ENV_NAMES, _KEY_NAMES, _OPENAI_COMPAT_BASE_URLS
+    from llm import _KEY_NAMES, _OPENAI_COMPAT_BASE_URLS
+
+    _ENV_NAMES = cfg_settings.llm.env_key_names.model_dump()
 
     cfg = get_settings()
     probed = {"anthropic", "gemini", "openai", "groq", *_OPENAI_COMPAT_BASE_URLS}
@@ -1447,10 +1453,11 @@ async def validate_settings():
 
     async def one(provider: str):
         key_name = _KEY_NAMES.get(provider, "")
+        gemini_fallback = cfg_settings.llm.provider_specific.gemini_env_key_fallback
         key = str(
             cfg.get(key_name)
             or os.environ.get(_ENV_NAMES.get(provider, ""), "")
-            or (os.environ.get("GOOGLE_API_KEY", "") if provider == "gemini" else "")
+            or (os.environ.get(gemini_fallback, "") if provider == "gemini" else "")
             or ""
         ).strip()
         if not key:

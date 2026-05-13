@@ -4,6 +4,7 @@ import anthropic
 import instructor
 from openai import OpenAI
 from pydantic import BaseModel
+from config import settings
 from db.client import get_setting
 from logger import get_logger
 
@@ -12,87 +13,26 @@ _log = get_logger(__name__)
 _TIMEOUT = httpx.Timeout(300.0, connect=10.0)
 
 # Maps provider id → settings key holding the global API key
-_KEY_NAMES: dict[str, str] = {
-    "anthropic": "anthropic_key",
-    "gemini":    "gemini_api_key",
-    "groq":      "groq_api_key",
-    "nvidia":    "nvidia_api_key",
-    "openai":    "openai_api_key",
-    "deepseek":  "deepseek_api_key",
-    "xai":       "xai_api_key",
-    "kimi":      "kimi_api_key",
-    "mistral":   "mistral_api_key",
-    "openrouter": "openrouter_api_key",
-    "together":  "together_api_key",
-    "fireworks": "fireworks_api_key",
-    "cerebras":  "cerebras_api_key",
-    "perplexity": "perplexity_api_key",
-    "huggingface": "huggingface_api_key",
-    "custom":    "custom_api_key",
-}
+_KEY_NAMES: dict[str, str] = settings.llm.settings_key_names.model_dump()
 
 # Maps provider id → environment variable fallback
-_ENV_NAMES: dict[str, str] = {
-    "anthropic": "ANTHROPIC_API_KEY",
-    "gemini":    "GEMINI_API_KEY",
-    "groq":      "GROQ_API_KEY",
-    "nvidia":    "NVIDIA_API_KEY",
-    "openai":    "OPENAI_API_KEY",
-    "deepseek":  "DEEPSEEK_API_KEY",
-    "xai":       "XAI_API_KEY",
-    "kimi":      "MOONSHOT_API_KEY",
-    "mistral":   "MISTRAL_API_KEY",
-    "openrouter": "OPENROUTER_API_KEY",
-    "together":  "TOGETHER_API_KEY",
-    "fireworks": "FIREWORKS_API_KEY",
-    "cerebras":  "CEREBRAS_API_KEY",
-    "perplexity": "PERPLEXITY_API_KEY",
-    "huggingface": "HF_TOKEN",
-    "custom":    "OPENAI_COMPAT_API_KEY",
-}
+_ENV_NAMES: dict[str, str] = settings.llm.env_key_names.model_dump()
 
 # Default model per provider (used when no step/global model is set)
-_DEFAULT_MODELS: dict[str, str] = {
-    "anthropic": "claude-sonnet-4-6",
-    "gemini":    "gemini-2.5-flash",
-    "groq":      "llama-3.3-70b-versatile",
-    "nvidia":    "z-ai/glm-5.1",
-    "openai":    "gpt-4o-mini",
-    "deepseek":  "deepseek-chat",
-    "xai":       "grok-4",
-    "kimi":      "kimi-k2-turbo-preview",
-    "mistral":   "mistral-large-latest",
-    "openrouter": "openrouter/auto",
-    "together":  "openai/gpt-oss-120b",
-    "fireworks": "accounts/fireworks/models/llama-v3p1-70b-instruct",
-    "cerebras":  "llama-3.3-70b",
-    "perplexity": "sonar",
-    "huggingface": "openai/gpt-oss-120b",
-    "custom":    "model-id",
-    "ollama":    "llama3",
-}
+_DEFAULT_MODELS: dict[str, str] = settings.llm.default_models.model_dump()
 
-_OPENAI_COMPAT_BASE_URLS: dict[str, str] = {
-    "xai": "https://api.x.ai/v1",
-    "kimi": "https://api.moonshot.ai/v1",
-    "mistral": "https://api.mistral.ai/v1",
-    "openrouter": "https://openrouter.ai/api/v1",
-    "together": "https://api.together.xyz/v1",
-    "fireworks": "https://api.fireworks.ai/inference/v1",
-    "cerebras": "https://api.cerebras.ai/v1",
-    "perplexity": "https://api.perplexity.ai/v1",
-    "huggingface": "https://router.huggingface.co/v1",
-}
+_OPENAI_COMPAT_BASE_URLS: dict[str, str] = settings.llm.compat_endpoints.model_dump()
 
 _OPENAI_COMPAT_PROVIDERS = set(_OPENAI_COMPAT_BASE_URLS) | {"custom"}
 
 
 def _provider_base_url(provider: str) -> str:
+    p = settings.llm.provider_specific
     if provider == "custom":
         return (
-            get_setting("custom_base_url", "")
-            or os.environ.get("OPENAI_COMPAT_BASE_URL", "")
-            or "https://api.openai.com/v1"
+            get_setting(p.custom_base_url_setting_key, "")
+            or os.environ.get(p.custom_base_url_env_fallback, "")
+            or p.custom_base_url_hard_fallback
         )
     return _OPENAI_COMPAT_BASE_URLS[provider]
 
@@ -117,9 +57,10 @@ def _resolve(step: str | None = None) -> tuple[str, str, str]:
     if sk:
         k = sk
     else:
+        gemini_fallback = settings.llm.provider_specific.gemini_env_key_fallback
         k = (get_setting(_KEY_NAMES.get(p, ""), "")
              or os.environ.get(_ENV_NAMES.get(p, ""), "")
-             or (os.environ.get("GOOGLE_API_KEY", "") if p == "gemini" else ""))
+             or (os.environ.get(gemini_fallback, "") if p == "gemini" else ""))
 
     # Model: step-specific > provider-level setting > default
     if sm:
@@ -289,7 +230,7 @@ def call_llm(s: str, u: str, m: type[BaseModel], step: str | None = None):
         )
 
     else:  # ollama / default
-        b = get_setting("ollama_url", "http://localhost:11434/v1")
+        b = get_setting("ollama_url", settings.llm.provider_specific.ollama_default_url)
         _log.info("ollama at %s model=%s (step=%s)", b, model, step)
         c = instructor.from_openai(
             OpenAI(base_url=b, api_key="ollama", timeout=_TIMEOUT, max_retries=0)
@@ -394,7 +335,7 @@ def call_raw(s: str, u: str, step: str | None = None) -> str:
         return r.choices[0].message.content or ""
 
     else:  # ollama
-        b = get_setting("ollama_url", "http://localhost:11434/v1")
+        b = get_setting("ollama_url", settings.llm.provider_specific.ollama_default_url)
         c = OpenAI(base_url=b, api_key="ollama", timeout=_TIMEOUT, max_retries=0)
         r = c.chat.completions.create(
             model=model,

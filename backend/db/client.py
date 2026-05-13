@@ -25,17 +25,15 @@ _log = get_logger(__name__)
 
 
 def data_base() -> str:
-    """Resolve the base data directory.
+    from config import settings
 
-    Priority: JHM_APP_DATA_DIR (set by Tauri) → XDG_DATA_HOME (Linux) → LOCALAPPDATA (Windows) → home fallback.
-    """
-    app_data = os.environ.get("JHM_APP_DATA_DIR")
+    app_data = os.environ.get(settings.app.app_data.app_data_dir)
     if app_data:
         return app_data
     if sys.platform == "win32":
-        return os.path.join(os.environ.get("LOCALAPPDATA", os.path.expanduser("~")), "JustHireMe")
+        return os.path.join(os.environ.get(settings.app.app_data.localappdata, os.path.expanduser("~")), "JustHireMe")
     return os.path.join(
-        os.environ.get("XDG_DATA_HOME", os.path.expanduser("~/.local/share")),
+        os.environ.get(settings.app.app_data.xdg_data_home, os.path.expanduser("~/.local/share")),
         "JustHireMe",
     )
 
