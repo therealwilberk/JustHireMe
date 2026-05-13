@@ -75,11 +75,13 @@ class APISourceURLs(BaseModel):
 
 
 class ApifyKeyNames(BaseModel):
+    # from backend/agents/scout.py:359-363, backend/main.py:533,1332 — consumed via resolve_secret()
     token: str = "APIFY_TOKEN"
     actor: str = "APIFY_ACTOR_DEFAULT"
 
 
 class ApifySettingsKeyNames(BaseModel):
+    # from backend/agents/scout.py:359-363, backend/main.py:533,1332 — SQLite settings key names
     token: str = "apify_token"
     actor: str = "apify_actor"
 
