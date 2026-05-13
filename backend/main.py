@@ -21,6 +21,7 @@ from fastapi.security import HTTPBearer
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 from logger import get_logger
+from config import settings
 
 _log = get_logger(__name__)
 
@@ -50,6 +51,21 @@ def _validate_config_on_startup():
     except Exception as exc:
         _log.critical("Config layer failed to load: %s", exc)
         sys.exit(1)
+
+
+def _log_startup_secret_diagnostics() -> None:
+    from config.secrets import resolve_secret
+    secrets_to_check = [
+        (settings.scraping.apify_key_names.token, settings.scraping.apify_settings_key_names.token),
+        (settings.scraping.apify_key_names.actor, settings.scraping.apify_settings_key_names.actor),
+        (settings.contact.api_key_names.hunter, settings.contact.settings_key_names.hunter),
+        (settings.contact.api_key_names.proxycurl, settings.contact.settings_key_names.proxycurl),
+        (settings.app.bearer_tokens.x_bearer_token, settings.app.settings_key_names.x_bearer_token),
+    ]
+    for env_name, settings_key in secrets_to_check:
+        val = resolve_secret(env_name, settings_key, warn_once=False)
+        if val:
+            _log.debug("Secret %s configured via env var.", env_name)
 
 
 async def _require_ws_token(ws: WebSocket) -> bool:
@@ -527,11 +543,18 @@ async def _ghost_tick_impl():
     await cm.broadcast({"type": "agent", "event": "ghost_scout", "msg": "Ghost Mode: scout cycle starting"})
     try:
         boards = await asyncio.to_thread(_gen_queries, profile, boards, cfg.get("job_market_focus", "global"))
+        from config.secrets import resolve_secret
         leads = await asyncio.to_thread(
             _scout,
             urls=boards,
-            apify_token=cfg.get("apify_token") or None,
-            apify_actor=cfg.get("apify_actor") or None,
+            apify_token=resolve_secret(
+                settings.scraping.apify_key_names.token,
+                settings.scraping.apify_settings_key_names.token,
+            ) or None,
+            apify_actor=resolve_secret(
+                settings.scraping.apify_key_names.actor,
+                settings.scraping.apify_settings_key_names.actor,
+            ) or None,
         )
         await cm.broadcast({"type": "agent", "event": "ghost_scout",
                             "msg": f"Ghost scout complete — {len(leads)} new leads found"})
@@ -634,6 +657,7 @@ async def _ghost_tick_impl():
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     _validate_config_on_startup()
+    _log_startup_secret_diagnostics()
     _sched.add_job(_ghost_tick, "interval", hours=6, id="ghost")
     _sched.start()
     _log.info("FastAPI live.")
@@ -1326,11 +1350,18 @@ async def _run_scan():
 
     await cm.broadcast({"type": "agent", "event": "scout_start", "msg": f"Launching scan for {len(urls)} targets…"})
 
+    from config.secrets import resolve_secret
     leads = await asyncio.to_thread(
         _scout,
         urls=urls,
-        apify_token=cfg.get("apify_token") or None,
-        apify_actor=cfg.get("apify_actor") or None,
+        apify_token=resolve_secret(
+            settings.scraping.apify_key_names.token,
+            settings.scraping.apify_settings_key_names.token,
+        ) or None,
+        apify_actor=resolve_secret(
+            settings.scraping.apify_key_names.actor,
+            settings.scraping.apify_settings_key_names.actor,
+        ) or None,
     )
     await cm.broadcast({"type": "agent", "event": "scout_done", "msg": f"Scout finished — {len(leads)} new leads found"})
 
@@ -1372,6 +1403,25 @@ def _sensitive(d: dict) -> set:
     fixed = {"anthropic_key", "linkedin_cookie", "x_bearer_token", "custom_connector_headers"}
     dynamic = {k for k in d if k.endswith("_api_key") or k.endswith("_key") or k.endswith("_token")}
     return fixed | dynamic
+
+
+def _log_sensitive_deprecation(payload: dict) -> None:
+    sensitive_key_map = {
+        "apify_token": settings.scraping.apify_key_names.token,
+        "apify_actor": settings.scraping.apify_key_names.actor,
+        "hunter_api_key": settings.contact.api_key_names.hunter,
+        "proxycurl_api_key": settings.contact.api_key_names.proxycurl,
+        "x_bearer_token": settings.app.bearer_tokens.x_bearer_token,
+        "linkedin_cookie": "LINKEDIN_COOKIE",
+        "custom_connector_headers": "CUSTOM_CONNECTOR_HEADERS",
+    }
+    for settings_key, env_var in sensitive_key_map.items():
+        if settings_key in payload and payload[settings_key]:
+            _log.warning(
+                "Secret '%s' written to SQLite — deprecated. "
+                "Set %s environment variable instead.",
+                settings_key, env_var,
+            )
 
 
 @app.get("/api/v1/settings")
@@ -1452,14 +1502,14 @@ async def validate_settings():
     providers = ["anthropic", "gemini", "openai", "groq", *[p for p in _KEY_NAMES if p not in {"anthropic", "gemini", "openai", "groq"}]]
 
     async def one(provider: str):
-        key_name = _KEY_NAMES.get(provider, "")
+        from config.secrets import resolve_secret
         gemini_fallback = cfg_settings.llm.provider_specific.gemini_env_key_fallback
-        key = str(
-            cfg.get(key_name)
-            or os.environ.get(_ENV_NAMES.get(provider, ""), "")
-            or (os.environ.get(gemini_fallback, "") if provider == "gemini" else "")
-            or ""
-        ).strip()
+        env_name = _ENV_NAMES.get(provider, "")
+        settings_key = _KEY_NAMES.get(provider, "")
+        key = resolve_secret(env_name, settings_key) or ""
+        if not key and provider == "gemini":
+            key = resolve_secret(gemini_fallback, None) or ""
+        key = str(key).strip()
         if not key:
             return provider, {"status": "not_configured", "latency_ms": 0}
         if provider not in probed:
@@ -1480,6 +1530,7 @@ async def save_cfg(body: SettingsBody):
         if payload.get(k) == _m:
             payload[k] = old.get(k, "")
     save_settings(payload)
+    _log_sensitive_deprecation(payload)
     ghost = payload.get("ghost_mode") == "true"
     if ghost and not _sched.get_job("ghost"):
         _sched.add_job(_ghost_tick, "interval", hours=6, id="ghost")
@@ -2052,7 +2103,8 @@ async def ws_endpoint(ws: WebSocket):
 if __name__ == "__main__":
     import uvicorn
     port = _free_port()
-    sys.stdout.write(f"JHM_TOKEN={_API_TOKEN}\n")
+    sys.stderr.write(f"JHM_TOKEN={_API_TOKEN}\n")
     sys.stdout.write(f"PORT:{port}\n")
     sys.stdout.flush()
+    sys.stderr.flush()
     uvicorn.run(app, host="127.0.0.1", port=port, log_level="warning")
