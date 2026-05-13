@@ -64,6 +64,12 @@ class ContactAPIKeyNames(BaseModel):
     proxycurl: str = "PROXYCURL_API_KEY"
 
 
+class ContactSettingsKeyNames(BaseModel):
+    # from backend/agents/contact_lookup.py:183-184 — SQLite settings key names
+    hunter: str = "hunter_api_key"
+    proxycurl: str = "proxycurl_api_key"
+
+
 class SkillsDetection(BaseModel):
     # from backend/agents/contact_lookup.py:170,178
     tech_pattern: str = r"\b(?:Python|FastAPI|React|TypeScript|AWS|Docker|Kubernetes|LLM|AI|PostgreSQL|Kafka|CI/CD)\b"
@@ -80,6 +86,7 @@ class ContactConfig(BaseModel):
     priority_roles: ContactPriority = ContactPriority()
     manager_patterns: ManagerNamePatterns = ManagerNamePatterns()
     api_key_names: ContactAPIKeyNames = ContactAPIKeyNames()
+    settings_key_names: ContactSettingsKeyNames = ContactSettingsKeyNames()
     skills: SkillsDetection = SkillsDetection()
 
 
