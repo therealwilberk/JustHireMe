@@ -360,7 +360,7 @@ async def apify(actor: str, inp: dict, tok: str) -> list:
     async with httpx.AsyncClient(timeout=60) as cx:
         run = await cx.post(
             f"https://api.apify.com/v2/acts/{actor}/run-sync-get-dataset-items",
-            params={"token": tok},
+            headers={"Authorization": f"Bearer {tok}"},
             json=inp,
         )
         if run.status_code == 429:
