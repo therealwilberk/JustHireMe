@@ -24,7 +24,13 @@
 | Current phase | `Phase A — Config Architecture & Validation Foundation` |
 | Phase started | `2026-05-13` |
 | Last updated | `2026-05-13` |
-| Overall status | `[~] In progress` |
+| Overall status | `[~] In progress (implementation)` |
+
+---
+
+## Agent Instructions
+
+See [`AGENTS.md`](../../../AGENTS.md) for config architecture usage, branch rules, and test commands.
 
 ---
 
@@ -79,13 +85,13 @@
 **Dependencies:** None
 
 **Validation:**
-- [ ] All 150+ hardcoded values extracted into typed config objects
-- [ ] Config resolution hierarchy works: CLI override → env var → XDG → fallback
-- [ ] Config validates at startup — malformed file or missing value fails fast with clear message
-- [ ] No scattered `os.getenv()` calls added; all env access through config layer
-- [ ] Full backend test suite passes (validates config extraction didn't break anything)
-- [ ] Config modules organized by domain, not monolithic
-- [ ] Authority boundaries documented: dev constants in Python, operator config in env, user config in data dir, ephemeral in DB
+- [x] All 150+ hardcoded values extracted into typed config objects
+- [x] Config resolution hierarchy works: CLI override → env var → XDG → fallback
+- [x] Config validates at startup — malformed file or missing value fails fast with clear message
+- [x] No scattered `os.getenv()` calls added; all env access through config layer
+- [x] Full backend test suite passes (validates config extraction didn't break anything) — 128 tests
+- [x] Config modules organized by domain, not monolithic
+- [x] Authority boundaries documented: dev constants in Python, operator config in env, user config in data dir, ephemeral in DB
 
 **Feature spec:** `features/phase-a-config-architecture.md` — `[~] Draft`
 

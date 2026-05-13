@@ -13,7 +13,7 @@
 | Branch | `feature/phase-a-config-architecture` |
 | Type | `Infra` (horizontal — exempt from vertical-slice rule) |
 | Mode | `AFK` (all tasks are deterministic per autonomy boundary analysis) |
-| Status | `[~] Draft` |
+| Status | `[~] In Progress` |
 | Depends on | `none` |
 | Blocks | Phase B, Phase C |
 | Created | 2026-05-13 |

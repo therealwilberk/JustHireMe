@@ -89,7 +89,7 @@ jobs:
           python-version: '3.13'
       - uses: astral-sh/setup-uv@v8.1.0
       - run: cd backend && uv sync --dev
-      - run: cd backend && uv run python -m pytest tests/test_regressions.py -v
+      - run: cd backend && uv run python -m pytest tests/ -v
 
   rust:
     name: Rust check

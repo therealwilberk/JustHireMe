@@ -38,6 +38,20 @@ _LOCAL_ORIGIN_RE = r"^(tauri://localhost|https?://(localhost|127\.0\.0\.1|tauri\
 _bearer = HTTPBearer(auto_error=False)
 
 
+def _validate_config_on_startup():
+    try:
+        from config import validate_all
+        errs = validate_all()
+        if errs:
+            for e in errs:
+                _log.critical("Config validation failed: %s", e)
+            sys.exit(1)
+        _log.info("Config validation passed — all domains OK")
+    except Exception as exc:
+        _log.critical("Config layer failed to load: %s", exc)
+        sys.exit(1)
+
+
 async def _require_ws_token(ws: WebSocket) -> bool:
     """Auth guard for WebSocket routes; token via query param or header."""
     token = ws.query_params.get("token", "")
@@ -617,6 +631,7 @@ async def _ghost_tick_impl():
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    _validate_config_on_startup()
     _sched.add_job(_ghost_tick, "interval", hours=6, id="ghost")
     _sched.start()
     _log.info("FastAPI live.")
