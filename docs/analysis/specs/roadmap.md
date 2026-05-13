@@ -21,10 +21,10 @@
 
 | Field | Value |
 |-------|-------|
-| Current phase | `Phase A — Config Architecture & Validation Foundation` |
+| Current phase | `Phase B — Security Remediation & Migration Paths` |
 | Phase started | `2026-05-13` |
 | Last updated | `2026-05-13` |
-| Overall status | `[x] Complete` |
+| Overall status | `[~] Active` |
 
 ---
 
@@ -39,7 +39,7 @@ See [`AGENTS.md`](../../../AGENTS.md) for config architecture usage, branch rule
 | # | Phase | Type | Mode | Status | Blocks | Feature Spec |
 |---|-------|------|------|--------|--------|--------------|
 | A | Config Architecture & Validation Foundation | `Infra` | `TBD` | `[~] Active` | `B, C` | `features/phase-a-config-architecture.md` |
-| B | Security Remediation & Migration Paths | `Infra` | `TBD` | `[ ] Pending` | `D+` | `[ ] Not created` |
+| B | Security Remediation & Migration Paths | `Infra` | `TBD` | `[~] Active` | `D+` | `features/phase-b-security-migration.md` |
 | C | Reliability, Observability & Concurrency | `Infra` | `TBD` | `[ ] Pending` | `D+` | `[ ] Not created` |
 | D | Locale & Scraping Model | `Feature` | `TBD` | `[ ] Pending` | `none` | `[ ] Not created` |
 | E | PDF Quality | `Feature` | `TBD` | `[ ] Pending` | `none` | `[ ] Not created` |
@@ -106,11 +106,11 @@ See [`AGENTS.md`](../../../AGENTS.md) for config architecture usage, branch rule
 **Blocks:** `Phase D+`
 **Blocked by:** `Phase A`
 
-**Goal:** API keys resolved from env vars only, no secrets in URLs or stdout, with a graceful deprecation path for existing SQLite-stored credentials.
+**Goal:** API keys resolved from env vars only, no secrets in URLs, with a graceful deprecation path for existing SQLite-stored credentials. (C2 — token to stderr — deferred; see scope note.)
 
 **Scope:**
 - C1: Env-var-only auth — API keys no longer stored in SQLite settings table
-- C2: Auth token to stderr, not stdout
+- C2: Auth token to stderr, not stdout (deferred — blocked by Tauri sidecar protocol at `src-tauri/src/lib.rs:301`; token stays on stdout)
 - C3/C4: Apify/Hunter API keys moved from URL query params to headers
 - Migration path: startup checks for legacy SQLite keys, logs WARN-level deprecation with migration instructions, reads old values as fallback (read-only — never writes back)
 - Removal milestone defined in roadmap
@@ -128,11 +128,11 @@ See [`AGENTS.md`](../../../AGENTS.md) for config architecture usage, branch rule
 - [ ] Legacy SQLite keys trigger WARN-level deprecation with migration instructions
 - [ ] Fallback reads old keys but never writes them back to SQLite
 - [ ] Apify/Hunter tokens not present in URL query params
-- [ ] Auth token not present in stdout
+- [ ] Auth token not present in stdout (deferred — see scope note)
 
-**Feature spec:** `features/phase-b-security-migration.md` — `[ ] Not created`
+**Feature spec:** `features/phase-b-security-migration.md` — `[x] Created`
 
-**Status:** `[ ] Pending`
+**Status:** `[~] Active`
 
 ---
 
@@ -277,6 +277,7 @@ See [`AGENTS.md`](../../../AGENTS.md) for config architecture usage, branch rule
 
 | Date | Change | Reason |
 |------|--------|--------|
+| 2026-05-13 | Phase B activated, feature spec created | Security migration: unified secret resolver, URL→headers, token→stderr, deprecation warnings |
 | 2026-05-13 | Completed Phase A implementation | Config architecture: schemas, resolver, validation gate, CI, docs. 128 tests pass. |
 | 2026-05-13 | Initial population after grill session | Phase structure from codebase audit + user decisions |
 | 2026-05-13 | Phase 4 (Hyprland-specific) removed from roadmap | Too narrow, cancelled per audit review |

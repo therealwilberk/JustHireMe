@@ -2112,8 +2112,7 @@ async def ws_endpoint(ws: WebSocket):
 if __name__ == "__main__":
     import uvicorn
     port = _free_port()
-    sys.stderr.write(f"JHM_TOKEN={_API_TOKEN}\n")
+    sys.stdout.write(f"JHM_TOKEN={_API_TOKEN}\n")
     sys.stdout.write(f"PORT:{port}\n")
     sys.stdout.flush()
-    sys.stderr.flush()
     uvicorn.run(app, host="127.0.0.1", port=port, log_level="warning")
