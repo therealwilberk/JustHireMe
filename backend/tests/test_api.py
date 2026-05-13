@@ -175,6 +175,23 @@ class TestSettingsEndpoints(unittest.TestCase):
         resp = get("/api/v1/settings/validate")
         self.assertIsInstance(resp.json(), dict)
 
+    def test_settings_save_sensitive_key_logs_deprecation(self):
+        with mock.patch("main._log") as mock_log:
+            resp = post("/api/v1/settings", json={"hunter_api_key": "test-key-123"})
+            self.assertEqual(resp.status_code, 200)
+            found = any(
+                "written to SQLite" in str(call)
+                for call in mock_log.warning.call_args_list
+            )
+            self.assertTrue(found, "Expected deprecation warning about SQLite write")
+
+    def test_settings_save_non_sensitive_key_no_deprecation(self):
+        with mock.patch("main._log") as mock_log:
+            resp = post("/api/v1/settings", json={"ghost_mode": "true"})
+            self.assertEqual(resp.status_code, 200)
+            for call in mock_log.warning.call_args_list:
+                self.assertNotIn("written to SQLite", str(call))
+
 
 class TestFollowupsEndpoint(unittest.TestCase):
     def test_due_followups_returns_list(self):
