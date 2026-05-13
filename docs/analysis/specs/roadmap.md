@@ -24,7 +24,7 @@
 | Current phase | `Phase A — Config Architecture & Validation Foundation` |
 | Phase started | `2026-05-13` |
 | Last updated | `2026-05-13` |
-| Overall status | `[~] In progress (implementation)` |
+| Overall status | `[x] Complete` |
 
 ---
 
@@ -55,7 +55,7 @@ See [`AGENTS.md`](../../../AGENTS.md) for config architecture usage, branch rule
 ### Phase A — Config Architecture & Validation Foundation
 
 **Type:** `Infra` (horizontal — exempt from vertical-slice rule)
-**Mode:** `TBD`
+**Mode:** `AFK` (all tasks deterministic per autonomy boundary analysis)
 **Blocks:** `Phase B, Phase C`
 **Blocked by:** `none`
 
@@ -93,9 +93,9 @@ See [`AGENTS.md`](../../../AGENTS.md) for config architecture usage, branch rule
 - [x] Config modules organized by domain, not monolithic
 - [x] Authority boundaries documented: dev constants in Python, operator config in env, user config in data dir, ephemeral in DB
 
-**Feature spec:** `features/phase-a-config-architecture.md` — `[~] Draft`
+**Feature spec:** `features/phase-a-config-architecture.md` — `[x] Done`
 
-**Status:** `[~] Active`
+**Status:** `[x] Complete`
 
 ---
 
@@ -273,6 +273,7 @@ See [`AGENTS.md`](../../../AGENTS.md) for config architecture usage, branch rule
 
 | Date | Change | Reason |
 |------|--------|--------|
+| 2026-05-13 | Completed Phase A implementation | Config architecture: schemas, resolver, validation gate, CI, docs. 128 tests pass. |
 | 2026-05-13 | Initial population after grill session | Phase structure from codebase audit + user decisions |
 | 2026-05-13 | Phase 4 (Hyprland-specific) removed from roadmap | Too narrow, cancelled per audit review |
 
