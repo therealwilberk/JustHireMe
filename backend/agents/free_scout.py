@@ -558,6 +558,13 @@ def run(
     global LAST_ERRORS, LAST_USAGE
     LAST_ERRORS = []
     wanted = "job"
+    if not raw_custom_headers:
+        from config.secrets import resolve_secret
+        from config import settings as _cfg
+        raw_custom_headers = resolve_secret(
+            "CUSTOM_CONNECTOR_HEADERS",
+            _cfg.app.settings_key_names.custom_connector_headers,
+        )
     all_targets = targets or targets_from_settings(raw_targets, raw_watchlist)
     custom_connectors = []
     if custom_connectors_enabled:
