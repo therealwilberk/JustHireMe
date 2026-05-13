@@ -398,7 +398,12 @@ def run(
     }
 
     from config import settings
-    token = bearer_token or os.environ.get(settings.app.bearer_tokens.x_bearer_token) or os.environ.get(settings.app.bearer_tokens.twitter_bearer_token)
+    from config.secrets import resolve_secret
+    token = (
+        bearer_token
+        or resolve_secret(settings.app.bearer_tokens.x_bearer_token, settings.app.settings_key_names.x_bearer_token)
+        or os.environ.get(settings.app.bearer_tokens.twitter_bearer_token)
+    )
     if not token:
         LAST_ERRORS.append("X bearer token is not configured")
         return []
