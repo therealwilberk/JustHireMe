@@ -91,9 +91,9 @@ def _contact_score(contact: dict) -> tuple[int, int]:
 
 
 def _hunter_contacts(domain: str, key: str) -> list[dict]:
-    params = urllib.parse.urlencode({"domain": domain, "api_key": key, "limit": 10})
+    params = urllib.parse.urlencode({"domain": domain, "limit": 10})
     url = f"https://api.hunter.io/v2/domain-search?{params}"
-    data = _json_get(url)
+    data = _json_get(url, headers={"X-API-Key": key})
     emails = ((data.get("data") or {}).get("emails") or [])
     contacts = [_clean_contact(item) for item in emails if item.get("value")]
     contacts.sort(key=_contact_score, reverse=True)
@@ -180,8 +180,15 @@ def run(lead: dict) -> dict:
     if not domain:
         return {"status": "no_domain", "contacts": [], "message": "Could not infer company domain from this job URL."}
 
-    hunter_key = _setting(settings, "hunter_api_key") or os.environ.get(cfg.settings.contact.api_key_names.hunter, "")
-    proxycurl_key = _setting(settings, "proxycurl_api_key") or os.environ.get(cfg.settings.contact.api_key_names.proxycurl, "")
+    from config.secrets import resolve_secret
+    hunter_key = resolve_secret(
+        cfg.settings.contact.api_key_names.hunter,
+        cfg.settings.contact.settings_key_names.hunter,
+    ) or ""
+    proxycurl_key = resolve_secret(
+        cfg.settings.contact.api_key_names.proxycurl,
+        cfg.settings.contact.settings_key_names.proxycurl,
+    ) or ""
     if not hunter_key:
         return {"status": "missing_hunter_key", "domain": domain, "contacts": [], "message": "Add a Hunter.io API key in Settings to find company contacts."}
 
