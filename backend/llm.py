@@ -53,14 +53,17 @@ def _resolve(step: str | None = None) -> tuple[str, str, str]:
 
     p = sp or get_setting("llm_provider", "ollama")
 
-    # API key: step-specific > global setting for this provider > env var
+    # API key: step-specific > resolve_secret (env > SQLite fallback)
     if sk:
         k = sk
     else:
-        gemini_fallback = settings.llm.provider_specific.gemini_env_key_fallback
-        k = (get_setting(_KEY_NAMES.get(p, ""), "")
-             or os.environ.get(_ENV_NAMES.get(p, ""), "")
-             or (os.environ.get(gemini_fallback, "") if p == "gemini" else ""))
+        from config.secrets import resolve_secret
+        env_name = _ENV_NAMES.get(p, "")
+        settings_key = _KEY_NAMES.get(p, "")
+        k = resolve_secret(env_name, settings_key)
+        if not k and p == "gemini":
+            k = resolve_secret(settings.llm.provider_specific.gemini_env_key_fallback, None)
+        k = k or ""
 
     # Model: step-specific > provider-level setting > default
     if sm:
