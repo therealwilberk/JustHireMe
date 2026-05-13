@@ -74,6 +74,16 @@ class APISourceURLs(BaseModel):
     x_api_base: str = "https://api.x.com/2/tweets/search/recent"
 
 
+class ApifyKeyNames(BaseModel):
+    token: str = "APIFY_TOKEN"
+    actor: str = "APIFY_ACTOR_DEFAULT"
+
+
+class ApifySettingsKeyNames(BaseModel):
+    token: str = "apify_token"
+    actor: str = "apify_actor"
+
+
 class HNConfig(BaseModel):
     # from backend/agents/scout.py
     who_is_hiring_title_regex: str = r"^Ask HN:\s*Who is hiring\?"
@@ -135,6 +145,8 @@ class ScrapingConfig(BaseModel):
     ats_endpoints: ATSEndpoints = ATSEndpoints()
     description_limits: DescriptionLimits = DescriptionLimits()
     user_agents: UserAgentConfig = UserAgentConfig()
+    apify_key_names: ApifyKeyNames = ApifyKeyNames()
+    apify_settings_key_names: ApifySettingsKeyNames = ApifySettingsKeyNames()
 
     lead_max_age_days: int = 7  # scout.py:20
 
