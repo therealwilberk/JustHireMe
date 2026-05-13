@@ -377,8 +377,12 @@ def _profile_x_queries(profile: dict, market_focus: str = "global") -> str:
 
 def _has_x_token(cfg: dict) -> bool:
     from config import settings
+    from config.secrets import resolve_secret
     bt = settings.app.bearer_tokens
-    return bool(cfg.get("x_bearer_token") or os.environ.get(bt.x_bearer_token) or os.environ.get(bt.twitter_bearer_token))
+    return bool(
+        resolve_secret(bt.x_bearer_token, settings.app.settings_key_names.x_bearer_token)
+        or os.environ.get(bt.twitter_bearer_token)
+    )
 
 
 def _int_cfg(cfg: dict, key: str, default: int, min_value: int, max_value: int) -> int:
@@ -415,9 +419,14 @@ async def _run_x_signal_scan(cfg: dict, kind_filter: str, profile: dict | None =
     kind_filter = "job"
     label = "job leads"
     await cm.broadcast({"type": "agent", "event": "x_scout_start", "msg": f"Scanning X for {label}..."})
+    from config import settings as _cfg
+    from config.secrets import resolve_secret
     leads = await asyncio.to_thread(
         x_scout.run,
-        bearer_token=cfg.get("x_bearer_token") or None,
+        bearer_token=resolve_secret(
+            _cfg.app.bearer_tokens.x_bearer_token,
+            _cfg.app.settings_key_names.x_bearer_token,
+        ) or None,
         raw_queries=cfg.get("x_search_queries", "") or _profile_x_queries(profile or {}, cfg.get("job_market_focus", "global")),
         raw_watchlist=cfg.get("x_watchlist", ""),
         kind_filter=kind_filter,

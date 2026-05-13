@@ -34,21 +34,24 @@ def check_settings():
     log("CONFIG", f"LLM Provider = {B}{provider}{X}", C)
 
     if provider == "nvidia":
-        k = get_setting("nvidia_api_key")
+        from config.secrets import resolve_secret
+        k = resolve_secret("NVIDIA_API_KEY", "nvidia_api_key") or ""
         if not k:
             log("CONFIG", "nvidia_api_key is EMPTY — aborting", R)
             sys.exit(1)
         log("CONFIG", f"nvidia_api_key = {k[:12]}•••  ({len(k)} chars)", G)
 
     elif provider == "groq":
-        k = get_setting("groq_api_key")
+        from config.secrets import resolve_secret
+        k = resolve_secret("GROQ_API_KEY", "groq_api_key") or ""
         if not k:
             log("CONFIG", "groq_api_key is EMPTY — aborting", R)
             sys.exit(1)
         log("CONFIG", f"groq_api_key = {k[:8]}•••  ({len(k)} chars)", G)
 
     elif provider == "anthropic":
-        k = get_setting("anthropic_key")
+        from config.secrets import resolve_secret
+        k = resolve_secret("ANTHROPIC_API_KEY", "anthropic_key") or ""
         if not k:
             log("CONFIG", "anthropic_key is EMPTY — aborting", R)
             sys.exit(1)
