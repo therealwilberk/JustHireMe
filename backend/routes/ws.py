@@ -1,3 +1,5 @@
+"""WebSocket endpoint for real-time event streaming and heartbeat."""
+
 import asyncio
 import json
 import time
@@ -25,6 +27,11 @@ async def _require_ws_token(ws: WebSocket) -> bool:
 
 @router.websocket("/ws")
 async def ws_endpoint(ws: WebSocket):
+    """WebSocket /ws — Real-time event stream with heartbeat.
+
+    Authenticates via token (query param or Bearer header), then streams
+    heartbeat pings and relays broadcast events until disconnect.
+    """
     if not await _require_ws_token(ws):
         return
     await ws.accept()
