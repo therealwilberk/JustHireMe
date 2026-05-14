@@ -4,7 +4,7 @@ import re
 from core.ws_manager import cm
 
 
-DEFAULT_JOB_TARGETS = [
+DEFAULT_JOB_TARGETS = (
     "hn-hiring",
     "https://remoteok.com/api",
     "https://remotive.com/api/remote-jobs",
@@ -24,9 +24,9 @@ DEFAULT_JOB_TARGETS = [
     "site:naukri.com",
     "site:instahyre.com",
     "site:cutshort.io/jobs",
-]
+)
 
-INDIA_JOB_TARGETS = [
+INDIA_JOB_TARGETS = (
     "site:wellfound.com/jobs India",
     "site:cutshort.io/jobs India startup",
     "site:instahyre.com jobs India",
@@ -40,7 +40,7 @@ INDIA_JOB_TARGETS = [
     "site:jobs.lever.co India",
     "site:jobs.ashbyhq.com India",
     "site:apply.workable.com India",
-]
+)
 
 _BLOCKED_JOB_TARGET_MARKERS = (
     "freelance", "upwork", "freelancer.com", "fiverr", "contra.com",
