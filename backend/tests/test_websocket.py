@@ -94,7 +94,7 @@ class TestCMAddRemoveBroadcast(unittest.IsolatedAsyncioTestCase):
         # Import _CM after fakes installed (shouldn't need fakes, but
         # importing from main.py may pull in heavy deps). We test _CM
         # in isolation by reading the source class directly.
-        from main import _CM
+        from core.ws_manager import _CM
         self.cm = _CM()
 
     async def test_add_and_broadcast_delivers_to_all(self):
@@ -174,7 +174,7 @@ class TestCMConcurrency(unittest.IsolatedAsyncioTestCase):
     """Concurrent operations — overlapping add/remove/broadcast."""
 
     async def asyncSetUp(self):
-        from main import _CM
+        from core.ws_manager import _CM
         self.cm = _CM()
 
     async def test_concurrent_add_does_not_duplicate(self):
@@ -263,7 +263,7 @@ class TestCMControlledConcurrency(unittest.IsolatedAsyncioTestCase):
     """
 
     async def asyncSetUp(self):
-        from main import _CM
+        from core.ws_manager import _CM
         self.cm = _CM()
 
     async def test_concurrent_add_during_blocked_broadcast(self):
