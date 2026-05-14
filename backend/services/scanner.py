@@ -199,27 +199,4 @@ async def _run_scan():
     await cm.broadcast({"type": "agent", "event": "eval_done", "msg": "Evaluation cycle complete"})
 
 
-def _sensitive(d: dict) -> set:
-    """Keys that should be masked on reads and preserved on writes."""
-    fixed = {"anthropic_key", "linkedin_cookie", "x_bearer_token", "custom_connector_headers"}
-    dynamic = {k for k in d if k.endswith("_api_key") or k.endswith("_key") or k.endswith("_token")}
-    return fixed | dynamic
 
-
-def _log_sensitive_deprecation(payload: dict) -> None:
-    sensitive_key_map = {
-        "apify_token": settings.scraping.apify_key_names.token,
-        "apify_actor": settings.scraping.apify_key_names.actor,
-        "hunter_api_key": settings.contact.api_key_names.hunter,
-        "proxycurl_api_key": settings.contact.api_key_names.proxycurl,
-        "x_bearer_token": settings.app.bearer_tokens.x_bearer_token,
-        "linkedin_cookie": "LINKEDIN_COOKIE",
-        "custom_connector_headers": "CUSTOM_CONNECTOR_HEADERS",
-    }
-    for settings_key, env_var in sensitive_key_map.items():
-        if settings_key in payload and payload[settings_key]:
-            _log.warning(
-                "Secret '%s' written to SQLite \u2014 deprecated. "
-                "Set %s environment variable instead.",
-                settings_key, env_var,
-            )

@@ -305,7 +305,7 @@ class TestSettingsEndpoints(unittest.TestCase):
             assert isinstance(result["latency_ms"], (int, float))
 
     def test_settings_save_sensitive_key_logs_deprecation(self):
-        with mock.patch("services.scanner._log") as mock_log:
+        with mock.patch("services.provider_probe._log") as mock_log:
             resp = post("/api/v1/settings", json={"hunter_api_key": "test-key-123"})
             assert_ok_response(resp)
             found = any(
@@ -315,7 +315,7 @@ class TestSettingsEndpoints(unittest.TestCase):
             self.assertTrue(found, "Expected deprecation warning about SQLite write")
 
     def test_settings_save_non_sensitive_key_no_deprecation(self):
-        with mock.patch("services.scanner._log") as mock_log:
+        with mock.patch("services.provider_probe._log") as mock_log:
             resp = post("/api/v1/settings", json={"ghost_mode": "true"})
             assert_ok_response(resp)
             for call in mock_log.warning.call_args_list:
