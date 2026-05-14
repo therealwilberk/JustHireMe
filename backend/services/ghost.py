@@ -4,17 +4,17 @@ from core.ws_manager import cm
 from core.config_constants import _log
 from config import settings
 from services.job_targets import _job_targets, _profile_for_discovery, _has_x_token, _free_sources_enabled
-from services.scanner import scan_manager, _job_eval_document
+from services.scanner import ScanManager, scan_manager, _job_eval_document
 from services.scout import _run_x_signal_scan, _run_free_source_scan
 from log_context import new_context, set_context, reset_context
 from config.secrets import resolve_secret
 
 
 class GhostService:
-    def __init__(self, scan_manager):
+    def __init__(self, scan_manager: ScanManager) -> None:
         self._scan_manager = scan_manager
 
-    async def run(self):
+    async def run(self) -> None:
         ctx = new_context(workflow_type="ghost_scan", subsystem="scheduler")
         token = set_context(ctx)
         try:
@@ -33,7 +33,7 @@ class GhostService:
         finally:
             reset_context(token)
 
-    async def _phase_preflight(self):
+    async def _phase_preflight(self) -> tuple[dict, dict, list[str]] | None:
         from db.client import get_setting, get_settings, get_profile  # lazy: lancedb import takes ~7s
 
         cfg = get_settings()
@@ -50,15 +50,15 @@ class GhostService:
 
         return (cfg, profile, boards)
 
-    async def _phase_x_scan(self, cfg, profile):
+    async def _phase_x_scan(self, cfg: dict, profile: dict) -> None:
         if _has_x_token(cfg):
             await _run_x_signal_scan(cfg, "job", profile)
 
-    async def _phase_free_scan(self, cfg, profile):
+    async def _phase_free_scan(self, cfg: dict, profile: dict) -> None:
         if _free_sources_enabled(cfg):
             await _run_free_source_scan(cfg, "job", profile)
 
-    async def _phase_scout(self, cfg, profile, boards):
+    async def _phase_scout(self, cfg: dict, profile: dict, boards: list[str]) -> None:
         from agents.query_gen import generate as _gen_queries  # lazy: agents module (per-request dep)
         from agents.scout import run as _scout  # lazy: agents module (per-request dep)
 
@@ -82,7 +82,7 @@ class GhostService:
         except Exception as exc:
             await cm.broadcast({"type": "agent", "event": "ghost_error", "msg": f"Scout failed: {exc}"})
 
-    async def _phase_eval(self, cfg, profile):
+    async def _phase_eval(self, cfg: dict, profile: dict) -> list[dict]:
         from db.client import get_discovered_leads, update_lead_score, get_profile  # lazy: lancedb import takes ~7s
         from agents.evaluator import score as _score  # lazy: agents module (per-request dep)
 
@@ -118,7 +118,7 @@ class GhostService:
 
         return approved
 
-    async def _phase_gen(self, approved):
+    async def _phase_gen(self, approved: list[dict]) -> list[dict]:
         from agents.generator import run_package as _gen  # lazy: agents module (per-request dep)
         from db.client import save_asset_package  # lazy: lancedb import takes ~7s
 
@@ -151,7 +151,7 @@ class GhostService:
                                     "msg": f"Generation failed for {lead.get('title','?')}: {exc}"})
         return generated
 
-    async def _phase_apply(self, generated):
+    async def _phase_apply(self, generated: list[dict]) -> None:
         from db.client import get_setting  # lazy: lancedb import takes ~7s
         if get_setting("auto_apply", "false") != "true":
             await cm.broadcast({"type": "agent", "event": "ghost_done",
@@ -187,7 +187,7 @@ class GhostService:
         await cm.broadcast({"type": "agent", "event": "ghost_done", "msg": "Ghost cycle complete."})
 
 
-async def _ghost_tick():
+async def _ghost_tick() -> None:
     """Run one ghost cycle. Skips if another scan/reevaluate is active."""
     try:
         await asyncio.wait_for(scan_manager._ghost_lock.acquire(), timeout=0)

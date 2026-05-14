@@ -1,5 +1,6 @@
 import os
 import re
+from typing import Any
 
 from core.ws_manager import cm
 from config import settings
@@ -74,7 +75,7 @@ def _dedupe_targets(targets: list[str]) -> list[str]:
     return out
 
 
-def _job_market_focus(value) -> str:
+def _job_market_focus(value: str) -> str:
     focus = str(value or "global").strip().lower()
     return "india" if focus in {"india", "in", "indian", "indian_startups"} else "global"
 
@@ -192,7 +193,7 @@ def _int_cfg(cfg: dict, key: str, default: int, min_value: int, max_value: int) 
     return max(min_value, min(value, max_value))
 
 
-def _truthy(value) -> bool:
+def _truthy(value: Any) -> bool:
     return str(value or "").strip().lower() in {"1", "true", "yes", "on"}
 
 
@@ -200,7 +201,7 @@ def _free_sources_enabled(cfg: dict) -> bool:
     return _truthy(cfg.get("free_sources_enabled", "false"))
 
 
-async def _broadcast_x_source_errors(errors: list[str]):
+async def _broadcast_x_source_errors(errors: list[str]) -> None:
     if not errors:
         return
     for msg in errors[:3]:

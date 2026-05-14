@@ -1,5 +1,7 @@
 import asyncio
 import json
+
+from fastapi import WebSocket
 from logger import get_logger
 
 _log = get_logger(__name__)
@@ -12,19 +14,19 @@ def _agent_event_action(msg: dict) -> str:
 
 
 class _CM:
-    def __init__(self):
+    def __init__(self) -> None:
         self._ws: list[WebSocket] = []  # noqa: F821
         self._lock = asyncio.Lock()
 
-    async def add(self, ws):
+    async def add(self, ws: WebSocket) -> None:
         async with self._lock:
             self._ws.append(ws)
 
-    async def remove(self, ws):
+    async def remove(self, ws: WebSocket) -> None:
         async with self._lock:
             self._ws = [w for w in self._ws if w is not ws]
 
-    async def broadcast(self, msg: dict):
+    async def broadcast(self, msg: dict) -> None:
         if msg.get("type") == "agent":
             try:
                 from db.client import record_event

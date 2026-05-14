@@ -13,7 +13,7 @@ from config.secrets import resolve_secret
 
 
 class ScanManager:
-    def __init__(self):
+    def __init__(self) -> None:
         self._scan_task: asyncio.Task | None = None
         self._scan_stop: asyncio.Event = asyncio.Event()
         self._reevaluate_task: asyncio.Task | None = None
@@ -62,7 +62,7 @@ class ScanManager:
     def is_reevaluating(self) -> bool:
         return bool(self._reevaluate_task and not self._reevaluate_task.done())
 
-    async def _run_scan_task(self):
+    async def _run_scan_task(self) -> None:
         try:
             await asyncio.wait_for(self._ghost_lock.acquire(), timeout=0)
         except asyncio.TimeoutError:
@@ -77,7 +77,7 @@ class ScanManager:
             self._scan_task = None
             self._ghost_lock.release()
 
-    async def _run_reevaluate_jobs_task(self):
+    async def _run_reevaluate_jobs_task(self) -> None:
         try:
             await asyncio.wait_for(self._ghost_lock.acquire(), timeout=0)
         except asyncio.TimeoutError:
@@ -112,7 +112,7 @@ def _job_eval_document(lead: dict) -> str:
     )
 
 
-async def _run_reevaluate_jobs():
+async def _run_reevaluate_jobs() -> None:
     from db.client import get_settings, get_job_leads_for_evaluation, get_lead_by_id, update_lead_score, get_profile  # lazy: lancedb import takes ~7s
     from agents.evaluator import score as _score  # lazy: agents module (per-request dep)
 
@@ -169,7 +169,7 @@ async def _run_reevaluate_jobs():
     await cm.broadcast({"type": "agent", "event": "reeval_done", "msg": summary})
 
 
-async def _run_scan():
+async def _run_scan() -> None:
     from db.client import get_settings, get_discovered_leads, update_lead_score, get_profile  # lazy: lancedb import takes ~7s
     from agents.scout import run as _scout  # lazy: agents module (per-request dep)
     from agents.evaluator import score as _score  # lazy: agents module (per-request dep)

@@ -58,7 +58,7 @@ async def _probe_provider_key(provider: str, key: str) -> dict:
     return {"status": status, "latency_ms": round((time.perf_counter() - started) * 1000)}
 
 
-def _sensitive(d: dict) -> set:
+def _sensitive(d: dict) -> set[str]:
     """Keys that should be masked on reads and preserved on writes."""
     fixed = {"anthropic_key", "linkedin_cookie", "x_bearer_token", "custom_connector_headers"}
     dynamic = {k for k in d if k.endswith("_api_key") or k.endswith("_key") or k.endswith("_token")}

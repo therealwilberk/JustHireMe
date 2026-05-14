@@ -25,7 +25,7 @@ def _fire_blocker(lead: dict, asset: str) -> tuple[int, str]:
     return 0, ""
 
 
-async def _generate_one(jid: str):
+async def _generate_one(jid: str) -> dict:
     from agents.generator import run_package as _gen  # lazy: agents module (per-request dep)
     from agents.contact_lookup import run as _contact_lookup  # lazy: agents module (per-request dep)
     from db.client import get_lead_by_id, save_asset_package, save_contact_lookup, get_setting  # lazy: lancedb import takes ~7s
@@ -90,7 +90,7 @@ async def _generate_one(jid: str):
         raise HTTPException(status_code=500, detail=f"Generation failed: {exc}") from exc
 
 
-async def _actuate(jid: str):
+async def _actuate(jid: str) -> None:
     from agents.actuator import run as _act  # lazy: agents module (per-request dep)
     from db.client import get_lead_for_fire, mark_applied  # lazy: lancedb import takes ~7s
     try:
