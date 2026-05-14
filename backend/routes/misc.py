@@ -1,3 +1,5 @@
+"""Health check, events, graph stats, resume template, and help chat."""
+
 import asyncio
 import os
 import time
@@ -77,24 +79,51 @@ async def health():
 
 @router.get("/api/v1/events", response_model=list[dict[str, Any]])
 async def get_events_endpoint(limit: int = 100, job_id: str | None = None):
+    """GET /api/v1/events — Retrieve recent application events.
+
+    Args:
+        limit: Maximum number of events to return.
+        job_id: Optional job ID to filter events.
+
+    Returns:
+        List of event dicts.
+    """
     from db.client import get_events  # lazy: lancedb import takes ~7s
     return get_events(limit=limit, job_id=job_id)
 
 
 @router.get("/api/v1/graph", response_model=dict[str, Any])
 async def graph_stats():
+    """GET /api/v1/graph — Retrieve aggregate graph/dashboard counts.
+
+    Returns:
+        Dict of count statistics from the database.
+    """
     from db.client import graph_counts  # lazy: lancedb import takes ~7s
     return graph_counts()
 
 
 @router.get("/api/v1/template", response_model=TemplateResponse)
 async def get_template():
+    """GET /api/v1/template — Retrieve the saved resume template.
+
+    Returns:
+        TemplateResponse with template string.
+    """
     from db.client import get_setting  # lazy: lancedb import takes ~7s
     return {"template": get_setting("resume_template", "")}
 
 
 @router.post("/api/v1/template", response_model=OkResponse)
 async def save_template(body: TemplateBody):
+    """POST /api/v1/template — Save the resume template.
+
+    Args:
+        body: Request body with template content.
+
+    Returns:
+        OkResponse with ok: true.
+    """
     from db.client import save_settings  # lazy: lancedb import takes ~7s
     save_settings({"resume_template": body.template})
     return {"ok": True}
@@ -102,6 +131,14 @@ async def save_template(body: TemplateBody):
 
 @router.post("/api/v1/help/chat", response_model=dict[str, Any])
 async def help_chat(body: HelpChatBody):
+    """POST /api/v1/help/chat — Ask a question to the help agent.
+
+    Args:
+        body: Request body with question and chat history.
+
+    Returns:
+        Help agent response dict.
+    """
     from agents.help_agent import answer  # lazy: agents module (per-request dep)
 
     history = [item.model_dump() for item in body.history]
