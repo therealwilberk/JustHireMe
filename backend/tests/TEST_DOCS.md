@@ -6,7 +6,7 @@ This directory contains the deterministic test suite for the JustHireMe backend.
 All tests in this directory are designed to run in CI, produce consistent results,
 and avoid external service dependencies.
 
-**Test count:** 182  
+**Test count:** 203  
 **Framework:** pytest (via `unittest.TestCase`)  
 **Runner:** `uv run python -m pytest tests/`
 
@@ -59,8 +59,8 @@ and avoid external service dependencies.
 
 | Status | Strong |
 |--------|--------|
-| **What it tests** | Orchestration failure modes: persist crash, evaluate exception, generate exception, threshold boundaries, state consistency, malformed input, silent API failure |
-| **Key behaviours** | Linear 3-node fault-tolerant pipeline, error+error_stage structured failure metadata, error is append-only (never cleared by downstream nodes), persist catches DB exceptions instead of crashing, threshold defaults to 60, missing job_id handled defensively |
+| **What it tests** | Orchestration failure modes: persist crash, evaluate exception, generate exception, threshold boundaries, state consistency, malformed input, silent API failure, node timeout |
+| **Key behaviours** | Linear 3-node fault-tolerant pipeline, error+error_stage structured failure metadata, error is append-only (never cleared by downstream nodes), persist catches DB exceptions instead of crashing, threshold defaults to 60, missing job_id handled defensively, deterministic node-level timeout (default 600s) |
 | **Dependencies** | Mocks evaluator, generator, and DB calls |
 | **Note** | Orchestration hardening — fault-tolerant semantics with structured error metadata. Previously started as characterization tests; behavior was then corrected (persist crash → structured error, error now append-only, missing job_id handled defensively). Do not revert these semantics. |
 
@@ -133,6 +133,7 @@ The graph pipeline (`graph/__init__.py`) follows **fault-tolerant workflow seman
 | Node failure behavior | Each node catches its own `Exception`, sets `error` + `error_stage`, and returns normally. Graph never crashes on node failure. |
 | Error field | Append-only. Once set by a node, downstream nodes NEVER clear it. Only a later node's own error overwrites it. |
 | `error_stage` | Identifies which node set the error: `"evaluate"`, `"generate"`, or `"persist"`. `None` means no error occurred. |
+| Timeout behavior | Each node wraps its main callable in `_with_timeout` (daemon thread + `threading.Event`). Default: 600s. Override via `cfg.evaluate_timeout` / `cfg.generate_timeout`. A timed-out node raises `TimeoutError` → caught by `except Exception` → structured failure. Deterministic: same timeout always produces same error structure. |
 | `persist_node` | Has try/except. DB write failures return structured error instead of crashing the graph. |
 | State access | All nodes use defensive `.get()` with defaults. No bare subscript access (`state["key"]`). |
 | `generate_node` skip path | Returns only `asset_path`/`cover_letter_path`. Does NOT touch `error` or `error_stage` — preserving upstream failure info. |
