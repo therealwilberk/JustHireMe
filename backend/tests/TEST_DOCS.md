@@ -6,7 +6,7 @@ This directory contains the deterministic test suite for the JustHireMe backend.
 All tests in this directory are designed to run in CI, produce consistent results,
 and avoid external service dependencies.
 
-**Test count:** 324  
+**Test count:** 328  
 **Framework:** pytest (via `unittest.TestCase` and `IsolatedAsyncioTestCase`)  
 **Runner:** `uv run python -m pytest tests/`
 
@@ -125,12 +125,12 @@ and avoid external service dependencies.
 | **Key behaviours** | `_phase_preflight` returns None when ghost mode disabled, `_phase_preflight` returns `(cfg, profile, boards)` when active, `run()` orchestrates phases in sequence |
 | **Dependencies** | Mocks `get_setting`, `get_settings`, `_profile_for_discovery`, `_job_targets`. Uses `IsolatedAsyncioTestCase`. |
 
-### `test_response_contracts.py` — Response Model Completeness
+### `test_response_contracts.py` — Response Model Completeness + CRUD Contracts
 
 | Status | Strong |
 |--------|--------|
-| **What it tests** | Every route's `response_model=` is a superset of the actual response payload — catches silent field dropping from Pydantic serialization |
-| **Key behaviours** | Health response fields exist in `HealthResponse`, identity fields exist in `IdentityResponse`, fire/scan/status responses match their models |
+| **What it tests** | Every route's `response_model=` is a superset of the actual response payload — catches silent field dropping from Pydantic serialization. Also validates job target CRUD API: GET returns model-conformant shape, PUT round-trips correctly, PUT rejects invalid entries, DELETE clears and returns empty |
+| **Key behaviours** | Health response fields exist in `HealthResponse`, identity fields exist in `IdentityResponse`, fire/scan/status responses match their models, job targets CRUD endpoint responses match `JobTargetsResponse` schema |
 | **Dependencies** | Uses `TestClient` with `_install_storage_fakes()` |
 | **Philosophy** | `response_model=` is an active serialization boundary — it strips fields not in the model. Most teams never test this explicitly. Re-serialization approach: call route, parse JSON, verify every returned key has a corresponding model field. |
 
@@ -321,7 +321,7 @@ This is intentionally NOT strict transactional (no rollback, no abort on partial
 
 ## Phase C Coverage (Reliability, Observability & Concurrency)
 
-Phase C adds 120 backend + 20 frontend tests. Current coverage:
+Phase C adds 124 backend + 20 frontend tests. Current coverage:
 
 | Area | Tests | File |
 |------|-------|------|
@@ -336,6 +336,7 @@ Phase C adds 120 backend + 20 frontend tests. Current coverage:
 | ScanManager state machine | 7 | `test_scan_manager.py` |
 | GhostService phase contracts | 2 | `test_ghost_service.py` |
 | Response model completeness | 5 | `test_response_contracts.py` |
+| Job target CRUD API contracts | 4 | `test_response_contracts.py` |
 | Job target settings override + validation + splitting | 22 | `test_regressions.py` |
 
 ---

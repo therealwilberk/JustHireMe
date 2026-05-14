@@ -83,6 +83,28 @@ def validate_job_targets(entries: list[str]) -> list[str]:
     return errors
 
 
+def validate_blocked_markers(entries: list[str]) -> list[str]:
+    """Returns list of error messages (empty = valid).
+    Blocked markers are simple keywords — no URL validation needed."""
+    errors: list[str] = []
+    if not isinstance(entries, list):
+        return ["must be a list of strings"]
+    if len(entries) > 100:
+        errors.append("exceeds maximum of 100 entries")
+    seen: set[str] = set()
+    for i, entry in enumerate(entries):
+        cleaned = entry.strip()
+        if not isinstance(entry, str) or not cleaned:
+            errors.append(f"[{i}]: entry must be a non-empty string")
+        elif len(cleaned) > 200:
+            errors.append(f"[{i}]: entry exceeds 200 character limit")
+        elif cleaned.lower() in seen:
+            errors.append(f"[{i}]: duplicate entry '{cleaned}'")
+        else:
+            seen.add(cleaned.lower())
+    return errors
+
+
 def _split_configured_targets(raw: str) -> list[str]:
     targets: list[str] = []
     for line in str(raw or "").splitlines():

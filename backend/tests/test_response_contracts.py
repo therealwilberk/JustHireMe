@@ -71,3 +71,43 @@ def test_template_save_response_fields_in_model():
     known = {"ok"}
     for key in body:
         assert key in known, f"OkResponse missing field: {key}"
+
+
+def test_job_targets_get_empty_response():
+    resp = CLIENT.get("/api/v1/settings/job-targets", headers=AUTH)
+    assert resp.status_code == 200
+    body = resp.json()
+    known = {"targets", "blocked"}
+    for key in body:
+        assert key in known, f"JobTargetsResponse missing field: {key}"
+    assert body["targets"] == []
+    assert body["blocked"] == []
+
+
+def test_job_targets_put_and_get_round_trip():
+    payload = {"targets": ["https://remoteok.com/api", "site:linkedin.com/jobs"], "blocked": ["freelance"]}
+    resp = CLIENT.put("/api/v1/settings/job-targets", headers=AUTH, json=payload)
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["targets"] == payload["targets"]
+    assert body["blocked"] == payload["blocked"]
+
+    resp = CLIENT.get("/api/v1/settings/job-targets", headers=AUTH)
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["targets"] == payload["targets"]
+    assert body["blocked"] == payload["blocked"]
+
+
+def test_job_targets_put_rejects_invalid():
+    resp = CLIENT.put("/api/v1/settings/job-targets", headers=AUTH, json={"targets": ["site:opp"]})
+    assert resp.status_code == 422
+
+
+def test_job_targets_delete_clears():
+    CLIENT.put("/api/v1/settings/job-targets", headers=AUTH, json={"targets": ["https://remoteok.com/api"]})
+    resp = CLIENT.delete("/api/v1/settings/job-targets", headers=AUTH)
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["targets"] == []
+    assert body["blocked"] == []

@@ -6,7 +6,7 @@ from config import settings as cfg_settings
 from core.config_constants import _sched
 from schemas.requests import SettingsBody, JobTargetsUpdateBody
 from schemas.responses import OkResponse, JobTargetsResponse
-from services.job_targets import get_job_targets, get_blocked_markers, save_job_targets, validate_job_targets
+from services.job_targets import get_job_targets, get_blocked_markers, save_job_targets, validate_job_targets, validate_blocked_markers
 from services.ghost import _ghost_tick
 from config.secrets import resolve_secret
 from services.provider_probe import _sensitive, _probe_provider_key, _log_sensitive_deprecation
@@ -89,7 +89,7 @@ async def update_job_targets(body: JobTargetsUpdateBody):
         if errs:
             raise HTTPException(status_code=422, detail="; ".join(errs))
     if blocked is not None:
-        errs = validate_job_targets(blocked)
+        errs = validate_blocked_markers(blocked)
         if errs:
             raise HTTPException(status_code=422, detail="; ".join(errs))
 
