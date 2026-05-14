@@ -35,6 +35,7 @@ class ScanManager:
         if not self._scan_task or self._scan_task.done():
             return {"status": "idle"}
         self._scan_stop.set()
+        self._scan_task.cancel()
         await cm.broadcast({"type": "agent", "event": "eval_done", "msg": "Scan stopped by user."})
         return {"status": "stopping"}
 
@@ -53,6 +54,7 @@ class ScanManager:
         if not self._reevaluate_task or self._reevaluate_task.done():
             return {"status": "idle"}
         self._reevaluate_stop.set()
+        self._reevaluate_task.cancel()
         await cm.broadcast({"type": "agent", "event": "reeval_done", "msg": "Re-evaluation stopped by user."})
         return {"status": "stopping"}
 
@@ -70,6 +72,8 @@ class ScanManager:
             return
         try:
             await _run_scan()
+        except asyncio.CancelledError:
+            _log.info("scan cancelled by user")
         except Exception as exc:
             _log.error("scan failed: %s", exc)
             await cm.broadcast({"type": "agent", "event": "eval_done", "msg": f"Scan failed: {exc}"})
@@ -85,6 +89,8 @@ class ScanManager:
             return
         try:
             await _run_reevaluate_jobs()
+        except asyncio.CancelledError:
+            _log.info("reevaluate cancelled by user")
         except Exception as exc:
             _log.error("reevaluate failed: %s", exc)
             await cm.broadcast({"type": "agent", "event": "reeval_done", "msg": f"Re-evaluation failed: {exc}"})
