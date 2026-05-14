@@ -1,5 +1,28 @@
+import secrets
 import socket
 import sys
+
+from core.config_constants import _API_TOKEN
+
+
+def _free_port() -> int:
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        s.bind(("127.0.0.1", 0))
+        return s.getsockname()[1]
+
+
+if __name__ == "__main__":
+    port = _free_port()
+    sys.stdout.write(f"JHM_TOKEN={_API_TOKEN}\n")
+    sys.stdout.write(f"PORT:{port}\n")
+    sys.stdout.flush()
+
+
+# ── Full application imports below this line ──────────────────────
+# These are slow (db.client ~7s, llm, agents). The sidecar output
+# above is written immediately so Tauri sees JHM_TOKEN/PORT within
+# ~2s even when total import time is 15s+.
+
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request, status
@@ -9,18 +32,12 @@ from fastapi.responses import JSONResponse
 from logger import get_logger
 from config import settings
 from log_context import new_context, set_context, reset_context
-from core.config_constants import _log, _sched, _API_TOKEN, _LOCAL_ORIGIN_RE, _bearer
+from core.config_constants import _log, _sched, _LOCAL_ORIGIN_RE, _bearer
 from routes import (
     misc, settings as settings_router, leads, profile, scan,
     ingest, actions, ws,
 )
 from services.ghost import _ghost_tick
-
-
-def _free_port() -> int:
-    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-        s.bind(("127.0.0.1", 0))
-        return s.getsockname()[1]
 
 
 def _validate_config_on_startup():
@@ -123,15 +140,6 @@ app.include_router(ws.router)
 from core.ws_manager import _agent_event_action
 from services.job_targets import _job_targets, _profile_for_discovery
 from services.scanner import _should_preserve_job_status, _job_eval_document
-from services.generator import _fire_blocker
+from services.generator import _fire_blocker, _generate_one
 from services.provider_probe import _sensitive
 from schemas.requests import FeedbackBody, SettingsBody, ExperienceBody, ProjectBody, ProfileImportBody
-from services.generator import _generate_one
-
-if __name__ == "__main__":
-    import uvicorn
-    port = _free_port()
-    sys.stdout.write(f"JHM_TOKEN={_API_TOKEN}\n")
-    sys.stdout.write(f"PORT:{port}\n")
-    sys.stdout.flush()
-    uvicorn.run(app, host="127.0.0.1", port=port, log_level="warning")
