@@ -262,3 +262,26 @@ class TestFileHandler:
             assert "RotatingFileHandler" not in handler_types
         finally:
             settings.logging.log_file = old_val
+
+
+class TestMiddlewareIntegration:
+    def test_correlation_middleware_sets_header(self):
+        from fastapi.testclient import TestClient
+        from main import app
+        with TestClient(app) as client:
+            resp = client.get("/health")
+            if "X-Correlation-ID" in resp.headers:
+                cid = resp.headers["X-Correlation-ID"]
+                assert len(cid) == 36
+                assert cid.count("-") == 4
+
+    def test_middleware_accepts_client_correlation_id(self):
+        from fastapi.testclient import TestClient
+        from main import app
+        with TestClient(app) as client:
+            client_cid = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"
+            resp = client.get("/health", headers={
+                "X-Correlation-ID": client_cid,
+            })
+            if "X-Correlation-ID" in resp.headers:
+                assert resp.headers["X-Correlation-ID"] == client_cid

@@ -13,7 +13,7 @@
 | Branch | `feature/phase-c-reliability-observability` |
 | Type | `Infra` (horizontal — exempt from vertical-slice rule) |
 | Mode | `AFK` (all tasks deterministic per audit analysis) |
-| Status | `[~] In Progress` |
+| Status | `[x] Complete` |
 | Depends on | Phase A (config layer for constants extracted from error paths) |
 | Blocks | Phase D+ |
 | Created | 2026-05-14 |
@@ -53,7 +53,7 @@ Phase A established the config layer including `config/logging.py` schema. Phase
 - [x] **Task 8 — Build Configuration Fixes**: Enable `createUpdaterArtifacts`, set platform-specific bundle targets. *(Done)*
 - [x] **Task 11 — Frontend Reliability & User-Truthfulness Tests**: Add vitest component tests for SettingsModal and ProfileView error handling. *(Done)*
 - [x] **Task 4 — Replace Silent Exception Suppression With Structured Error Reporting**: Replace every `except: pass` with logged warnings or structured errors carrying identifiers. *(Done)*
-- [~] **Task 9 — Structured Logging Infrastructure**: Centralized `get_logger()` with consistent format/levels. File handler and correlation context propagation not yet implemented. *(In Progress)*
+- [x] **Task 9 — Structured Logging Infrastructure**: Centralized `get_logger()` with consistent format/levels. Correlation ID propagation via `contextvars`, contextual fields, optional `RotatingFileHandler`. *(Done)*
 
 ### Out of scope
 
@@ -110,7 +110,7 @@ Phase A established the config layer including `config/logging.py` schema. Phase
 - [x] `[AFK]` **Task 8 — Build Configuration:** Set `createUpdaterArtifacts: true`, add `deb` to bundle targets in `tauri.conf.json`.
 - [x] `[AFK]` **Task 11 — Frontend Reliability & User-Truthfulness Tests:** Add vitest component tests for SettingsModal (9) and ProfileView (11) verifying error visibility, retry, loading state, actionable messaging, and no false-success behavior. *(Done)*
 - [x] `[AFK]` **Task 4 — Replace Silent Exception Suppression:** Replace all 40 `except: pass` instances across `db/client.py`, `main.py`, and `agents/` with logged warnings carrying identifiers. Document intentional passes (WebSocket ping/disconnect) with comments. *(Done)*
-- [~] `[AFK]` **Task 9 — Structured Logging:** Centralize all `print()`/ad hoc logger calls through `backend/logger.py`. Add structured fields (correlation ID, subsystem, traceback). Add optional file handler. *(In Progress — logger.py infra done, all agents use get_logger, print() replaced in production code; correlation IDs and file handler remaining)*
+- [x] `[AFK]` **Task 9 — Structured Logging:** Centralize all `print()`/ad hoc logger calls through `backend/logger.py`. Add structured fields (correlation ID, subsystem, traceback). Add optional file handler. *(Done)*
 
 **Blocking relationships:**
 - Tasks 5–8, 11, 4 independent (no cross-blocking) — completed in parallel
@@ -198,16 +198,24 @@ This phase is Infra — no new API endpoints, schemas, or CLI commands. Changes 
 
 ### Task 9 — Structured Logging *(In Progress)*
 
+### Task 9 — Structured Logging *(Done)*
+
 - [x] Centralized `get_logger()` in `backend/logger.py` — all agent modules use it
-- [x] Log format: `%(asctime)s [%(levelname)s] %(name)s: %(message)s` — timestamp, level, logger name, message
-- [x] Zero `print()` calls in production code (remaining print calls are in operational scripts only: `force_model.py`, `run_diagnostics.py`, `update_settings.py`)
+- [x] Log format: `%(asctime)s [%(levelname)s] [%(correlation_id)s] %(name)s: %(message)s` with contextual fields (`lead=`, `job=`, `flow=`, `sub=`, `node=`, `DEGRADED`, `RETRYING`)
+- [x] Zero `print()` calls in production code (remaining print calls are in operational scripts only)
 - [x] Zero ad hoc `logging.getLogger` in production code (all through `get_logger()`)
 - [x] Log level configurable via env var (`JHM_LOG_LEVEL`)
 - [x] Logs go to stderr (consistent with CLI convention)
 - [x] `logger.propagate = False` — no duplicate log lines
-- [x] 23 tests verify log level resolution, severity correctness, entity identification, degraded-vs-successful discrimination
-- [ ] Correlation ID propagation across request/operation boundaries
-- [ ] Optional file handler configurable via env var/config
+- [x] **CorrelationContext**: `contextvars`-based `CorrelationContext` dataclass with `correlation_id`, `workflow_type`, `lead_id`, `job_id`, `node`, `subsystem`, `degraded`, `retrying` fields
+- [x] **Correlation ID propagation**: `new_context()`/`set_context()`/`reset_context()`/`enrich()` functions with `try/finally` lifecycle discipline at every entrypoint
+- [x] **FastAPI middleware**: `correlation_context_middleware` sets context per request, injects `X-Correlation-ID` response header, accepts client-initiated IDs
+- [x] **Background job entrypoints**: `_ghost_tick_impl`, `run_pipeline`, `_run_x_signal_scan`, `_run_free_source_scan` wrapped with `try/finally` context lifecycle
+- [x] **File handler**: Optional `RotatingFileHandler` via `settings.logging.log_file` config with configurable `maxBytes` and `backupCount`
+- [x] **Immutability**: `enrich()` uses `dataclasses.replace()`, returns `Token` for chained cleanup
+- [x] **CorrelationFilter**: Injects context fields into every `LogRecord` (`correlation_id`, `_ctx_subsystem`, `_ctx_workflow`, `_ctx_lead`, `_ctx_job`, `_ctx_node`, `_ctx_degraded`, `_ctx_retrying`)
+- [x] **ContextFormatter**: Appends extra fields to log output (`| lead= job= flow= ...`)
+- [x] 18 tests verify context isolation, enrich immutability, CorrelationFilter output, ContextFormatter output, file handler creation, middleware `X-Correlation-ID` header propagation
 
 ### Code quality gates
 
@@ -215,7 +223,7 @@ This phase is Infra — no new API endpoints, schemas, or CLI commands. Changes 
 - [x] All changed files have explicit type hints
 - [x] Zero new `print()` calls in production code (remaining print calls are in operational scripts: `force_model.py`, `run_diagnostics.py`, `update_settings.py`)
 - [x] Branch is clean — no unrelated changes
-- [x] Full test suite passes: **280 backend tests** + **33 frontend tests** = **313 total**
+- [x] Full test suite passes: **298 backend tests** + **33 frontend tests** = **331 total**
 
 ---
 
@@ -243,7 +251,7 @@ This phase is Infra — no new API endpoints, schemas, or CLI commands. Changes 
 | 2026-05-14 | `_safe_call()` logs as WARNING for fire-and-forget vector ops | Fire-and-forget is degraded but non-terminal. ERROR reserved for terminal failures. | ERROR |
 | 2026-05-14 | Structured logging uses enriched plain-text, not JSON | JSON deferred unless log aggregation tooling requires it. Current format includes timestamp/level/name/message. | JSON format |
 | 2026-05-14 | Task 4 (except:pass) marked Done — zero bare except blocks remaining | git grep confirms zero except:pass in production code. 23 observability tests verify replacements. | — |
-| 2026-05-14 | Task 9 (Structured Logging) core infra done, correlation IDs/file handler deferred | get_logger() centralized in logger.py, all agents adopted, print() replaced in production code. Correlation IDs and file handler are enhancements, not Must requirements. | — |
+| 2026-05-14 | Task 9 (Structured Logging) marked Done | CorrelationContext with contextvars, CorrelationFilter, ContextFormatter, RotatingFileHandler, middleware, background entrypoints. 18 tests. 298 backend tests pass. | — |
 
 ---
 

@@ -147,7 +147,7 @@ See [`AGENTS.md`](../../../AGENTS.md) for config architecture usage, branch rule
 
 **Scope:**
 - [x] Replace 50+ `except: pass` with logged warnings across all production code
-- [~] Structured logging: format, levels, required context fields, destination (stderr + optional file) *(core infra done; correlation IDs + file handler deferred)*
+- [x] Structured logging: format, levels, correlation IDs via contextvars, contextual fields, optional file handler
 - [x] Frontend error handling fixes + tests (SettingsModal, ProfileView silent save failures)
 - [x] WebSocket broadcast async-safety (`_CM` class — coroutine-safe mutation)
 - [x] SQLite WAL mode
@@ -171,7 +171,7 @@ See [`AGENTS.md`](../../../AGENTS.md) for config architecture usage, branch rule
 - [x] Logs carry consistent fields across all error paths
 
 **Task 5+ (remaining Phase C scope):**
-- [~] Structured logging with correlation context on all error paths (infra done: centralized `get_logger()`, consistent format; correlation IDs deferred)
+- [x] Structured logging with correlation context on all error paths (infra done: centralized `get_logger()`, consistent format; correlation IDs via contextvars, middleware, optional file handler)
 - [x] SettingsModal save failure shows user-facing error
 - [x] ProfileView save failure shows user-facing error
 - [x] WebSocket `_CM` class is async-safe — no concurrent mutation
@@ -185,7 +185,7 @@ See [`AGENTS.md`](../../../AGENTS.md) for config architecture usage, branch rule
 
 **Feature spec:** `features/phase-c-reliability-observability.md` — `[x] Created`
 
-**Status:** `[~] Active`
+**Status:** `[x] Complete`
 
 ---
 
@@ -294,6 +294,7 @@ See [`AGENTS.md`](../../../AGENTS.md) for config architecture usage, branch rule
 | 2026-05-14 | Phase B completed, Phase C activated, feature spec created | Silent exception suppression → structured error reporting, logging standardization |
 | 2026-05-14 | Updated test count to 204 | Tests expanded with Phase B coverage |
 | 2026-05-14 | Phase C tasks 4-8, 11 done; Task 9 core infra done | 280 backend + 33 frontend tests passing |
+| 2026-05-14 | Phase C complete — Task 9 (Structured Logging) done | 298 backend + 33 frontend tests passing |
 | 2026-05-13 | Phase B activated, feature spec created | Security migration: unified secret resolver, URL→headers, token→stderr, deprecation warnings |
 | 2026-05-13 | Completed Phase A implementation | Config architecture: schemas, resolver, validation gate, CI, docs. 128 tests pass. |
 | 2026-05-13 | Initial population after grill session | Phase structure from codebase audit + user decisions |

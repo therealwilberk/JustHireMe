@@ -22,7 +22,9 @@ _context_var: contextvars.ContextVar[Optional[CorrelationContext]] = (
 
 
 def new_context(**overrides) -> CorrelationContext:
-    return CorrelationContext(correlation_id=str(uuid.uuid4()), **overrides)
+    if "correlation_id" not in overrides:
+        overrides["correlation_id"] = str(uuid.uuid4())
+    return CorrelationContext(**overrides)
 
 
 def get_context() -> Optional[CorrelationContext]:

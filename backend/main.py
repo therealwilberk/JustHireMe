@@ -22,6 +22,7 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 from logger import get_logger
 from config import settings
+from log_context import new_context, set_context, reset_context
 
 _log = get_logger(__name__)
 
@@ -417,83 +418,93 @@ async def _broadcast_x_source_errors(errors: list[str]):
 
 
 async def _run_x_signal_scan(cfg: dict, kind_filter: str, profile: dict | None = None) -> list[dict]:
-    if not _has_x_token(cfg):
-        return []
+    ctx = new_context(workflow_type="x_signal_scan", subsystem="scout")
+    token = set_context(ctx)
+    try:
+        if not _has_x_token(cfg):
+            return []
 
-    from agents import x_scout
+        from agents import x_scout
 
-    kind_filter = "job"
-    label = "job leads"
-    await cm.broadcast({"type": "agent", "event": "x_scout_start", "msg": f"Scanning X for {label}..."})
-    from config import settings as _cfg
-    from config.secrets import resolve_secret
-    leads = await asyncio.to_thread(
-        x_scout.run,
-        bearer_token=resolve_secret(
-            _cfg.app.bearer_tokens.x_bearer_token,
-            _cfg.app.settings_key_names.x_bearer_token,
-        ) or None,
-        raw_queries=cfg.get("x_search_queries", "") or _profile_x_queries(profile or {}, cfg.get("job_market_focus", "global")),
-        raw_watchlist=cfg.get("x_watchlist", ""),
-        kind_filter=kind_filter,
-        max_requests=_int_cfg(cfg, "x_max_requests_per_scan", 5, 1, 50),
-        max_results=_int_cfg(cfg, "x_max_results_per_query", 50, 10, 100),
-        min_signal_score=_int_cfg(cfg, "x_min_signal_score", 55, 0, 100),
-    )
-    await cm.broadcast({"type": "agent", "event": "x_scout_done", "msg": f"X scout - {len(leads)} {label} found"})
-    usage = getattr(x_scout, "LAST_USAGE", {}) or {}
-    if usage.get("executed_queries"):
-        await cm.broadcast({
-            "type": "agent",
-            "event": "x_usage",
-            "msg": f"X usage - {usage.get('executed_queries', 0)} requests, {usage.get('tweets_seen', 0)} posts checked, {usage.get('filtered', 0)} filtered",
-        })
-    if not leads:
-        await _broadcast_x_source_errors(getattr(x_scout, "LAST_ERRORS", []))
-    hot_threshold = _int_cfg(cfg, "x_hot_lead_threshold", 80, 1, 100)
-    notify_hot = _truthy(cfg.get("x_enable_notifications"))
-    for lead in leads:
-        await cm.broadcast({"type": "LEAD_UPDATED", "data": lead})
-        if (lead.get("signal_score") or 0) >= hot_threshold:
-            await cm.broadcast({"type": "agent", "event": "x_hot_lead", "msg": f"Hot X lead: {lead.get('title', '')[:90]}"})
-            if notify_hot:
-                await cm.broadcast({"type": "HOT_X_LEAD", "data": lead})
-    return leads
+        kind_filter = "job"
+        label = "job leads"
+        await cm.broadcast({"type": "agent", "event": "x_scout_start", "msg": f"Scanning X for {label}..."})
+        from config import settings as _cfg
+        from config.secrets import resolve_secret
+        leads = await asyncio.to_thread(
+            x_scout.run,
+            bearer_token=resolve_secret(
+                _cfg.app.bearer_tokens.x_bearer_token,
+                _cfg.app.settings_key_names.x_bearer_token,
+            ) or None,
+            raw_queries=cfg.get("x_search_queries", "") or _profile_x_queries(profile or {}, cfg.get("job_market_focus", "global")),
+            raw_watchlist=cfg.get("x_watchlist", ""),
+            kind_filter=kind_filter,
+            max_requests=_int_cfg(cfg, "x_max_requests_per_scan", 5, 1, 50),
+            max_results=_int_cfg(cfg, "x_max_results_per_query", 50, 10, 100),
+            min_signal_score=_int_cfg(cfg, "x_min_signal_score", 55, 0, 100),
+        )
+        await cm.broadcast({"type": "agent", "event": "x_scout_done", "msg": f"X scout - {len(leads)} {label} found"})
+        usage = getattr(x_scout, "LAST_USAGE", {}) or {}
+        if usage.get("executed_queries"):
+            await cm.broadcast({
+                "type": "agent",
+                "event": "x_usage",
+                "msg": f"X usage - {usage.get('executed_queries', 0)} requests, {usage.get('tweets_seen', 0)} posts checked, {usage.get('filtered', 0)} filtered",
+            })
+        if not leads:
+            await _broadcast_x_source_errors(getattr(x_scout, "LAST_ERRORS", []))
+        hot_threshold = _int_cfg(cfg, "x_hot_lead_threshold", 80, 1, 100)
+        notify_hot = _truthy(cfg.get("x_enable_notifications"))
+        for lead in leads:
+            await cm.broadcast({"type": "LEAD_UPDATED", "data": lead})
+            if (lead.get("signal_score") or 0) >= hot_threshold:
+                await cm.broadcast({"type": "agent", "event": "x_hot_lead", "msg": f"Hot X lead: {lead.get('title', '')[:90]}"})
+                if notify_hot:
+                    await cm.broadcast({"type": "HOT_X_LEAD", "data": lead})
+        return leads
+    finally:
+        reset_context(token)
 
 # ── Scan stop flag ─────────────────────────────────────────────────────────────
 # Set by /api/v1/scan/stop; cleared when a new scan is accepted.
 async def _run_free_source_scan(cfg: dict, kind_filter: str | None = None, profile: dict | None = None) -> list[dict]:
-    if not _free_sources_enabled(cfg):
-        return []
+    ctx = new_context(workflow_type="free_source_scan", subsystem="scout")
+    token = set_context(ctx)
+    try:
+        if not _free_sources_enabled(cfg):
+            return []
 
-    from agents import free_scout
+        from agents import free_scout
 
-    kind_filter = "job"
-    label = "job leads"
-    await cm.broadcast({"type": "agent", "event": "free_scout_start", "msg": f"Scanning free sources for {label}..."})
-    leads = await asyncio.to_thread(
-        free_scout.run,
-        raw_targets=cfg.get("free_source_targets", "") or _profile_free_source_targets(profile or {}),
-        raw_watchlist=cfg.get("company_watchlist", ""),
-        raw_custom_connectors=cfg.get("custom_connectors", ""),
-        raw_custom_headers=cfg.get("custom_connector_headers", ""),
-        custom_connectors_enabled=_truthy(cfg.get("custom_connectors_enabled", "false")),
-        kind_filter=kind_filter,
-        max_requests=_int_cfg(cfg, "free_source_max_requests", 20, 1, 80),
-        min_signal_score=_int_cfg(cfg, "free_source_min_signal_score", 60, 0, 100),
-    )
-    usage = getattr(free_scout, "LAST_USAGE", {}) or {}
-    await cm.broadcast({
-        "type": "agent",
-        "event": "free_scout_done",
-        "msg": f"Free scout - {len(leads)} {label} found ({usage.get('executed', 0)} sources checked)",
-    })
-    if not leads:
-        for msg in (getattr(free_scout, "LAST_ERRORS", []) or [])[:4]:
-            await cm.broadcast({"type": "agent", "event": "free_source_error", "msg": f"Free source skipped: {msg}"})
-    for lead in leads:
-        await cm.broadcast({"type": "LEAD_UPDATED", "data": lead})
-    return leads
+        kind_filter = "job"
+        label = "job leads"
+        await cm.broadcast({"type": "agent", "event": "free_scout_start", "msg": f"Scanning free sources for {label}..."})
+        leads = await asyncio.to_thread(
+            free_scout.run,
+            raw_targets=cfg.get("free_source_targets", "") or _profile_free_source_targets(profile or {}),
+            raw_watchlist=cfg.get("company_watchlist", ""),
+            raw_custom_connectors=cfg.get("custom_connectors", ""),
+            raw_custom_headers=cfg.get("custom_connector_headers", ""),
+            custom_connectors_enabled=_truthy(cfg.get("custom_connectors_enabled", "false")),
+            kind_filter=kind_filter,
+            max_requests=_int_cfg(cfg, "free_source_max_requests", 20, 1, 80),
+            min_signal_score=_int_cfg(cfg, "free_source_min_signal_score", 60, 0, 100),
+        )
+        usage = getattr(free_scout, "LAST_USAGE", {}) or {}
+        await cm.broadcast({
+            "type": "agent",
+            "event": "free_scout_done",
+            "msg": f"Free scout - {len(leads)} {label} found ({usage.get('executed', 0)} sources checked)",
+        })
+        if not leads:
+            for msg in (getattr(free_scout, "LAST_ERRORS", []) or [])[:4]:
+                await cm.broadcast({"type": "agent", "event": "free_source_error", "msg": f"Free source skipped: {msg}"})
+        for lead in leads:
+            await cm.broadcast({"type": "LEAD_UPDATED", "data": lead})
+        return leads
+    finally:
+        reset_context(token)
 
 
 _scan_stop = asyncio.Event()
@@ -533,146 +544,153 @@ async def _ghost_tick():
 
 
 async def _ghost_tick_impl():
-    from db.client import get_setting, get_settings, get_discovered_leads, update_lead_score, get_profile, save_asset_package
-    from agents.scout import run as _scout
-    from agents.evaluator import score as _score
-    from agents.generator import run_package as _gen
-    from agents.query_gen import generate as _gen_queries
-
-    cfg = get_settings()
-    if get_setting("ghost_mode") != "true":
-        return
-
-    profile = _profile_for_discovery(await asyncio.to_thread(get_profile), cfg)
-    boards = _job_targets(cfg.get("job_boards", ""), cfg.get("job_market_focus", "global"))
-    has_x = _has_x_token(cfg)
-    has_free = _free_sources_enabled(cfg)
-    if has_x:
-        await _run_x_signal_scan(cfg, "job", profile)
-    if has_free:
-        await _run_free_source_scan(cfg, "job", profile)
-    if not boards and not has_x and not has_free:
-        await cm.broadcast({"type": "agent", "event": "ghost_warn", "msg": "Ghost Mode: no job boards configured — skipping"})
-        return
-
-    await cm.broadcast({"type": "agent", "event": "ghost_scout", "msg": "Ghost Mode: scout cycle starting"})
+    ctx = new_context(workflow_type="ghost_scan", subsystem="scheduler")
+    token = set_context(ctx)
     try:
-        boards = await asyncio.to_thread(_gen_queries, profile, boards, cfg.get("job_market_focus", "global"))
-        from config.secrets import resolve_secret
-        leads = await asyncio.to_thread(
-            _scout,
-            urls=boards,
-            apify_token=resolve_secret(
-                settings.scraping.apify_key_names.token,
-                settings.scraping.apify_settings_key_names.token,
-            ) or None,
-            apify_actor=resolve_secret(
-                settings.scraping.apify_key_names.actor,
-                settings.scraping.apify_settings_key_names.actor,
-            ) or None,
-        )
-        await cm.broadcast({"type": "agent", "event": "ghost_scout",
-                            "msg": f"Ghost scout complete — {len(leads)} new leads found"})
-    except Exception as exc:
-        await cm.broadcast({"type": "agent", "event": "ghost_error", "msg": f"Scout failed: {exc}"})
-        return
+        from db.client import get_setting, get_settings, get_discovered_leads, update_lead_score, get_profile, save_asset_package
+        from agents.scout import run as _scout
+        from agents.evaluator import score as _score
+        from agents.generator import run_package as _gen
+        from agents.query_gen import generate as _gen_queries
 
-    profile = _profile_for_discovery(await asyncio.to_thread(get_profile), cfg)
-    discovered = await asyncio.to_thread(get_discovered_leads)
-    await cm.broadcast({"type": "agent", "event": "ghost_eval",
-                        "msg": f"Ghost Mode: evaluating {len(discovered)} leads"})
+        cfg = get_settings()
+        if get_setting("ghost_mode") != "true":
+            return
 
-    approved = []
-    for lead in discovered:
+        profile = _profile_for_discovery(await asyncio.to_thread(get_profile), cfg)
+        boards = _job_targets(cfg.get("job_boards", ""), cfg.get("job_market_focus", "global"))
+        has_x = _has_x_token(cfg)
+        has_free = _free_sources_enabled(cfg)
+        if has_x:
+            await _run_x_signal_scan(cfg, "job", profile)
+        if has_free:
+            await _run_free_source_scan(cfg, "job", profile)
+        if not boards and not has_x and not has_free:
+            await cm.broadcast({"type": "agent", "event": "ghost_warn", "msg": "Ghost Mode: no job boards configured — skipping"})
+            return
+
+        await cm.broadcast({"type": "agent", "event": "ghost_scout", "msg": "Ghost Mode: scout cycle starting"})
         try:
-            jd = _job_eval_document(lead)
-            result = await asyncio.to_thread(_score, jd, profile)
-            await asyncio.to_thread(
-                update_lead_score,
-                lead["job_id"], result["score"], result["reason"],
-                result.get("match_points", []), result.get("gaps", []),
+            boards = await asyncio.to_thread(_gen_queries, profile, boards, cfg.get("job_market_focus", "global"))
+            from config.secrets import resolve_secret
+            leads = await asyncio.to_thread(
+                _scout,
+                urls=boards,
+                apify_token=resolve_secret(
+                    settings.scraping.apify_key_names.token,
+                    settings.scraping.apify_settings_key_names.token,
+                ) or None,
+                apify_actor=resolve_secret(
+                    settings.scraping.apify_key_names.actor,
+                    settings.scraping.apify_settings_key_names.actor,
+                ) or None,
             )
-            await cm.broadcast({"type": "LEAD_UPDATED", "data": {**lead, **result}})
-            if result["score"] >= 85:
-                approved.append({**lead, **result})
-                await cm.broadcast({"type": "agent", "event": "ghost_approved",
-                                    "msg": f"Approved: {lead.get('title','')} @ {lead.get('company','')} [{result['score']}/100]"})
+            await cm.broadcast({"type": "agent", "event": "ghost_scout",
+                                "msg": f"Ghost scout complete — {len(leads)} new leads found"})
         except Exception as exc:
-            await cm.broadcast({"type": "agent", "event": "ghost_error",
-                                "msg": f"Eval failed for {lead.get('title','?')}: {exc}"})
+            await cm.broadcast({"type": "agent", "event": "ghost_error", "msg": f"Scout failed: {exc}"})
+            return
 
-    await cm.broadcast({"type": "agent", "event": "ghost_eval",
-                        "msg": f"Evaluation done — {len(approved)}/{len(discovered)} approved"})
+        profile = _profile_for_discovery(await asyncio.to_thread(get_profile), cfg)
+        discovered = await asyncio.to_thread(get_discovered_leads)
+        await cm.broadcast({"type": "agent", "event": "ghost_eval",
+                            "msg": f"Ghost Mode: evaluating {len(discovered)} leads"})
 
-    if not approved:
-        await cm.broadcast({"type": "agent", "event": "ghost_done", "msg": "Ghost Mode: no approved leads this cycle"})
-        return
-
-    await cm.broadcast({"type": "agent", "event": "ghost_gen",
-                        "msg": f"Ghost Mode: generating assets for {len(approved)} leads"})
-    generated = []
-    for lead in approved:
-        try:
-            package = await asyncio.to_thread(_gen, lead)
-            await asyncio.to_thread(
-                save_asset_package,
-                lead["job_id"],
-                package["resume"],
-                package["cover_letter"],
-                package.get("selected_projects", []),
-                package.get("keyword_coverage", {}),
-            )
-            generated.append({
-                **lead,
-                "asset": package["resume"],
-                "resume_asset": package["resume"],
-                "cover_letter_asset": package["cover_letter"],
-                "selected_projects": package.get("selected_projects", []),
-                "keyword_coverage": package.get("keyword_coverage", {}),
-            })
-            await cm.broadcast({"type": "agent", "event": "ghost_gen",
-                                "msg": f"Generated resume and cover letter for {lead.get('title','?')}"})
-        except Exception as exc:
-            await cm.broadcast({"type": "agent", "event": "ghost_error",
-                                "msg": f"Generation failed for {lead.get('title','?')}: {exc}"})
-
-    if get_setting("auto_apply", "false") != "true":
-        await cm.broadcast({"type": "agent", "event": "ghost_done",
-                            "msg": f"Ghost cycle complete — {len(generated)} leads ready. Auto-apply is OFF."})
-        return
-
-    from agents.actuator import run as _act
-    from db.client import get_lead_for_fire, mark_applied
-    await cm.broadcast({"type": "agent", "event": "ghost_apply",
-                        "msg": f"Ghost Mode: auto-applying to {len(generated)} leads"})
-    for item in generated:
-        try:
-            lead, asset = await asyncio.to_thread(get_lead_for_fire, item["job_id"])
-            _status, detail = _fire_blocker(lead, asset)
-            if detail:
+        approved = []
+        for lead in discovered:
+            try:
+                jd = _job_eval_document(lead)
+                result = await asyncio.to_thread(_score, jd, profile)
+                await asyncio.to_thread(
+                    update_lead_score,
+                    lead["job_id"], result["score"], result["reason"],
+                    result.get("match_points", []), result.get("gaps", []),
+                )
+                await cm.broadcast({"type": "LEAD_UPDATED", "data": {**lead, **result}})
+                if result["score"] >= 85:
+                    approved.append({**lead, **result})
+                    await cm.broadcast({"type": "agent", "event": "ghost_approved",
+                                        "msg": f"Approved: {lead.get('title','')} @ {lead.get('company','')} [{result['score']}/100]"})
+            except Exception as exc:
                 await cm.broadcast({"type": "agent", "event": "ghost_error",
-                                    "msg": f"Submission blocked: {item.get('title','?')} - {detail}"})
-                continue
+                                    "msg": f"Eval failed for {lead.get('title','?')}: {exc}"})
 
-            ok = await asyncio.to_thread(_act, lead, asset)
-            if ok:
-                await asyncio.to_thread(mark_applied, item["job_id"])
-                await cm.broadcast({"type": "agent", "event": "ghost_applied",
-                                    "msg": f"Applied: {item.get('title','?')} @ {item.get('company','?')}"})
-            else:
+        await cm.broadcast({"type": "agent", "event": "ghost_eval",
+                            "msg": f"Evaluation done — {len(approved)}/{len(discovered)} approved"})
+
+        if not approved:
+            await cm.broadcast({"type": "agent", "event": "ghost_done", "msg": "Ghost Mode: no approved leads this cycle"})
+            return
+
+        await cm.broadcast({"type": "agent", "event": "ghost_gen",
+                            "msg": f"Ghost Mode: generating assets for {len(approved)} leads"})
+        generated = []
+        for lead in approved:
+            try:
+                package = await asyncio.to_thread(_gen, lead)
+                await asyncio.to_thread(
+                    save_asset_package,
+                    lead["job_id"],
+                    package["resume"],
+                    package["cover_letter"],
+                    package.get("selected_projects", []),
+                    package.get("keyword_coverage", {}),
+                )
+                generated.append({
+                    **lead,
+                    "asset": package["resume"],
+                    "resume_asset": package["resume"],
+                    "cover_letter_asset": package["cover_letter"],
+                    "selected_projects": package.get("selected_projects", []),
+                    "keyword_coverage": package.get("keyword_coverage", {}),
+                })
+                await cm.broadcast({"type": "agent", "event": "ghost_gen",
+                                    "msg": f"Generated resume and cover letter for {lead.get('title','?')}"})
+            except Exception as exc:
                 await cm.broadcast({"type": "agent", "event": "ghost_error",
-                                    "msg": f"Submission failed: {item.get('title','?')}"})
-        except Exception as exc:
-            await cm.broadcast({"type": "agent", "event": "ghost_error",
-                                "msg": f"Actuator error for {item.get('title','?')}: {exc}"})
+                                    "msg": f"Generation failed for {lead.get('title','?')}: {exc}"})
 
-    await cm.broadcast({"type": "agent", "event": "ghost_done", "msg": "Ghost cycle complete."})
+        if get_setting("auto_apply", "false") != "true":
+            await cm.broadcast({"type": "agent", "event": "ghost_done",
+                                "msg": f"Ghost cycle complete — {len(generated)} leads ready. Auto-apply is OFF."})
+            return
+
+        from agents.actuator import run as _act
+        from db.client import get_lead_for_fire, mark_applied
+        await cm.broadcast({"type": "agent", "event": "ghost_apply",
+                            "msg": f"Ghost Mode: auto-applying to {len(generated)} leads"})
+        for item in generated:
+            try:
+                lead, asset = await asyncio.to_thread(get_lead_for_fire, item["job_id"])
+                _status, detail = _fire_blocker(lead, asset)
+                if detail:
+                    await cm.broadcast({"type": "agent", "event": "ghost_error",
+                                        "msg": f"Submission blocked: {item.get('title','?')} - {detail}"})
+                    continue
+
+                ok = await asyncio.to_thread(_act, lead, asset)
+                if ok:
+                    await asyncio.to_thread(mark_applied, item["job_id"])
+                    await cm.broadcast({"type": "agent", "event": "ghost_applied",
+                                        "msg": f"Applied: {item.get('title','?')} @ {item.get('company','?')}"})
+                else:
+                    await cm.broadcast({"type": "agent", "event": "ghost_error",
+                                        "msg": f"Submission failed: {item.get('title','?')}"})
+            except Exception as exc:
+                await cm.broadcast({"type": "agent", "event": "ghost_error",
+                                    "msg": f"Actuator error for {item.get('title','?')}: {exc}"})
+
+        await cm.broadcast({"type": "agent", "event": "ghost_done", "msg": "Ghost cycle complete."})
+    finally:
+        reset_context(token)
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     _validate_config_on_startup()
     _log_startup_secret_diagnostics()
+    if _sched.get_job("ghost"):
+        _sched.remove_job("ghost")
     _sched.add_job(_ghost_tick, "interval", hours=6, id="ghost")
     _sched.start()
     _log.info("FastAPI live.")
@@ -693,6 +711,22 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.middleware("http")
+async def correlation_context_middleware(request: Request, call_next):
+    correlation_id = request.headers.get("X-Correlation-ID")
+    if correlation_id:
+        ctx = new_context(correlation_id=correlation_id, workflow_type="http_request", subsystem="api")
+    else:
+        ctx = new_context(workflow_type="http_request", subsystem="api")
+    token = set_context(ctx)
+    try:
+        response = await call_next(request)
+        response.headers["X-Correlation-ID"] = ctx.correlation_id
+        return response
+    finally:
+        reset_context(token)
 
 
 @app.middleware("http")
@@ -971,40 +1005,45 @@ async def generate_for_lead(job_id: str):
 
 @app.post("/api/v1/leads/{job_id}/pipeline/run")
 async def run_pipeline(job_id: str, bt: BackgroundTasks):
-    from db.client import get_lead_by_id, get_profile, get_settings
-    from graph import PipelineState, eval_graph
+    ctx = new_context(workflow_type="pipeline_run", job_id=job_id, subsystem="pipeline")
+    token = set_context(ctx)
+    try:
+        from db.client import get_lead_by_id, get_profile, get_settings
+        from graph import PipelineState, eval_graph
 
-    lead = await asyncio.to_thread(get_lead_by_id, job_id)
-    if not lead:
-        raise HTTPException(status_code=404, detail="lead not found")
-    profile = await asyncio.to_thread(get_profile)
-    cfg = await asyncio.to_thread(get_settings)
+        lead = await asyncio.to_thread(get_lead_by_id, job_id)
+        if not lead:
+            raise HTTPException(status_code=404, detail="lead not found")
+        profile = await asyncio.to_thread(get_profile)
+        cfg = await asyncio.to_thread(get_settings)
 
-    async def _run():
-        state: PipelineState = {
-            "job_id": job_id,
-            "lead": lead,
-            "profile": profile,
-            "cfg": cfg,
-            "score": 0,
-            "reason": "",
-            "match_points": [],
-            "gaps": [],
-            "asset_path": "",
-            "cover_letter_path": "",
-            "error": None,
-        }
-        result = await asyncio.to_thread(eval_graph.invoke, state)
-        await cm.broadcast({
-            "type": "agent",
-            "kind": "agent",
-            "src": "pipeline",
-            "event": "pipeline_done",
-            "msg": f"Pipeline done for {job_id}: score={result['score']}, error={result['error']}",
-        })
+        async def _run():
+            state: PipelineState = {
+                "job_id": job_id,
+                "lead": lead,
+                "profile": profile,
+                "cfg": cfg,
+                "score": 0,
+                "reason": "",
+                "match_points": [],
+                "gaps": [],
+                "asset_path": "",
+                "cover_letter_path": "",
+                "error": None,
+            }
+            result = await asyncio.to_thread(eval_graph.invoke, state)
+            await cm.broadcast({
+                "type": "agent",
+                "kind": "agent",
+                "src": "pipeline",
+                "event": "pipeline_done",
+                "msg": f"Pipeline done for {job_id}: score={result['score']}, error={result['error']}",
+            })
 
-    bt.add_task(_run)
-    return {"status": "started", "job_id": job_id}
+        bt.add_task(_run)
+        return {"status": "started", "job_id": job_id}
+    finally:
+        reset_context(token)
 
 
 @app.get("/api/v1/leads/{job_id}/pdf")
