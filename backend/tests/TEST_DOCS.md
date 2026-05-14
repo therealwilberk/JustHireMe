@@ -6,7 +6,7 @@ This directory contains the deterministic test suite for the JustHireMe backend.
 All tests in this directory are designed to run in CI, produce consistent results,
 and avoid external service dependencies.
 
-**Test count:** 150  
+**Test count:** 203  
 **Framework:** pytest (via `unittest.TestCase`)  
 **Runner:** `uv run python -m pytest tests/`
 
@@ -47,13 +47,22 @@ and avoid external service dependencies.
 | **Key behaviours** | JHM_APP_DATA_DIR → XDG → LOCALAPPDATA → fallback priority chain, Chromium executable discovery on Linux/Windows/macOS |
 | **Dependencies** | None (patches env vars, mocks filesystem) |
 
-### `test_graph.py` — LangGraph Evaluation Graph
+### `test_graph.py` — LangGraph Evaluation Graph (happy path)
 
 | Status | Adequate |
 |--------|----------|
 | **What it tests** | Eval graph structure: compiles, has expected nodes, returns valid state |
 | **Key behaviours** | Score range validation, threshold-based generation skipping, error field types |
 | **Dependencies** | Mocks evaluator and generator agents |
+
+### `test_graph_failures.py` — Graph Failure-Path Characterization
+
+| Status | Strong |
+|--------|--------|
+| **What it tests** | Orchestration failure modes: persist crash, evaluate exception, generate exception, threshold boundaries, state consistency, malformed input, silent API failure, node timeout |
+| **Key behaviours** | Linear 3-node fault-tolerant pipeline, error+error_stage structured failure metadata, error is append-only (never cleared by downstream nodes), persist catches DB exceptions instead of crashing, threshold defaults to 60, missing job_id handled defensively, deterministic node-level timeout (default 600s) |
+| **Dependencies** | Mocks evaluator, generator, and DB calls |
+| **Note** | Orchestration hardening — fault-tolerant semantics with structured error metadata. Previously started as characterization tests; behavior was then corrected (persist crash → structured error, error now append-only, missing job_id handled defensively). Do not revert these semantics. |
 
 ### `test_regressions.py` — Domain Logic & Regression Prevention
 
@@ -73,7 +82,8 @@ and avoid external service dependencies.
   │   E2E (manual)    │  scripts/run_ingestion_pipeline.py
   │                   │  e2e/manval/run_live_fire.py
   ├──────────────────┤
-  │   Integration     │  test_api.py, test_graph.py
+  │   Integration     │  test_api.py, test_graph.py,
+  │                   │  test_graph_failures.py
   │                   │  test_mcp_server.py (boundary)
   ├──────────────────┤
   │   Domain/Unit     │  test_regressions.py, test_secrets.py
@@ -114,11 +124,28 @@ uv run python -m pytest tests/test_regressions.py::TestLeadQualityGate::test_val
 uv run python -m pytest tests/ --cov=.
 ```
 
+## Orchestration Semantics
+
+The graph pipeline (`graph/__init__.py`) follows **fault-tolerant workflow semantics**:
+
+| Property | Contract |
+|----------|----------|
+| Node failure behavior | Each node catches its own `Exception`, sets `error` + `error_stage`, and returns normally. Graph never crashes on node failure. |
+| Error field | Append-only. Once set by a node, downstream nodes NEVER clear it. Only a later node's own error overwrites it. |
+| `error_stage` | Identifies which node set the error: `"evaluate"`, `"generate"`, or `"persist"`. `None` means no error occurred. |
+| Timeout behavior | Each node wraps its main callable in `_with_timeout` (daemon thread + `threading.Event`). Default: 600s. Override via `cfg.evaluate_timeout` / `cfg.generate_timeout`. A timed-out node raises `TimeoutError` → caught by `except Exception` → structured failure. Deterministic: same timeout always produces same error structure. |
+| `persist_node` | Has try/except. DB write failures return structured error instead of crashing the graph. |
+| State access | All nodes use defensive `.get()` with defaults. No bare subscript access (`state["key"]`). |
+| `generate_node` skip path | Returns only `asset_path`/`cover_letter_path`. Does NOT touch `error` or `error_stage` — preserving upstream failure info. |
+| API layer | `invoke()` never raises on node failure. The result dict contains `error`/`error_stage`. |
+
+This is intentionally NOT strict transactional (no rollback, no abort on partial failure). Degraded execution is observable via `error`, `error_stage`, and `reason` fields.
+
 ## Pytest Markers
 
 | Marker | Meaning | Default | Tests |
 |--------|---------|---------|-------|
-| `integration` | Crosses component boundaries (routing, graph orchestration) | Included | `test_api.py`, `test_graph.py` |
+| `integration` | Crosses component boundaries (routing, graph orchestration) | Included | `test_api.py`, `test_graph.py`, `test_graph_failures.py` |
 | `external` | Writes to filesystem or has side effects | Excluded | `test_generator_render_keeps_pdf_to_one_page`, `test_generator_uses_local_fallback_when_llm_is_unavailable` |
 | `requires_browser` | Requires Playwright/Chromium automation | Excluded | (none currently) |
 
