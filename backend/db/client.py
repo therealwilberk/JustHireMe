@@ -152,8 +152,23 @@ def graph_counts() -> dict:
     return out
 
 
-def _init_sql():
+def get_sql_connection():
+    """Return a SQLite connection with standard pragmas applied.
+
+    Pragmas set on every connection:
+      - journal_mode=WAL     — concurrent reads during writes
+      - foreign_keys=ON      — enforce referential integrity
+      - busy_timeout=5000    — wait up to 5 s on lock contention
+    """
     c = _sq.connect(sql)
+    c.execute("PRAGMA journal_mode=WAL")
+    c.execute("PRAGMA foreign_keys=ON")
+    c.execute("PRAGMA busy_timeout=5000")
+    return c
+
+
+def _init_sql():
+    c = get_sql_connection()
     c.executescript("""
         CREATE TABLE IF NOT EXISTS leads(
             job_id TEXT PRIMARY KEY, title TEXT, company TEXT,
@@ -238,7 +253,7 @@ _LEAD_SELECT_COLUMNS = (
 
 
 def record_event(job_id: str | None, action: str):
-    c = _sq.connect(sql)
+    c = get_sql_connection()
     c.execute(
         "INSERT INTO events(job_id,action) VALUES(?,?)",
         ((job_id or "__system__")[:160], str(action or "")[:1000]),
@@ -248,7 +263,7 @@ def record_event(job_id: str | None, action: str):
 
 
 def url_exists(jid: str) -> bool:
-    c = _sq.connect(sql)
+    c = get_sql_connection()
     r = c.execute("SELECT 1 FROM leads WHERE job_id=?", (jid,)).fetchone()
     c.close()
     return r is not None
@@ -312,7 +327,7 @@ def save_lead(
         lead["learning_delta"] = int(learning_delta or 0)
         lead["learning_reason"] = learning_reason or ""
 
-    c = _sq.connect(sql)
+    c = get_sql_connection()
     c.execute(
         """
         INSERT OR IGNORE INTO leads(
@@ -352,7 +367,7 @@ def update_lead_score(
     gaps: list | None = None,
     preserve_status: bool = False,
 ):
-    c = _sq.connect(sql)
+    c = get_sql_connection()
     row = c.execute("SELECT kind,status FROM leads WHERE job_id=?", (jid,)).fetchone()
     kind = row[0] if row else "job"
     current_status = row[1] if row and row[1] else "discovered"
@@ -385,7 +400,7 @@ def update_lead_score(
 
 
 def save_asset_path(jid: str, path: str):
-    c = _sq.connect(sql)
+    c = get_sql_connection()
     c.execute(
         "UPDATE leads SET status='approved', asset_path=? WHERE job_id=?",
         (path, jid),
@@ -406,7 +421,7 @@ def save_asset_package(
     keyword_coverage: dict | None = None,
 ):
     projects = json.dumps(selected_projects or [])
-    c = _sq.connect(sql)
+    c = get_sql_connection()
     meta_row = c.execute("SELECT source_meta FROM leads WHERE job_id=?", (jid,)).fetchone()
     source_meta = _json_dict(meta_row[0] if meta_row else "{}")
     if keyword_coverage:
@@ -424,7 +439,7 @@ def save_asset_package(
 
 
 def save_contact_lookup(jid: str, contact_lookup: dict | None):
-    c = _sq.connect(sql)
+    c = get_sql_connection()
     row = c.execute("SELECT source_meta FROM leads WHERE job_id=?", (jid,)).fetchone()
     source_meta = _json_dict(row[0] if row else "{}")
     source_meta["contact_lookup"] = contact_lookup or {"status": "empty", "contacts": []}
@@ -441,7 +456,7 @@ def save_contact_lookup(jid: str, contact_lookup: dict | None):
 
 
 def mark_applied(jid: str):
-    c = _sq.connect(sql)
+    c = get_sql_connection()
     c.execute("UPDATE leads SET status='applied' WHERE job_id=?", (jid,))
     c.execute(
         "INSERT INTO events(job_id,action) VALUES(?,?)",
@@ -452,7 +467,7 @@ def mark_applied(jid: str):
 
 
 def get_all_leads() -> list:
-    c = _sq.connect(sql)
+    c = get_sql_connection()
     rows = c.execute(
         f"SELECT {_LEAD_SELECT_COLUMNS} FROM leads ORDER BY created_at DESC"
     ).fetchall()
@@ -506,7 +521,7 @@ def _lead_row_dict(r) -> dict:
 
 
 def get_all_freelance_leads() -> list:
-    c = _sq.connect(sql)
+    c = get_sql_connection()
     rows = c.execute(
         f"SELECT {_LEAD_SELECT_COLUMNS} FROM leads WHERE kind='freelance' ORDER BY created_at DESC"
     ).fetchall()
@@ -515,7 +530,7 @@ def get_all_freelance_leads() -> list:
 
 
 def get_job_leads_for_evaluation() -> list:
-    c = _sq.connect(sql)
+    c = get_sql_connection()
     rows = c.execute(
         f"""
         SELECT {_LEAD_SELECT_COLUMNS}
@@ -654,7 +669,7 @@ def lead_cleanup_reasons(lead: dict) -> list[str]:
 
 def cleanup_bad_leads(limit: int = 1000, dry_run: bool = False) -> dict:
     limit = max(1, min(int(limit or 1000), 5000))
-    c = _sq.connect(sql)
+    c = get_sql_connection()
     rows = c.execute(
         f"""
         SELECT {_LEAD_SELECT_COLUMNS}
@@ -702,7 +717,7 @@ def cleanup_bad_leads(limit: int = 1000, dry_run: bool = False) -> dict:
 
 
 def get_feedback_training_examples(limit: int = 300) -> list[dict]:
-    c = _sq.connect(sql)
+    c = get_sql_connection()
     rows = c.execute(
         """
         SELECT feedback,platform,company,kind,signal_tags,tech_stack,source_meta,
@@ -761,7 +776,7 @@ def recompute_learning_scores(limit: int = 500) -> int:
     if not examples:
         return 0
 
-    c = _sq.connect(sql)
+    c = get_sql_connection()
     rows = c.execute(
         f"""
         SELECT {_LEAD_SELECT_COLUMNS}
@@ -855,7 +870,7 @@ def _contact_from_text(text: str) -> dict:
 
 
 def get_lead_for_fire(jid: str) -> tuple:
-    c = _sq.connect(sql)
+    c = get_sql_connection()
     row = c.execute(
         "SELECT job_id,title,company,url,platform,status,score,reason,match_points,asset_path,description,gaps,cover_letter_path,selected_projects,kind,budget FROM leads WHERE job_id=?",
         (jid,)
@@ -919,7 +934,7 @@ def get_lead_for_fire(jid: str) -> tuple:
 
 
 def save_settings(d: dict):
-    c = _sq.connect(sql)
+    c = get_sql_connection()
     for k, v in d.items():
         c.execute("INSERT OR REPLACE INTO settings(key,val) VALUES(?,?)", (k, str(v)))
     c.commit()
@@ -927,21 +942,21 @@ def save_settings(d: dict):
 
 
 def get_settings() -> dict:
-    c = _sq.connect(sql)
+    c = get_sql_connection()
     rows = c.execute("SELECT key,val FROM settings").fetchall()
     c.close()
     return {r[0]: r[1] for r in rows}
 
 
 def get_setting(k: str, default: str = "") -> str:
-    c = _sq.connect(sql)
+    c = get_sql_connection()
     r = c.execute("SELECT val FROM settings WHERE key=?", (k,)).fetchone()
     c.close()
     return r[0] if r else default
 
 
 def get_lead_by_id(jid: str) -> dict:
-    c = _sq.connect(sql)
+    c = get_sql_connection()
     row = c.execute(
         f"SELECT {_LEAD_SELECT_COLUMNS} FROM leads WHERE job_id=?",
         (jid,)
@@ -959,7 +974,7 @@ def get_lead_by_id(jid: str) -> dict:
 
 
 def delete_lead(jid: str):
-    c = _sq.connect(sql)
+    c = get_sql_connection()
     cur = c.execute("DELETE FROM leads WHERE job_id=?", (jid,))
     if getattr(cur, "rowcount", 0) == 0:
         c.close()
@@ -977,7 +992,7 @@ def update_lead_status(jid: str, status: str):
     }
     if status not in valid:
         raise ValueError(f"Invalid status: {status}")
-    c = _sq.connect(sql)
+    c = get_sql_connection()
     cur = c.execute("UPDATE leads SET status=? WHERE job_id=?", (status, jid))
     if getattr(cur, "rowcount", 0) == 0:
         c.close()
@@ -1000,7 +1015,7 @@ def save_lead_feedback(jid: str, feedback: str, note: str = "") -> dict:
     if feedback not in valid:
         raise ValueError(f"Invalid feedback: {feedback}")
 
-    c = _sq.connect(sql)
+    c = get_sql_connection()
     row = c.execute("SELECT kind,status FROM leads WHERE job_id=?", (jid,)).fetchone()
     if not row:
         c.close()
@@ -1039,7 +1054,7 @@ def update_lead_followup(jid: str, days: int = 5) -> dict:
     days = max(1, min(int(days or 5), 60))
     due = _utc_timestamp(timedelta(days=days))
     now = _utc_timestamp()
-    c = _sq.connect(sql)
+    c = get_sql_connection()
     row = c.execute("SELECT 1 FROM leads WHERE job_id=?", (jid,)).fetchone()
     if not row:
         c.close()
@@ -1056,7 +1071,7 @@ def update_lead_followup(jid: str, days: int = 5) -> dict:
 
 def get_due_followups(limit: int = 25) -> list:
     now = _utc_timestamp()
-    c = _sq.connect(sql)
+    c = get_sql_connection()
     rows = c.execute(
         """
         SELECT {columns}
@@ -1072,7 +1087,7 @@ def get_due_followups(limit: int = 25) -> list:
 
 
 def get_events(limit: int = 100, job_id: str | None = None) -> list:
-    c = _sq.connect(sql)
+    c = get_sql_connection()
     if job_id:
         rows = c.execute(
             "SELECT job_id,action,ts FROM events WHERE job_id=? ORDER BY ts DESC LIMIT ?",
@@ -1088,7 +1103,7 @@ def get_events(limit: int = 100, job_id: str | None = None) -> list:
 
 
 def get_discovered_leads() -> list:
-    c = _sq.connect(sql)
+    c = get_sql_connection()
     rows = c.execute(
         "SELECT job_id,title,company,url,platform,description FROM leads WHERE status='discovered' AND COALESCE(NULLIF(kind, ''), 'job')='job'"
     ).fetchall()
@@ -1097,7 +1112,7 @@ def get_discovered_leads() -> list:
 
 
 def get_discovered_freelance_leads() -> list:
-    c = _sq.connect(sql)
+    c = get_sql_connection()
     rows = c.execute(
         "SELECT job_id,title,company,url,platform,description,budget FROM leads WHERE status='discovered' AND kind='freelance'"
     ).fetchall()
@@ -1170,7 +1185,7 @@ def _normal_profile(profile: dict | None) -> dict:
 
 def _load_profile_snapshot() -> dict:
     try:
-        c = _sq.connect(sql)
+        c = get_sql_connection()
         row = c.execute("SELECT val FROM settings WHERE key=?", (_PROFILE_SNAPSHOT_KEY,)).fetchone()
         c.close()
         if not row:
@@ -1186,7 +1201,7 @@ def _save_profile_snapshot(profile: dict):
     if not _profile_has_data(profile):
         return
     try:
-        c = _sq.connect(sql)
+        c = get_sql_connection()
         c.execute(
             "INSERT OR REPLACE INTO settings(key,val) VALUES(?,?)",
             (_PROFILE_SNAPSHOT_KEY, json.dumps(profile, ensure_ascii=False)),

@@ -1,8 +1,7 @@
 import os
 import re
 from pydantic import BaseModel, Field
-from db.client import data_base, get_profile, sql
-import sqlite3 as _sq
+from db.client import data_base, get_profile, get_sql_connection, sql
 from logger import get_logger
 
 _log = get_logger(__name__)
@@ -1176,7 +1175,7 @@ def run_package(lead: dict, template: str = "") -> dict:
 
     try:
         job_id = lead["job_id"]
-        c = _sq.connect(sql)
+        c = get_sql_connection()
         row = c.execute("SELECT resume_version FROM leads WHERE job_id = ?", (job_id,)).fetchone()
         current_version = int(row[0] or 0) if row else 0
         new_version = current_version + 1
@@ -1185,7 +1184,7 @@ def run_package(lead: dict, template: str = "") -> dict:
         resume_path = _render(package.resume_markdown, f"{job_id}_v{new_version}.pdf", kind="resume")
         cover_letter_path = _render(package.cover_letter_markdown, f"{job_id}_cl_v{new_version}.pdf", kind="cover")
 
-        c = _sq.connect(sql)
+        c = get_sql_connection()
         c.execute(
             """
             UPDATE leads

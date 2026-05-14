@@ -33,7 +33,7 @@ AUTH = {"Authorization": "Bearer test-token-abc123"}
 NO_AUTH: dict = {}
 
 # ── Seed helpers — insert test data into the real SQLite DB ─────────────────
-from db.client import _sq, sql  # noqa: E402
+from db.client import get_sql_connection  # noqa: E402
 
 _SEEDED_LEADS: list[str] = []
 
@@ -49,7 +49,7 @@ def _seed_lead(overrides: dict | None = None) -> str:
         "kind": "job",
     }
     data.update(overrides or {})
-    c = _sq.connect(sql)
+    c = get_sql_connection()
     c.execute(
         """INSERT OR REPLACE INTO leads
            (job_id, title, company, url, platform, description, kind)
@@ -64,7 +64,7 @@ def _seed_lead(overrides: dict | None = None) -> str:
 
 
 def _seed_setting(key: str, val: str) -> None:
-    c = _sq.connect(sql)
+    c = get_sql_connection()
     c.execute("INSERT OR REPLACE INTO settings(key,val) VALUES(?,?)", (key, val))
     c.commit()
     c.close()

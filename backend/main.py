@@ -723,10 +723,9 @@ async def health():
     db_status = "ok"
     db_latency = 0.0
     try:
-        import sqlite3
-        from db.client import sql
+        from db.client import get_sql_connection
         t0 = time.monotonic()
-        sqlite3.connect(sql).execute("SELECT 1")
+        get_sql_connection().execute("SELECT 1")
         db_latency = round((time.monotonic() - t0) * 1000, 1)
     except Exception as exc:
         db_status = "error"
@@ -2022,8 +2021,8 @@ async def _generate_one(jid: str):
         if package.get("cold_email"):
             _outreach_fields["outreach_email"] = package["cold_email"]
         if _outreach_fields:
-            from db.client import _sq, sql
-            c = _sq.connect(sql)
+            from db.client import get_sql_connection
+            c = get_sql_connection()
             sets = ", ".join(f"{k}=?" for k in _outreach_fields)
             vals = list(_outreach_fields.values()) + [jid]
             c.execute(f"UPDATE leads SET {sets} WHERE job_id=?", vals)
