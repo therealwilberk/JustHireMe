@@ -64,38 +64,14 @@ class JobTargetDefaults(BaseModel):
         "site:cutshort.io/jobs",
     ]
 
-    india_targets: list[str] = [
-        "site:wellfound.com/jobs India",
-        "site:cutshort.io/jobs India startup",
-        "site:instahyre.com jobs India",
-        "site:naukri.com jobs India",
-        "site:foundit.in jobs India",
-        "site:internshala.com/jobs India",
-        "site:linkedin.com/jobs India",
-        "site:indeed.com/jobs India",
-        "site:glassdoor.co.in Job India",
-        "site:boards.greenhouse.io India",
-        "site:jobs.lever.co India",
-        "site:jobs.ashbyhq.com India",
-        "site:apply.workable.com India",
-    ]
-
     blocked_markers: tuple[str, ...] = (
         "freelance", "upwork", "freelancer.com", "fiverr", "contra.com",
         "peopleperhour", "guru.com", "truelancer", "codementor", "toptal",
     )
 
-    india_markers: tuple[str, ...] = (
-        "india", "indian", "bangalore", "bengaluru", "mumbai", "delhi",
-        "gurgaon", "gurugram", "hyderabad", "pune", "chennai", "noida",
-        "cutshort", "instahyre", "naukri", "foundit", "internshala",
-        "glassdoor.co.in",
-    )
-
 
 class MarketFocusConfig(BaseModel):
-    # from backend/main.py:244-246
-    valid_focus_values: set[str] = {"global", "india", "in", "indian", "indian_startups"}
+    valid_focus_values: set[str] = {"global"}
     default_focus: str = "global"
 
 

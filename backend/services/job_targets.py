@@ -1,12 +1,3 @@
-import os
-import re
-from typing import Any
-
-from core.ws_manager import cm
-from config import settings
-from config.secrets import resolve_secret
-
-
 import json
 import os
 import re
@@ -76,8 +67,13 @@ def validate_job_targets(entries: list[str]) -> list[str]:
         else:
             seen.add(cleaned.lower())
             if cleaned.startswith("http://") or cleaned.startswith("https://"):
-                pass
-            elif cleaned.startswith("site:") or cleaned.startswith("github:") or cleaned.startswith("hn:") or cleaned.startswith("reddit:"):
+                if "." not in cleaned.split("/")[2] if "/" in cleaned[8:] else False:
+                    errors.append(f"[{i}]: URL must contain a valid domain with a dot (e.g. https://remoteok.com/api)")
+            elif cleaned.startswith("site:"):
+                domain_part = cleaned[5:].strip().split()[0]
+                if "." not in domain_part:
+                    errors.append(f"[{i}]: site: entry must contain a domain with a dot (e.g. site:linkedin.com/jobs)")
+            elif cleaned.startswith("github:") or cleaned.startswith("hn:") or cleaned.startswith("reddit:"):
                 pass
             else:
                 errors.append(f"[{i}]: entry must start with http://, https://, site:, github:, hn:, or reddit:")
@@ -92,11 +88,6 @@ def _split_configured_targets(raw: str) -> list[str]:
             continue
         targets.append(target)
     return targets
-
-
-def _job_market_focus(value: str) -> str:
-    focus = str(value or "global").strip().lower()
-    return "india" if focus in {"india", "in", "indian", "indian_startups"} else "global"
 
 
 def _job_targets(raw: str, market_focus: str = "global") -> list[str]:
@@ -164,7 +155,7 @@ def _profile_free_source_targets(profile: dict) -> str:
 def _profile_x_queries(profile: dict, market_focus: str = "global") -> str:
     terms = _terms_for_discovery(profile, 4)
     role = " OR ".join(f'"{term}"' for term in terms[:3])
-    location = '("India" OR "Indian" OR "Bengaluru" OR "Mumbai" OR "Pune" OR "Hyderabad")' if _job_market_focus(market_focus) == "india" else '("remote" OR "hybrid" OR "global" OR "onsite")'
+    location = '("remote" OR "hybrid" OR "global" OR "onsite")'
     return "\n".join([
         f'("hiring" OR "job opening" OR "open role") ({role}) {location} lang:en -is:retweet',
         f'("we are hiring" OR "is hiring" OR "apply") ({role}) lang:en -is:retweet',
