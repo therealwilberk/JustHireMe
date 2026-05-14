@@ -1,3 +1,5 @@
+"""Profile ingestion from various sources: paste, PDF, LinkedIn, GitHub, JSON, portfolio."""
+
 import asyncio
 import json
 import os
@@ -30,6 +32,18 @@ async def ingest(
     raw: str = Form(""),
     file: UploadFile | None = File(None),
 ):
+    """POST /api/v1/ingest — Ingest a profile from raw text or uploaded PDF.
+
+    Args:
+        raw: Raw profile text from a form field.
+        file: Optional PDF file upload.
+
+    Returns:
+        Parsed profile model dump.
+
+    Raises:
+        HTTPException 400: Ingestion failed.
+    """
     from agents.ingestor import ingest as _ingest  # lazy: agents module (per-request dep)
     pdf_path = None
     if file and file.filename:
@@ -56,6 +70,22 @@ async def ingest(
 
 @router.post("/ingest/linkedin", response_model=IngestLinkedinResponse)
 async def ingest_linkedin(file: UploadFile = File(...)):
+    """POST /api/v1/ingest/linkedin — Import profile from a LinkedIn data export ZIP.
+
+    Parses the ZIP, saves candidate info, skills, experience, education,
+    projects, and certifications.
+
+    Args:
+        file: Uploaded LinkedIn export ZIP file.
+
+    Returns:
+        IngestLinkedinResponse with status and import stats.
+
+    Raises:
+        HTTPException 400: File is not a ZIP.
+        HTTPException 413: File exceeds 50 MB limit.
+        HTTPException 422: Failed to parse LinkedIn export.
+    """
     from agents.linkedin_parser import parse_linkedin_export  # lazy: agents module (per-request dep)
     from db.client import update_candidate, add_skill, add_experience, add_education, add_project, add_certification  # lazy: lancedb import takes ~7s
 
@@ -118,6 +148,19 @@ async def ingest_linkedin(file: UploadFile = File(...)):
 
 @router.post("/ingest/github", response_model=IngestGithubResponse)
 async def ingest_github_endpoint(body: GithubIngestBody):
+    """POST /api/v1/ingest/github — Import GitHub profile data by username.
+
+    Fetches repos, extracts skills and projects, saves to the profile.
+
+    Args:
+        body: Request body with GitHub username and optional token.
+
+    Returns:
+        IngestGithubResponse with status and import stats.
+
+    Raises:
+        HTTPException 404: GitHub user not found.
+    """
     from agents.github_ingestor import ingest_github  # lazy: agents module (per-request dep)
     from db.client import add_skill, add_project, save_settings  # lazy: lancedb import takes ~7s
     result = await ingest_github(
@@ -161,6 +204,17 @@ async def ingest_github_endpoint(body: GithubIngestBody):
 
 @router.post("/ingest/profile", response_model=IngestProfileResponse)
 async def import_profile_json(body: ProfileImportBody):
+    """POST /api/v1/ingest/profile — Import a full profile from structured JSON.
+
+    Saves candidate info, identity settings, skills, experience, projects,
+    education, certifications, and achievements.
+
+    Args:
+        body: Structured profile import body.
+
+    Returns:
+        IngestProfileResponse with status and per-category import stats.
+    """
     from db.client import (  # lazy: lancedb import takes ~7s
         update_candidate, add_skill, add_experience,
         add_education, add_certification, add_achievement,
@@ -249,6 +303,11 @@ async def import_profile_json(body: ProfileImportBody):
 
 @router.get("/ingest/profile/template", response_model=dict[str, Any])
 async def get_profile_template():
+    """GET /api/v1/ingest/profile/template — Return the JSON profile schema example.
+
+    Returns:
+        Profile schema example as a dict.
+    """
     template_path = Path(__file__).resolve().parent.parent / "data" / "profile_schema_example.json"
     with open(template_path, encoding="utf-8") as f:
         return json.load(f)
@@ -256,6 +315,20 @@ async def get_profile_template():
 
 @router.post("/ingest/portfolio", response_model=dict[str, Any])
 async def ingest_portfolio_endpoint(body: PortfolioIngestBody):
+    """POST /api/v1/ingest/portfolio — Ingest profile from a portfolio website URL.
+
+    Optionally auto-imports the extracted data into the profile.
+
+    Args:
+        body: Request body with portfolio URL and auto-import flag.
+
+    Returns:
+        Parsed portfolio data with optional import stats.
+
+    Raises:
+        HTTPException 400: Invalid URL scheme.
+        HTTPException 422: Failed to parse portfolio.
+    """
     from agents.portfolio_ingestor import ingest_portfolio_url  # lazy: agents module (per-request dep)
     if not body.url.startswith(("http://", "https://")):
         raise HTTPException(400, "url must start with http:// or https://")
