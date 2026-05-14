@@ -1,3 +1,5 @@
+"""Settings CRUD, API key validation, and job-targets management."""
+
 import asyncio
 from typing import Any
 
@@ -16,6 +18,11 @@ router = APIRouter(prefix="/api/v1", tags=["settings"])
 
 @router.get("/settings", response_model=dict[str, Any])
 async def get_cfg():
+    """GET /api/v1/settings — Retrieve all settings with sensitive values masked.
+
+    Returns:
+        Dict of all settings with API keys masked.
+    """
     from db.client import get_settings  # lazy: lancedb import takes ~7s
     s = get_settings()
     _m = "••••••••••••••••••••"
@@ -27,6 +34,13 @@ async def get_cfg():
 
 @router.get("/settings/validate", response_model=dict[str, Any])
 async def validate_settings():
+    """GET /api/v1/settings/validate — Probe all configured API providers for validity.
+
+    Checks each provider's key by making a lightweight API call.
+
+    Returns:
+        Dict mapping provider names to probe results (status, latency).
+    """
     from db.client import get_settings  # lazy: lancedb import takes ~7s
     from llm import _KEY_NAMES, _OPENAI_COMPAT_BASE_URLS  # lazy: anthropic/instructor/openai import takes ~7s total
 
@@ -37,6 +51,7 @@ async def validate_settings():
     providers = ["anthropic", "gemini", "openai", "groq", *[p for p in _KEY_NAMES if p not in {"anthropic", "gemini", "openai", "groq"}]]
 
     async def one(provider: str):
+        """Probe a single provider's API key and return status."""
         gemini_fallback = cfg_settings.llm.provider_specific.gemini_env_key_fallback
         env_name = _ENV_NAMES.get(provider, "")
         settings_key = _KEY_NAMES.get(provider, "")
@@ -56,6 +71,16 @@ async def validate_settings():
 
 @router.post("/settings", response_model=OkResponse)
 async def save_cfg(body: SettingsBody):
+    """POST /api/v1/settings — Save settings and auto-start ghost mode if enabled.
+
+    Preserves masked sensitive values from the existing config.
+
+    Args:
+        body: Settings body with key-value pairs.
+
+    Returns:
+        OkResponse with ok: true.
+    """
     from db.client import get_settings, save_settings  # lazy: lancedb import takes ~7s
     payload = {k: "" if v is None else str(v) for k, v in body.model_dump().items()}
     old = get_settings()
@@ -73,6 +98,11 @@ async def save_cfg(body: SettingsBody):
 
 @router.get("/settings/job-targets", response_model=JobTargetsResponse)
 async def get_job_targets_endpoint():
+    """GET /api/v1/settings/job-targets — Retrieve configured job targets and blocked markers.
+
+    Returns:
+        JobTargetsResponse with targets and blocked lists.
+    """
     return JobTargetsResponse(
         targets=get_job_targets(),
         blocked=get_blocked_markers(),
@@ -81,6 +111,19 @@ async def get_job_targets_endpoint():
 
 @router.put("/settings/job-targets", response_model=JobTargetsResponse)
 async def update_job_targets(body: JobTargetsUpdateBody):
+    """PUT /api/v1/settings/job-targets — Replace job targets and/or blocked markers.
+
+    Validates input before saving; partial updates allowed.
+
+    Args:
+        body: Update body with optional targets and blocked lists.
+
+    Returns:
+        JobTargetsResponse with updated targets and blocked lists.
+
+    Raises:
+        HTTPException 422: Validation failed.
+    """
     targets = body.targets
     blocked = body.blocked
 
@@ -108,5 +151,10 @@ async def update_job_targets(body: JobTargetsUpdateBody):
 
 @router.delete("/settings/job-targets", response_model=JobTargetsResponse)
 async def clear_job_targets():
+    """DELETE /api/v1/settings/job-targets — Clear all job targets and blocked markers.
+
+    Returns:
+        JobTargetsResponse with empty targets and blocked lists.
+    """
     save_job_targets([], [])
     return JobTargetsResponse(targets=[], blocked=[])
