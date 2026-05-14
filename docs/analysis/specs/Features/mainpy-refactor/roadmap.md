@@ -13,7 +13,7 @@
 | Current pass | Pass A — Pure Extraction |
 | Branch pattern | `feature/mainpy-refactor-pass-a` |
 | Last updated | 2026-05-14 |
-| Overall status | `[ ] Pending` |
+| Overall status | `[x] Complete` |
 
 ---
 
@@ -64,13 +64,13 @@ Each pass is a separate feature branch from `linux-base`. Each phase within a pa
 
 ### Pass A Validation
 
-- [ ] All Pydantic models moved to `schemas/requests.py` with zero field changes
-- [ ] `_CM` class moved to `core/ws_manager.py`, imported by all callers
-- [ ] All 49 HTTP routes + 1 WebSocket route functional from their new router modules
-- [ ] No behavioral changes — every function works identically to before
-- [ ] Full test suite passes (`uv run python -m pytest tests/ -q --tb=line`)
-- [ ] App launches via `uvicorn main:app`
-- [ ] `main.py` under 150 lines
+- [x] All Pydantic models moved to `schemas/requests.py` with zero field changes
+- [x] `_CM` class moved to `core/ws_manager.py`, imported by all callers
+- [x] All 49 HTTP routes + 1 WebSocket route functional from their new router modules
+- [x] No behavioral changes — every function works identically to before
+- [x] Full test suite passes (`uv run python -m pytest tests/ -q --tb=line`) — 298 passed
+- [x] App launches via `uvicorn main:app`
+- [x] `main.py` under 150 lines (137 lines)
 
 ---
 
