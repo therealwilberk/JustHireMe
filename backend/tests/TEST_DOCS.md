@@ -6,7 +6,7 @@ This directory contains the deterministic test suite for the JustHireMe backend.
 All tests in this directory are designed to run in CI, produce consistent results,
 and avoid external service dependencies.
 
-**Test count:** 203  
+**Test count:** 202  
 **Framework:** pytest (via `unittest.TestCase`)  
 **Runner:** `uv run python -m pytest tests/`
 
@@ -24,20 +24,21 @@ and avoid external service dependencies.
 
 ### `test_api.py` — API Endpoints
 
-| Status | Adequate |
-|--------|----------|
+| Status | Strong |
+|--------|--------|
 | **What it tests** | FastAPI route behaviour, auth gate, CRUD, validation |
-| **Key behaviours** | 401 on missing/wrong token, 404 on missing lead, 422 on invalid input, WS heartbeat |
+| **Key behaviours** | 401 on missing/wrong token, 404 on missing lead with error detail, 422 Pydantic validation shape (loc/msg/type), CSV contract (headers+content-type), health response structure, ingest response schemas, type guarantees on all fields |
 | **Dependencies** | Uses `_install_storage_fakes()` to avoid real DB connections |
-| **Note** | Uses `TestClient` with fake storage backends |
+| **Note** | Uses `TestClient` with fake storage backends. All error responses assert payload structure (not just status code). All success responses assert field presence and types. Uses shared assertion helpers from `conftest.py`. |
 
 ### `test_mcp_server.py` — MCP Server
 
-| Status | Adequate |
-|--------|----------|
+| Status | Strong |
+|--------|--------|
 | **What it tests** | JSON-RPC MCP protocol: initialize, tools/list, tools/call |
-| **Key behaviours** | Tool discovery, parameter validation, error handling |
+| **Key behaviours** | Tool discovery, parameter validation, protocol error handling (unknown method, unknown tool), tool-level error handling (missing args, wrong types), structured response shape |
 | **Dependencies** | None (tests the `_handle` function directly with mock requests) |
+| **Note** | Every test verifies JSON-RPC contract: `jsonrpc: "2.0"`, stable ids, error/result mutual exclusivity. Protocol errors assert error.code and message structure; tool errors assert isError, content[0].type, and semantic error messages. |
 
 ### `test_paths.py` — Path & Runtime Resolution
 
@@ -124,6 +125,81 @@ uv run python -m pytest tests/test_regressions.py::TestLeadQualityGate::test_val
 uv run python -m pytest tests/ --cov=.
 ```
 
+## API Contract Philosophy
+
+### Why Status-Only Tests Are Insufficient
+
+An API is a contract. Clients depend on:
+- **Payload structure** — which fields exist, their nesting, their types
+- **Error schema** — consistent shape for 4xx/5xx responses
+- **Field types** — string vs int vs list vs null
+- **Validation messaging** — Pydantic error structure (`loc`, `msg`, `type`)
+- **Enum guarantees** — exact allowed values for status, feedback, etc.
+- **Semantic identifiers** — stable keys like `status`, `error`, `stats`
+
+Status-only tests (`assert response.status_code == 400`) allow silent schema breakage: a field can be renamed, removed, or change type without any test noticing.
+
+### Stable API Guarantees vs. Flexible Fields
+
+| Classification | Rule | Examples |
+|---------------|------|----------|
+| **Stable contract** | Must be asserted in tests | Field presence, types, nesting, enum values, error `detail` type, 422 `detail[].loc[]` + `detail[].type`, pagination keys, response `status` keys |
+| **Flexible presentation** | NOT asserted — avoid brittleness | Human-readable prose in `detail` messages, wording in error descriptions, non-semantic description text, `uptime_seconds` exact value, `latency_ms` exact value |
+| **Framework-generated** | Assert shape, not content | Pydantic validation errors: assert `loc` + `type`, NOT exact `msg` wording |
+| **Business/domain errors** | Assert error code pattern + field presence | `{"detail": str}` for 400/404 errors; assert `detail` exists and is a string, NOT exact wording |
+| **Transport-layer** | Status code + content-type | Status line, headers (Content-Type, Content-Disposition) |
+
+### Contract Assertion Principles
+
+1. **Assert shape, not exact wording** — Prefer `assert "username" in body["detail"].lower()` over `assert body["detail"] == "Username is required"`.
+2. **Assert types** — `assert isinstance(body["stats"], dict)`, not just `assert "stats" in body`.
+3. **Assert structural invariants** — 422 errors MUST have `detail` as a `list` with items containing `loc`, `msg`, `type`.
+4. **Error responses MUST have a `detail` key** of type `str` (FastAPI convention). Assert this.
+5. **Success responses MUST use the expected top-level keys** (e.g., `{"ok": true}`, `{"status": "started"}`).
+
+### What Constitutes a Breaking API Change
+
+- Removing or renaming a stable field
+- Changing the type of a stable field (e.g., `str` → `int`)
+- Changing enum allowed values without notice
+- Restructuring error response shape
+- Changing response nesting level
+- Adding `null` to a previously non-nullable field
+- Changing timestamp format
+
+### How Strict Assertions Should Be Written
+
+Use `assert_error_response`, `assert_validation_error`, and `assert_success_response` helpers from test infrastructure. These enforce:
+
+```python
+def assert_error_response(resp, expected_status, detail_type=str):
+    assert resp.status_code == expected_status
+    body = resp.json()
+    assert "detail" in body
+    assert isinstance(body["detail"], detail_type)
+
+def assert_validation_error(resp):
+    assert resp.status_code == 422
+    body = resp.json()
+    assert "detail" in body
+    assert isinstance(body["detail"], list)
+    for err in body["detail"]:
+        assert "loc" in err and isinstance(err["loc"], list)
+        assert "msg" in err and isinstance(err["msg"], str)
+        assert "type" in err and isinstance(err["type"], str)
+
+def assert_success_response(resp, expected_status=200, required_keys=None):
+    assert resp.status_code == expected_status
+    if required_keys:
+        body = resp.json()
+        for key in required_keys:
+            assert key in body, f"Missing expected key: {key}"
+```
+
+### Per-Endpoint Contract Schemas
+
+Defined in `api_contracts.py` as TypedDicts/dataclasses with per-field classification. Tests import these and validate response payloads against them, avoiding duplicate schema knowledge.
+
 ## Orchestration Semantics
 
 The graph pipeline (`graph/__init__.py`) follows **fault-tolerant workflow semantics**:
@@ -160,6 +236,15 @@ This is intentionally NOT strict transactional (no rollback, no abort on partial
 ### `conftest.py`
 - Adds `backend/` to `sys.path`
 - Ignores `tmp*` files from test collection
+- Provides API contract assertion helpers: `assert_error_response`, `assert_detail_error`, `assert_detail_exactly`, `assert_detail_contains`, `assert_validation_error`, `assert_success_response`, `assert_list_response`, `assert_csv_response`, `assert_ok_response`
+- Provides MCP (JSON-RPC) contract assertion helpers: `assert_mcp_response_structure`, `assert_mcp_protocol_error`, `assert_mcp_tool_error`
+- Helpers enforce payload structure (field presence, types, nesting, error shape) in addition to status codes
+- MCP helpers verify: `jsonrpc: "2.0"`, stable error codes, error/result mutual exclusivity, `isError` flag, `content[0].type == "text"`
+
+### `api_contracts.py`
+- Typed contract definitions per endpoint (required keys, expected types, valid enum values)
+- Single source of truth for API response shapes — tests import contracts, not duplicate knowledge
+- Covers all endpoints tested in `test_api.py`
 
 ### `fakes.py`
 - `_install_storage_fakes()` — replaces Kuzu, SQLite, LanceDB with in-memory fakes

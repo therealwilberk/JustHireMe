@@ -90,14 +90,26 @@ class _FakeSemanticStore:
         return _FakeSemanticTable(self.tables[name])
 
 
-def _install_storage_fakes():
+_SQLITE_FAKE = types.SimpleNamespace(
+    connect=lambda _path: _FakeSqlConnection()
+)
+
+
+def _install_storage_fakes(*, use_real_sqlite: bool = False):
     """Replace storage backends with fakes. Must call before importing any backend module.
 
-    Patches os.makedirs so that db.client._ensure_dir() doesn't touch the filesystem
-    at module-load time. Stubs kuzu, sqlite3, and lancedb in sys.modules so their
-    imports resolve to fakes instead of the real libraries.
+    Args:
+        use_real_sqlite: If True, don't fake sqlite3 — uses real SQLite DB at
+                         the path resolved by db.client.data_base(). The caller
+                         must ensure JHM_APP_DATA_DIR points to a writable temp dir
+                         and that the directory exists before importing backend modules.
+                         Kuzu and LanceDB are still faked.
+
+    By default (use_real_sqlite=False), patches os.makedirs and stubs kuzu, sqlite3,
+    and lancedb in sys.modules so their imports resolve to fakes.
     """
-    mock.patch.object(os, "makedirs", return_value=None).start()
+    if not use_real_sqlite:
+        mock.patch.object(os, "makedirs", return_value=None).start()
     sys.modules.setdefault(
         "kuzu",
         types.SimpleNamespace(
@@ -105,9 +117,8 @@ def _install_storage_fakes():
             Connection=lambda _db: _FakeConnection(),
         ),
     )
-    sys.modules["sqlite3"] = types.SimpleNamespace(
-        connect=lambda _path: _FakeSqlConnection()
-    )
+    if not use_real_sqlite:
+        sys.modules["sqlite3"] = _SQLITE_FAKE
     sys.modules.setdefault(
         "lancedb",
         types.SimpleNamespace(

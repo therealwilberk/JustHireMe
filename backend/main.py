@@ -1577,7 +1577,7 @@ async def ingest(
 
 
 class GithubIngestBody(StrictBody):
-    username:  str = Field(max_length=100)
+    username:  str = Field(min_length=1, max_length=100)
     token:     str = Field(default="", max_length=200)
     max_repos: int = Field(default=12, ge=1, le=30)
 
