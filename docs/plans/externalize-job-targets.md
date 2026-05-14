@@ -5,37 +5,26 @@
 
 ---
 
-## Problem
+## Constraint
 
-Three hardcoded tuples in `services/job_targets.py`: `DEFAULT_JOB_TARGETS`, `INDIA_JOB_TARGETS`, `_BLOCKED_JOB_TARGET_MARKERS`. The INDIA/DEFAULT dualism assumes only two user categories exist. Someone in Kenya, Brazil, Germany, or Nigeria gets nothing useful from either list. These are living data — they should be user-configurable.
+Zero hardcoded values in source code. All job target configuration lives exclusively in user settings (SQLite). No fallback tuples, no hidden defaults in code.
 
 ## Design
 
-**Collapse to a single configurable list.** Remove the INDIA/DEFAULT split. Users configure their own preferred targets regardless of location.
+### Storage
 
-| Current | After |
-|---------|-------|
-| `DEFAULT_JOB_TARGETS` + `INDIA_JOB_TARGETS` | One `_DEFAULT_JOB_TARGETS` tuple (hardcoded fallback) |
-| `_job_targets()` checks `market_focus == "india"` | `_job_targets()` reads user override from settings |
-| `INDIA_JOB_TARGETS` list | Removed — replaced by user config |
+Two keys in SQLite settings:
 
-**Storage:** A single JSON array in SQLite settings key `job_targets`:
-- `job_targets` — user's custom list (JSON array of strings). Absent = use hardcoded defaults.
-- `blocked_markers` — user's custom blocked markers. Absent = use hardcoded defaults.
+| Key | Type | Purpose |
+|-----|------|---------|
+| `job_targets` | JSON array of strings | URLs and search targets for job discovery |
+| `blocked_markers` | JSON array of strings | Freelance/undesired platforms to filter out |
 
-**Resolution order:**
-1. User's custom list from settings (`job_targets`)
-2. Hardcoded `_DEFAULT_JOB_TARGETS` fallback
+Both keys are **optional**. If absent, the system treats them as empty — user hasn't configured any targets yet. The app does not silently fall back to anything.
 
-The `market_focus` setting (`"global"` / `"india"` / whatever) becomes a UI label, not a code-level lookup key. Users set their own targets through the UI regardless of what `market_focus` says.
+### Runtime behavior
 
-## Ripple Effects
-
-### 1. `services/job_targets.py` — Rename + override logic
-
-- Rename `DEFAULT_JOB_TARGETS` → `_DEFAULT_JOB_TARGETS` (internal, not part of public contract)
-- **Remove `INDIA_JOB_TARGETS` entirely**
-- Modify `_job_targets()` to read `job_targets` override from settings first:
+The `_job_targets()` function reads **exclusively from settings**. No code-level defaults:
 
 ```python
 def _job_targets(raw: str, market_focus: str = "global") -> list[str]:
@@ -43,104 +32,165 @@ def _job_targets(raw: str, market_focus: str = "global") -> list[str]:
     if not targets:
         from db.client import get_settings
         cfg = get_settings()
-        override = cfg.get("job_targets", "")
-        if override:
+        stored = cfg.get("job_targets", "")
+        if stored:
             try:
-                return json.loads(override)
+                return json.loads(stored)
             except (json.JSONDecodeError, TypeError):
                 pass
-        return list(_DEFAULT_JOB_TARGETS)
+        return []  # no targets configured — user needs to set them up
     ...
 ```
 
-- Remove the `focus == "india"` special case in the filtering logic (lines 98-108)
-- The `_job_market_focus()` function can stay (it's used elsewhere for search query generation), but it no longer drives target list selection
+Same for `_BLOCKED_JOB_TARGET_MARKERS` — read from settings, no fallback.
 
-### 2. New API route — Replace/customize job targets
+### Implications for the app
+
+If `job_targets` is empty (first launch), the system cannot discover job leads. This is intentional and explicit:
+
+- Scan endpoints return empty results (no targets = nothing to scan)
+- Ghost mode skips silently (nothing to scout)
+- The UI prompts the user to configure targets
+
+This is better than silently using stale defaults the user didn't choose.
+
+### Bootstrap via UI
+
+The settings page provides:
+- An empty list with instructional text: "Add URLs or search queries for job boards"
+- A "Load recommended defaults" button that populates sensible suggestions
+- These suggestions come from the **frontend or a data file**, not from code imports
+- Users can add, remove, reorder entries freely
+
+The defaults file (if shipped) lives at `backend/data/defaults/job_targets.json` and is read by the UI, not by the import graph. This keeps it separate from code.
+
+## What Gets Removed
+
+Everything from `services/job_targets.py`:
+
+| Symbol | Action |
+|--------|--------|
+| `DEFAULT_JOB_TARGETS` | Delete |
+| `INDIA_JOB_TARGETS` | Delete |
+| `_BLOCKED_JOB_TARGET_MARKERS` | Delete |
+| India-specific filtering in `_job_targets()` | Delete |
+| `_job_market_focus()` | Delete (no longer drives list selection) |
+| `focus == "global"` HN-harding fallback | Delete |
+
+## Ripple Effects
+
+### 1. `services/job_targets.py` — Clean slate
+
+- Remove all tuple constants
+- Simplify `_job_targets()` to read only from settings
+- Remove `_job_market_focus()`, `_is_hn_target()`, India-related logic
+- Remove `_dedupe_targets()` if unused elsewhere (check callers)
+- Keep: `_split_configured_targets()`, `_desired_position()`, `_profile_for_discovery()`, `_terms_for_discovery()`, `_profile_free_source_targets()`, `_profile_x_queries()`, `_has_x_token()`, `_int_cfg()`, `_truthy()`, `_free_sources_enabled()`, `_broadcast_x_source_errors()`
+
+### 2. `services/scanner.py` — Handle empty targets
+
+- `_run_scan()` calls `_job_targets()` — if returns `[]`, skip scouting gracefully
+- Add early return with broadcast message: "No job targets configured — add targets in Settings"
+
+### 3. `services/ghost.py` — Handle empty targets
+
+- `_phase_preflight()` calls `_job_targets()` — if returns `[]`, skip gracefully
+- Update the "no job boards configured" warning to point to Settings UI
+
+### 4. `routes/settings.py` or new routes — CRUD
 
 | Method | Path | Purpose |
 |--------|------|---------|
-| `GET` | `/api/v1/settings/job-targets` | Return current list (override or defaults) |
-| `PUT` | `/api/v1/settings/job-targets` | Save custom list (validates before storing) |
-| `DELETE` | `/api/v1/settings/job-targets` | Reset to factory defaults |
+| `GET` | `/api/v1/settings/job-targets` | Return current targets + blocked markers |
+| `PUT` | `/api/v1/settings/job-targets` | Save targets (validates before storing) |
+| `DELETE` | `/api/v1/settings/job-targets` | Clear all targets (reset to empty) |
 
 **Validation on PUT:**
-- Must be a JSON array of strings
+- Must be a JSON object with optional `targets` and `blocked` keys
+- Each value must be a JSON array of strings
 - No empty strings
-- No duplicates
-- Max 100 entries
-- Each entry is a valid format (URL or `site:` or valid prefix)
+- No duplicates within an array
+- Max 100 entries per array
+- Invalid entries rejected with specific error detail
 
 **Response shapes:**
 
 ```python
 class JobTargetsResponse(BaseModel):
     targets: list[str]
-    using_defaults: bool  # true when no user override set
+    blocked: list[str]
 
 class JobTargetsUpdateBody(BaseModel):
-    targets: list[str]
+    targets: list[str] | None = None
+    blocked: list[str] | None = None
 ```
 
-### 3. `services/job_targets.py` — Remove stale India-specific logic
+### 5. `services/job_targets.py` — Validation helpers (new)
 
-Lines that reference `INDIA_JOB_TARGETS` or `india_markers` in `_job_targets()` need cleanup:
-
-- `return list(INDIA_JOB_TARGETS if focus == "india" else DEFAULT_JOB_TARGETS)` → `return list(_DEFAULT_JOB_TARGETS)` (override checked above)
-- The `if focus == "india":` block with `india_markers` filtering (lines 101-108) — remove this entire block. Users configure their own targets; they don't need automatic filtering.
-- The `focus == "global"` HN-hiring fallback (line 98) — keep (it's a sensible default)
-
-### 4. Frontend settings UI
-
-The `SettingsModal` needs a `job_market_focus` field (already exists as a dropdown) and a new:
-- Textarea or list editor for job target URLs
-- "Reset to defaults" button
-- Validation feedback
-
-### 5. Backward compatibility
-
-- Existing installs see NO change until they set `job_targets` in settings
-- The default `job_market_focus` was `"global"` — still works, just no longer maps to a hardcoded list
-- The `job_boards` text field (custom newline-separated targets) still works as before — if set, it takes precedence over both settings override and hardcoded defaults
-- `_job_targets()` resolution order: `job_boards` (custom text input) → `job_targets` (settings override) → `_DEFAULT_JOB_TARGETS` (hardcoded)
+```python
+def validate_job_targets_list(entries: list[str]) -> list[str]:
+    errors = []
+    if not isinstance(entries, list):
+        return ["must be a list"]
+    if len(entries) > 100:
+        errors.append("exceeds maximum of 100 entries")
+    seen = set()
+    for i, entry in enumerate(entries):
+        if not isinstance(entry, str) or not entry.strip():
+            errors.append(f"[{i}]: entry must be a non-empty string")
+        elif entry.strip().lower() in seen:
+            errors.append(f"[{i}]: duplicate entry '{entry}'")
+        else:
+            seen.add(entry.strip().lower())
+    return errors
+```
 
 ### 6. Tests
 
-- Update `test_regressions.py` — remove India-specific tests, add override tests
-- Update `test_response_contracts.py` — add contract check for new endpoint
-- Create or use existing test for `_job_targets()` override resolution
+| File | Change |
+|------|--------|
+| `test_regressions.py` | Remove India-specific tests (`TestLeadQualityGate` India tests, `test_job_targets_india_fallback`) |
+| `test_response_contracts.py` | Add contract check for new `GET /api/v1/settings/job-targets` |
+| `test_job_targets.py` (update or new) | Override reads from settings, empty settings = empty list, validation rejects bad input |
 
-### 7. `TEST_DOCS.md`
+### 7. Third-party callers
 
-Update entries for changed test coverage.
+Check what imports `INDIA_JOB_TARGETS`, `DEFAULT_JOB_TARGETS`, `_BLOCKED_JOB_TARGET_MARKERS`, `_job_market_focus`:
 
----
+```bash
+grep -rn "INDIA_JOB_TARGETS\|DEFAULT_JOB_TARGETS\|_BLOCKED_JOB_TARGET_MARKERS\|_job_market_focus" backend/
+```
+
+Update any references.
 
 ## Tasks
 
-### Phase 1: Backend — Remove INDIA, add override in `_job_targets()`
-- [ ] Rename `DEFAULT_JOB_TARGETS` → `_DEFAULT_JOB_TARGETS`
-- [ ] Remove `INDIA_JOB_TARGETS` tuple
-- [ ] Add `import json` to `services/job_targets.py`
-- [ ] Modify `_job_targets()` to check `job_targets` setting before falling back
-- [ ] Remove India-specific filtering block (lines ~98-108)
-- [ ] Remove `_BLOCKED_JOB_TARGET_MARKERS` → move to settings
+### Phase 1: Backend — Remove all hardcoded tuples
+- [ ] Delete `DEFAULT_JOB_TARGETS`, `INDIA_JOB_TARGETS`, `_BLOCKED_JOB_TARGET_MARKERS` from `services/job_targets.py`
+- [ ] Delete `_job_market_focus()` and India-specific filtering
+- [ ] Modify `_job_targets()` to read exclusively from settings
+- [ ] Add validation helpers (`validate_job_targets_list`)
+- [ ] Remove unused imports from `services/job_targets.py`
+- [ ] Check and update all imports from this module
 - [ ] Run `uv run python -m pytest tests/ -q --tb=line`
 
-### Phase 2: Backend — CRUD API
-- [ ] Define `JobTargetsResponse` and `JobTargetsUpdateBody` in schemas
-- [ ] Add validation helpers to `services/job_targets.py`
+### Phase 2: Handle empty-targets gracefully
+- [ ] Update `services/scanner.py` `_run_scan()` to handle empty target list
+- [ ] Update `services/ghost.py` `_phase_preflight()` to handle empty target list
+
+### Phase 3: CRUD API
+- [ ] Add `JobTargetsResponse` and `JobTargetsUpdateBody` to schemas
 - [ ] Add `GET/PUT/DELETE /api/v1/settings/job-targets` routes
 - [ ] Wire `response_model=` on new routes
+
+### Phase 4: Tests
+- [ ] Update `test_regressions.py` — remove India-specific tests, add override resolution tests
+- [ ] Add contract test for new endpoints
 - [ ] Run full test suite
 
-### Phase 3: Tests
-- [ ] Update `test_regressions.py` — replace India-specific tests with override tests
-- [ ] Add contract test for new endpoints in `test_response_contracts.py`
-- [ ] Run full test suite
-
-### Phase 4: Frontend (separate branch)
-- [ ] Add job board management to `SettingsModal`
+### Phase 5: Frontend (separate branch)
+- [ ] Replace hardcoded INDIA/DEFAULT UI with single editable list
+- [ ] "Load recommended defaults" button
 - [ ] Wire to new API endpoints
 
 ## Verification
@@ -149,10 +199,10 @@ Update entries for changed test coverage.
 cd backend && uv run python -m pytest tests/ -q --tb=line
 ```
 
-All 314 existing tests + new tests pass. Existing behavior unchanged when no overrides configured.
+All tests pass. Existing tests that relied on India-specific behavior must be removed or updated.
 
 ## Commits
 
-1. `refactor: remove INDIA_JOB_TARGETS, add settings-based job target override`
+1. `refactor: remove hardcoded job target constants, read from settings exclusively`
 2. `feat: add CRUD API for job target configuration`
-3. `test: update tests for externalized job targets`
+3. `test: update tests for settings-driven job targets`
