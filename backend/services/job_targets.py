@@ -188,7 +188,7 @@ def _has_x_token(cfg: dict) -> bool:
 def _int_cfg(cfg: dict, key: str, default: int, min_value: int, max_value: int) -> int:
     try:
         value = int(str(cfg.get(key, "") or "").strip())
-    except Exception:
+    except (ValueError, TypeError):
         value = default
     return max(min_value, min(value, max_value))
 
