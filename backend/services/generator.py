@@ -1,3 +1,10 @@
+"""Resume and cover letter generation with fire blocking.
+
+Provides the generation pipeline (``_generate_one``) and application
+submission (``_actuate``), along with the ``_fire_blocker`` guard that
+validates lead/asset state before submission.
+"""
+
 import asyncio
 import os
 
@@ -7,10 +14,32 @@ from core.ws_manager import cm
 
 
 def _asset_ready(path: str) -> bool:
+    """Check whether a file exists at the given path.
+
+    Args:
+        path: Filesystem path string.
+
+    Returns:
+        True if the path is non-empty and points to an existing file.
+    """
     return bool(path) and os.path.isfile(path)
 
 
 def _fire_blocker(lead: dict, asset: str) -> tuple[int, str]:
+    """Validate that a lead is ready for application submission.
+
+    Checks: lead exists, not already applied, has a URL, and both
+    resume and cover letter assets exist on disk.
+
+    Args:
+        lead: Job lead dictionary with ``status``, ``url``,
+            ``cover_letter_asset`` / ``cover_letter_path`` keys.
+        asset: Path to the generated resume file.
+
+    Returns:
+        A ``(status_code, detail_message)`` tuple.  ``(0, "")`` means
+        the lead passed all checks and is clear to fire.
+    """
     if not lead:
         return 404, "Lead not found"
     if lead.get("status") == "applied":
@@ -26,6 +55,21 @@ def _fire_blocker(lead: dict, asset: str) -> tuple[int, str]:
 
 
 async def _generate_one(jid: str) -> dict:
+    """Generate a resume, cover letter, and contact info for a single lead.
+
+    Fetches the lead, delegates to the generator agent, persists assets
+    and outreach messages to the database, and performs a contact lookup.
+
+    Args:
+        jid: Job lead ID string.
+
+    Returns:
+        Enriched lead dictionary with generated asset keys.
+
+    Raises:
+        HTTPException 404: If the lead is not found.
+        HTTPException 500: If generation fails.
+    """
     from agents.generator import run_package as _gen  # lazy: agents module (per-request dep)
     from agents.contact_lookup import run as _contact_lookup  # lazy: agents module (per-request dep)
     from db.client import get_lead_by_id, save_asset_package, save_contact_lookup, get_setting  # lazy: lancedb import takes ~7s
@@ -91,6 +135,14 @@ async def _generate_one(jid: str) -> dict:
 
 
 async def _actuate(jid: str) -> None:
+    """Submit an application for a single job lead via the actuator agent.
+
+    Runs the fire-blocker check before delegating to the actuator.
+    Broadcasts success/failure events over the WebSocket.
+
+    Args:
+        jid: Job lead ID string.
+    """
     from agents.actuator import run as _act  # lazy: agents module (per-request dep)
     from db.client import get_lead_for_fire, mark_applied  # lazy: lancedb import takes ~7s
     try:
