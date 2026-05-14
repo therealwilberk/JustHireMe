@@ -52,8 +52,8 @@ Phase A established the config layer including `config/logging.py` schema. Phase
 - [x] **Task 7 — Frontend Error Handling**: `SettingsModal` save failure shows user-facing error. `ProfileView` delete/save failures show user-facing error. *(Done)*
 - [x] **Task 8 — Build Configuration Fixes**: Enable `createUpdaterArtifacts`, set platform-specific bundle targets. *(Done)*
 - [x] **Task 11 — Frontend Reliability & User-Truthfulness Tests**: Add vitest component tests for SettingsModal and ProfileView error handling. *(Done)*
-- [ ] **Task 4 — Replace Silent Exception Suppression With Structured Error Reporting**: Replace every `except: pass` with logged warnings or structured errors carrying identifiers. *(Pending)*
-- [ ] **Task 9 — Structured Logging Infrastructure**: Centralized logging configuration, consistent format/levels/fields, file handler, correlation context propagation. *(Deferred to Task 4 completion)*
+- [x] **Task 4 — Replace Silent Exception Suppression With Structured Error Reporting**: Replace every `except: pass` with logged warnings or structured errors carrying identifiers. *(Done)*
+- [~] **Task 9 — Structured Logging Infrastructure**: Centralized `get_logger()` with consistent format/levels. File handler and correlation context propagation not yet implemented. *(In Progress)*
 
 ### Out of scope
 
@@ -109,13 +109,12 @@ Phase A established the config layer including `config/logging.py` schema. Phase
 - [x] `[AFK]` **Task 7 — Frontend Error Handling:** Add `saveError`/`actionError` state and catch blocks to `SettingsModal.tsx` (save) and `ProfileView.tsx` (delete, saveEdit, saveCandidate). Display user-facing error messages.
 - [x] `[AFK]` **Task 8 — Build Configuration:** Set `createUpdaterArtifacts: true`, add `deb` to bundle targets in `tauri.conf.json`.
 - [x] `[AFK]` **Task 11 — Frontend Reliability & User-Truthfulness Tests:** Add vitest component tests for SettingsModal (9) and ProfileView (11) verifying error visibility, retry, loading state, actionable messaging, and no false-success behavior. *(Done)*
-- [ ] `[AFK]` **Task 4 — Replace Silent Exception Suppression:** Replace all 40 `except: pass` instances across `db/client.py`, `main.py`, and `agents/` with logged warnings carrying identifiers. Document intentional passes (WebSocket ping/disconnect) with comments.
-- [ ] `[AFK]` **Task 9 — Structured Logging:** Centralize all `print()`/ad hoc logger calls through `backend/logger.py`. Add structured fields (correlation ID, subsystem, traceback). Add optional file handler.
+- [x] `[AFK]` **Task 4 — Replace Silent Exception Suppression:** Replace all 40 `except: pass` instances across `db/client.py`, `main.py`, and `agents/` with logged warnings carrying identifiers. Document intentional passes (WebSocket ping/disconnect) with comments. *(Done)*
+- [~] `[AFK]` **Task 9 — Structured Logging:** Centralize all `print()`/ad hoc logger calls through `backend/logger.py`. Add structured fields (correlation ID, subsystem, traceback). Add optional file handler. *(In Progress — logger.py infra done, all agents use get_logger, print() replaced in production code; correlation IDs and file handler remaining)*
 
 **Blocking relationships:**
-- Tasks 5–8 independent (no cross-blocking) — completed in parallel
-- Task 9 blocked by Task 4 (need to know what we're logging before defining format)
-- Within Task 4: each file's changes are independent (can be parallelized)
+- Tasks 5–8, 11, 4 independent (no cross-blocking) — completed in parallel
+- Task 9 core infra done (logger.py, get_logger adoption); enhancements (correlation IDs, file handler) have no hard blockers
 
 ---
 
@@ -150,15 +149,15 @@ This phase is Infra — no new API endpoints, schemas, or CLI commands. Changes 
 
 ## 8. Validation Checklist
 
-### Task 4 — Silent Exception Suppression *(Pending)*
+### Task 4 — Silent Exception Suppression *(Done)*
 
-- [ ] Every `except: pass` in production code replaced with logged warning/error carrying identifiers
-- [ ] `backend/db/client.py`: all 21 instances classified and replaced (no bare `pass`)
-- [ ] `backend/main.py`: all 7 instances classified and replaced (or documented)
-- [ ] `backend/agents/`: all 12 instances classified and replaced (no bare `pass`)
-- [ ] Recoverable errors log and continue — no behavior change for happy paths
-- [ ] Terminal errors log once and stop in controlled way
-- [ ] Tracebacks preserved via `exc_info=True` or `logger.exception()`
+- [x] Every `except: pass` in production code replaced with logged warning/error carrying identifiers
+- [x] `backend/db/client.py`: all 21 instances classified and replaced (no bare `pass`)
+- [x] `backend/main.py`: all 7 instances classified and replaced (or documented)
+- [x] `backend/agents/`: all 12 instances classified and replaced (no bare `pass`)
+- [x] Recoverable errors log and continue — no behavior change for happy paths
+- [x] Terminal errors log once and stop in controlled way
+- [x] Tracebacks preserved via `exc_info=True` or `logger.exception()`
 
 ### Task 5 — WebSocket Async-Safety *(Done)*
 
@@ -197,20 +196,26 @@ This phase is Infra — no new API endpoints, schemas, or CLI commands. Changes 
 - [x] `createUpdaterArtifacts` set to `true`
 - [x] Bundle targets include `["appimage", "deb"]`
 
-### Task 9 — Structured Logging *(Pending)*
+### Task 9 — Structured Logging *(In Progress)*
 
-- [ ] All `print()` calls in production code replaced with logger
-- [ ] Log format includes: timestamp, level, logger name, message, correlation IDs
+- [x] Centralized `get_logger()` in `backend/logger.py` — all agent modules use it
+- [x] Log format: `%(asctime)s [%(levelname)s] %(name)s: %(message)s` — timestamp, level, logger name, message
+- [x] Zero `print()` calls in production code (remaining print calls are in operational scripts only: `force_model.py`, `run_diagnostics.py`, `update_settings.py`)
+- [x] Zero ad hoc `logging.getLogger` in production code (all through `get_logger()`)
+- [x] Log level configurable via env var (`JHM_LOG_LEVEL`)
+- [x] Logs go to stderr (consistent with CLI convention)
+- [x] `logger.propagate = False` — no duplicate log lines
+- [x] 23 tests verify log level resolution, severity correctness, entity identification, degraded-vs-successful discrimination
+- [ ] Correlation ID propagation across request/operation boundaries
 - [ ] Optional file handler configurable via env var/config
-- [ ] Tests verify log level resolution, format consistency, exception context
 
 ### Code quality gates
 
-- [ ] Zero `except: pass` remaining in production code (verify with `git grep 'except.*:.*pass' backend/ | grep -v test`)
-- [ ] All changed files have explicit type hints
-- [ ] Zero new `print()` calls in production code
-- [ ] Branch is clean — no unrelated changes
-- [ ] Full test suite passes (229 tests)
+- [x] Zero `except: pass` remaining in production code (verify with `git grep 'except.*:.*pass' backend/ | grep -v test`)
+- [x] All changed files have explicit type hints
+- [x] Zero new `print()` calls in production code (remaining print calls are in operational scripts: `force_model.py`, `run_diagnostics.py`, `update_settings.py`)
+- [x] Branch is clean — no unrelated changes
+- [x] Full test suite passes: **280 backend tests** + **33 frontend tests** = **313 total**
 
 ---
 
@@ -218,8 +223,8 @@ This phase is Infra — no new API endpoints, schemas, or CLI commands. Changes 
 
 | # | Question | Raised by | Status |
 |---|----------|-----------|--------|
-| Q1 | Should the `_safe_call()` helper in `db/client.py` log as WARNING or ERROR for fire-and-forget vector ops? | Agent | `[ ] Open` |
-| Q2 | Should structured logging use JSON format or enriched plain-text with correlation IDs? | Agent | `[ ] Open` |
+| Q1 | Should the `_safe_call()` helper in `db/client.py` log as WARNING or ERROR for fire-and-forget vector ops? | Agent | `[x] Resolved` — WARNING. Fire-and-forget means degraded but non-terminal. ERROR reserved for terminal failures. |
+| Q2 | Should structured logging use JSON format or enriched plain-text with correlation IDs? | Agent | `[x] Resolved` — Plain text with correlation IDs. JSON deferred unless log aggregation tooling requires it. |
 | Q3 | For SQLite: single shared connection with WAL vs simple connection pool? | Agent | `[x] Resolved` — per-call connection with WAL is sufficient for current access pattern |
 | Q4 | What correlation ID format to use (UUID, request-scoped, job-scoped)? | Agent | `[ ] Open` |
 
@@ -235,6 +240,10 @@ This phase is Infra — no new API endpoints, schemas, or CLI commands. Changes 
 | 2026-05-14 | `get_sql_connection()` per-call wrapper, not connection pool | Current access pattern (30+ independent calls) doesn't need pooling; WAL suffices for concurrent reads | Thread-local connections, single shared connection |
 | 2026-05-14 | Frontend errors displayed inline (not toasts/modals) | Matches existing `profileErr` pattern in ProfileView, minimal component restructuring | Toast notifications, alert() |
 | 2026-05-14 | Bundle targets expanded to `["appimage", "deb"]` | `package:linux:all` script already produces both; config should match the intended deployment model | AppImage-only, deb-only |
+| 2026-05-14 | `_safe_call()` logs as WARNING for fire-and-forget vector ops | Fire-and-forget is degraded but non-terminal. ERROR reserved for terminal failures. | ERROR |
+| 2026-05-14 | Structured logging uses enriched plain-text, not JSON | JSON deferred unless log aggregation tooling requires it. Current format includes timestamp/level/name/message. | JSON format |
+| 2026-05-14 | Task 4 (except:pass) marked Done — zero bare except blocks remaining | git grep confirms zero except:pass in production code. 23 observability tests verify replacements. | — |
+| 2026-05-14 | Task 9 (Structured Logging) core infra done, correlation IDs/file handler deferred | get_logger() centralized in logger.py, all agents adopted, print() replaced in production code. Correlation IDs and file handler are enhancements, not Must requirements. | — |
 
 ---
 

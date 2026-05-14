@@ -294,7 +294,7 @@ This is intentionally NOT strict transactional (no rollback, no abort on partial
 
 ## Phase C Coverage (Reliability, Observability & Concurrency)
 
-Phase C adds 76 new tests across four new files. Current coverage:
+Phase C adds 76 backend + 20 frontend tests. Current coverage:
 
 | Area | Tests | File |
 |------|-------|------|
