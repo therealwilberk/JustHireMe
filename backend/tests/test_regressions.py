@@ -775,6 +775,33 @@ This role is a great fit for customer-facing technical professionals. Apply here
         self.assertEqual(self._split_targets(""), [])
         self.assertEqual(self._split_targets(None), [])
 
+    def test_validate_rejects_site_without_dot(self):
+        from services.job_targets import validate_job_targets
+        errors = validate_job_targets(["site:opp"])
+        self.assertTrue(any("domain with a dot" in e for e in errors))
+
+    def test_validate_rejects_url_without_dot(self):
+        from services.job_targets import validate_job_targets
+        errors = validate_job_targets(["https://notadomain"])
+        self.assertTrue(any("domain with a dot" in e for e in errors))
+
+    def test_validate_rejects_wrong_prefix(self):
+        from services.job_targets import validate_job_targets
+        errors = validate_job_targets(["blah blah"])
+        self.assertTrue(any("known short name" in e for e in errors))
+
+    def test_validate_accepts_valid_entries(self):
+        from services.job_targets import validate_job_targets
+        entries = [
+            "https://remoteok.com/api",
+            "site:linkedin.com/jobs",
+            "hn-hiring",
+            "github:role hiring",
+            "reddit:forhire:role",
+        ]
+        errors = validate_job_targets(entries)
+        self.assertEqual(errors, [])
+
     def test_india_query_generation_keeps_location_clause_on_fallback(self):
         from agents import query_gen
 

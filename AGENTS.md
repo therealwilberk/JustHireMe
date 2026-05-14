@@ -73,3 +73,18 @@ tail -f /tmp/jhm.log
 ## Current Phase
 
 Phase C (Reliability, Observability & Concurrency) — active.
+
+## Remaining India References (Separate Scope)
+
+These files still contain India-specific logic that was part of the old hardcoded job target system. They are NOT modified by the `chore/externalize-job-targets` branch — that branch only removed India from `services/job_targets.py` and `config/app.py`.
+
+| File | What has India | Why not removed |
+|------|----------------|-----------------|
+| `agents/query_gen.py` | `_india_clause()`, market focus branching in prompt templates | Agent layer — separate effort |
+| `agents/help_agent.py` | Help prompt text mentions India presets | Agent layer — separate effort |
+| `agents/lead_intel.py` | `if "india" in lower` → "Remote India" | Agent layer — separate effort |
+| `config/scoring.py` | Location list includes "india" | Scoring engine — not target config |
+| `agents/scoring_engine.py` | Location scoring includes India | Scoring engine — not target config |
+| `src/settings/shared.tsx` | `INDIA_SOURCE_PRESET`, market focus toggle | Frontend — separate branch |
+| `src/settings/DiscoverySettings.tsx` | India market button, India quick-add buttons | Frontend — separate branch |
+| `src/components/OnboardingWizard.tsx` | India dropdown option | Frontend — separate branch |

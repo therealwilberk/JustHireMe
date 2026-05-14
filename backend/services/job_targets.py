@@ -67,7 +67,8 @@ def validate_job_targets(entries: list[str]) -> list[str]:
         else:
             seen.add(cleaned.lower())
             if cleaned.startswith("http://") or cleaned.startswith("https://"):
-                if "." not in cleaned.split("/")[2] if "/" in cleaned[8:] else False:
+                host = cleaned.split("/")[2] if "://" in cleaned else ""
+                if "." not in host:
                     errors.append(f"[{i}]: URL must contain a valid domain with a dot (e.g. https://remoteok.com/api)")
             elif cleaned.startswith("site:"):
                 domain_part = cleaned[5:].strip().split()[0]
@@ -75,8 +76,10 @@ def validate_job_targets(entries: list[str]) -> list[str]:
                     errors.append(f"[{i}]: site: entry must contain a domain with a dot (e.g. site:linkedin.com/jobs)")
             elif cleaned.startswith("github:") or cleaned.startswith("hn:") or cleaned.startswith("reddit:"):
                 pass
+            elif cleaned in ("hn-hiring",):
+                pass
             else:
-                errors.append(f"[{i}]: entry must start with http://, https://, site:, github:, hn:, or reddit:")
+                errors.append(f"[{i}]: entry must start with http://, https://, site:, github:, hn:, reddit:, or be a known short name")
     return errors
 
 
