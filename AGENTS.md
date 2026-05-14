@@ -72,7 +72,7 @@ tail -f /tmp/jhm.log
 
 ## Current Phase
 
-Phase C (Reliability, Observability & Concurrency) — active.
+`chore/externalize-job-targets` — active. Moving hardcoded job board lists to user-configurable settings. See `docs/plans/externalize-job-targets.md`.
 
 ## Remaining India References (Separate Scope)
 
@@ -88,3 +88,13 @@ These files still contain India-specific logic that was part of the old hardcode
 | `src/settings/shared.tsx` | `INDIA_SOURCE_PRESET`, market focus toggle | Frontend — separate branch |
 | `src/settings/DiscoverySettings.tsx` | India market button, India quick-add buttons | Frontend — separate branch |
 | `src/components/OnboardingWizard.tsx` | India dropdown option | Frontend — separate branch |
+
+## Known Issues (Deferred)
+
+### Textarea input bypasses validation
+
+The `job_boards` textarea (frontend → `POST /api/v1/settings`) has no input validation. Entries like `site:opp ("jobs" OR "careers")` pass through `_split_configured_targets()` unscathed. Validation only runs on the new `PUT /api/v1/settings/job-targets` CRUD API. Fix: wire the textarea through validation, or replace it with the CRUD UI (Phase 5: Frontend).
+
+### Stop scan button may not update UI state
+
+`POST /api/v1/scan/stop` force-cancels the running task and releases the ghost lock. Backend returns `{"status": "stopping"}` and broadcasts an `eval_done` WS event. If the button stays stuck, the `AgentOnline` component likely isn't handling the HTTP response or WS event — investigate its state management.
