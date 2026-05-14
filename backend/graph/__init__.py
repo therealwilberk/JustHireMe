@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import threading
 from typing import Any, TypedDict
 
 from langgraph.graph import END, StateGraph
@@ -7,6 +8,9 @@ from langgraph.graph import END, StateGraph
 from logger import get_logger
 
 _log = get_logger(__name__)
+
+_DEFAULT_EVALUATE_TIMEOUT = 600
+_DEFAULT_GENERATE_TIMEOUT = 600
 
 
 class PipelineState(TypedDict):
@@ -24,6 +28,31 @@ class PipelineState(TypedDict):
     error_stage: str | None
 
 
+def _with_timeout(seconds: float | None, func, *args, **kwargs):
+    if seconds is None or seconds <= 0:
+        return func(*args, **kwargs)
+    result: list = []
+    exc: list[BaseException] = []
+    done = threading.Event()
+
+    def wrapper():
+        try:
+            result.append(func(*args, **kwargs))
+        except BaseException as e:
+            exc.append(e)
+        finally:
+            done.set()
+
+    t = threading.Thread(target=wrapper, daemon=True)
+    t.start()
+
+    if not done.wait(timeout=seconds):
+        raise TimeoutError(f"Operation timed out after {seconds}s")
+    if exc:
+        raise exc[0]
+    return result[0]
+
+
 def _job_eval_document(lead: dict) -> str:
     desc = (lead.get("description") or "").strip()
     return (
@@ -38,7 +67,8 @@ def evaluate_node(state: PipelineState) -> dict:
     try:
         from agents.evaluator import score
 
-        result = score(_job_eval_document(state["lead"]), state["profile"])
+        timeout = float(state.get("cfg", {}).get("evaluate_timeout") or _DEFAULT_EVALUATE_TIMEOUT)
+        result = _with_timeout(timeout, score, _job_eval_document(state["lead"]), state["profile"])
         return {
             "score": int(result.get("score") or 0),
             "reason": str(result.get("reason") or ""),
@@ -67,7 +97,8 @@ def generate_node(state: PipelineState) -> dict:
         from agents.generator import run_package
 
         template = str(state.get("cfg", {}).get("resume_template") or "")
-        package = run_package({**state["lead"], **state}, template=template)
+        timeout = float(state.get("cfg", {}).get("generate_timeout") or _DEFAULT_GENERATE_TIMEOUT)
+        package = _with_timeout(timeout, run_package, {**state["lead"], **state}, template=template)
         return {
             "asset_path": package.get("resume", ""),
             "cover_letter_path": package.get("cover_letter", ""),

@@ -499,6 +499,64 @@ class TestEvaluateCatchesAllExceptions(unittest.TestCase):
 
 
 # ========================================================================
+# Guarantee: timeout in evaluate_node produces structured error
+# ========================================================================
+
+
+@pytest.mark.integration
+class TestEvaluateNodeTimeout(unittest.TestCase):
+    """Guarantee: a timeout in evaluate_node sets error_stage='evaluate'.
+
+    The ``_with_timeout`` wrapper runs the callable in a daemon thread
+    and raises TimeoutError if the deadline expires.  The node's existing
+    ``except Exception`` handler catches TimeoutError and returns
+    structured failure metadata.
+    """
+
+    def test_timeout_sets_error_stage_evaluate(self):
+        graph = build_eval_graph()
+        with mock.patch(
+            "agents.evaluator.score",
+            side_effect=lambda *a, **kw: __import__("time").sleep(100),
+        ):
+            with (
+                mock.patch("db.client.update_lead_score"),
+                mock.patch("db.client.save_asset_package"),
+            ):
+                result = graph.invoke(_base_state(cfg={"evaluate_timeout": "0.01"}))
+
+        self.assertEqual(result["error_stage"], "evaluate")
+
+    def test_timeout_message_reports_timed_out(self):
+        graph = build_eval_graph()
+        with mock.patch(
+            "agents.evaluator.score",
+            side_effect=lambda *a, **kw: __import__("time").sleep(100),
+        ):
+            with (
+                mock.patch("db.client.update_lead_score"),
+                mock.patch("db.client.save_asset_package"),
+            ):
+                result = graph.invoke(_base_state(cfg={"evaluate_timeout": "0.01"}))
+
+        self.assertIn("timed out", result["error"].lower())
+
+    def test_timeout_produces_zero_score(self):
+        graph = build_eval_graph()
+        with mock.patch(
+            "agents.evaluator.score",
+            side_effect=lambda *a, **kw: __import__("time").sleep(100),
+        ):
+            with (
+                mock.patch("db.client.update_lead_score"),
+                mock.patch("db.client.save_asset_package"),
+            ):
+                result = graph.invoke(_base_state(cfg={"evaluate_timeout": "0.01"}))
+
+        self.assertEqual(result["score"], 0)
+
+
+# ========================================================================
 # Guarantee: generate crash returns empty asset paths
 # ========================================================================
 
@@ -696,6 +754,67 @@ class TestGenerateCatchesAllExceptions(unittest.TestCase):
 
                 self.assertIsNotNone(result.get("error"))
                 self.assertEqual(result.get("error_stage"), "generate")
+
+
+# ========================================================================
+# Guarantee: timeout in generate_node produces structured error
+# ========================================================================
+
+
+@pytest.mark.integration
+class TestGenerateNodeTimeout(unittest.TestCase):
+    """Guarantee: a timeout in generate_node sets error_stage='generate'."""
+
+    def setUp(self):
+        self._eval_mock = mock.patch(
+            "agents.evaluator.score", return_value=dict(_EVAL_RESULT)
+        )
+        self._eval_mock.start()
+
+    def tearDown(self):
+        self._eval_mock.stop()
+
+    def test_timeout_sets_error_stage_generate(self):
+        graph = build_eval_graph()
+        with mock.patch(
+            "agents.generator.run_package",
+            side_effect=lambda *a, **kw: __import__("time").sleep(100),
+        ):
+            with (
+                mock.patch("db.client.update_lead_score"),
+                mock.patch("db.client.save_asset_package"),
+            ):
+                result = graph.invoke(_base_state(cfg={"generate_timeout": "0.01"}))
+
+        self.assertEqual(result["error_stage"], "generate")
+
+    def test_timeout_message_reports_timed_out(self):
+        graph = build_eval_graph()
+        with mock.patch(
+            "agents.generator.run_package",
+            side_effect=lambda *a, **kw: __import__("time").sleep(100),
+        ):
+            with (
+                mock.patch("db.client.update_lead_score"),
+                mock.patch("db.client.save_asset_package"),
+            ):
+                result = graph.invoke(_base_state(cfg={"generate_timeout": "0.01"}))
+
+        self.assertIn("timed out", result["error"].lower())
+
+    def test_timeout_preserves_upstream_evaluate_score(self):
+        graph = build_eval_graph()
+        with mock.patch(
+            "agents.generator.run_package",
+            side_effect=lambda *a, **kw: __import__("time").sleep(100),
+        ):
+            with (
+                mock.patch("db.client.update_lead_score"),
+                mock.patch("db.client.save_asset_package"),
+            ):
+                result = graph.invoke(_base_state(cfg={"generate_timeout": "0.01"}))
+
+        self.assertEqual(result["score"], 75)
 
 
 # ========================================================================
