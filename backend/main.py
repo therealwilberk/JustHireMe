@@ -1,3 +1,11 @@
+"""FastAPI application entrypoint for JustHireMe.
+
+The first ``if __name__ == "__main__"`` block emits the API token
+and bound port to stdout before slow imports load, so Tauri's sidecar
+can read them quickly. The second ``if __name__ == "__main__"`` block
+starts uvicorn after all imports are ready.
+"""
+
 import secrets
 import socket
 import sys
@@ -8,8 +16,13 @@ from config.secrets import resolve_secret
 
 
 def _bind_port() -> int:
-    """Bind a port and return (socket, port). The socket stays open to prevent
-    TOCTOU races where another process grabs the port between discovery and use."""
+    """Bind an ephemeral port and return the socket. The socket stays open to
+    prevent TOCTOU races where another process grabs the port between
+    discovery and use.
+
+    Returns:
+        A socket bound to 127.0.0.1 on an OS-assigned ephemeral port.
+    """
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     s.bind(("127.0.0.1", 0))
@@ -47,6 +60,12 @@ from services.ghost import _ghost_tick
 
 
 def _validate_config_on_startup():
+    """Run configuration validation and exit the process on failure.
+
+    Calls ``validate_all()`` and logs each error at CRITICAL level
+    before calling ``sys.exit(1)``. Exits immediately on exceptions
+    during config loading as well.
+    """
     try:
         errs = validate_all()
         if errs:
@@ -60,6 +79,12 @@ def _validate_config_on_startup():
 
 
 def _log_startup_secret_diagnostics() -> None:
+    """Log which secrets are configured at DEBUG level.
+
+    Iterates over known secret keys, resolves each via
+    :func:`resolve_secret`, and logs a debug line for every
+    secret that is present.
+    """
     secrets_to_check = [
         (settings.scraping.apify_key_names.token, settings.scraping.apify_settings_key_names.token),
         (settings.scraping.apify_key_names.actor, settings.scraping.apify_settings_key_names.actor),
@@ -75,6 +100,11 @@ def _log_startup_secret_diagnostics() -> None:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    """FastAPI lifespan context manager for startup/shutdown.
+
+    On startup: validates config, logs secret diagnostics, starts the
+    ghost-mode background scheduler. On shutdown: stops the scheduler.
+    """
     _validate_config_on_startup()
     _log_startup_secret_diagnostics()
     if _sched.get_job("ghost"):
@@ -103,6 +133,11 @@ app.add_middleware(
 
 @app.middleware("http")
 async def correlation_context_middleware(request: Request, call_next):
+    """Attach a correlation ID to every HTTP request.
+
+    Reads ``X-Correlation-ID`` from the request headers when present,
+    or generates a new one. Sets the same ID on the response headers.
+    """
     correlation_id = request.headers.get("X-Correlation-ID")
     if correlation_id:
         ctx = new_context(correlation_id=correlation_id, workflow_type="http_request", subsystem="api")
@@ -119,6 +154,11 @@ async def correlation_context_middleware(request: Request, call_next):
 
 @app.middleware("http")
 async def require_http_token(request: Request, call_next):
+    """Authenticate requests via bearer token.
+
+    Skips authentication for OPTIONS requests and the ``/health``
+    endpoint. Returns 401 if the bearer token is missing or invalid.
+    """
     if request.method == "OPTIONS" or request.url.path == "/health":
         return await call_next(request)
     creds = await _bearer(request)
