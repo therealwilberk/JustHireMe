@@ -6,7 +6,7 @@ This directory contains the deterministic test suite for the JustHireMe backend.
 All tests in this directory are designed to run in CI, produce consistent results,
 and avoid external service dependencies.
 
-**Test count:** 261  
+**Test count:** 280  
 **Framework:** pytest (via `unittest.TestCase`)  
 **Runner:** `uv run python -m pytest tests/`
 
@@ -38,6 +38,14 @@ and avoid external service dependencies.
 | **What it tests** | WAL journal mode persistence, foreign key enforcement, busy timeout settability, combined pragma behavior |
 | **Key behaviours** | WAL persists across connections on file DB, FK rejects violations, busy timeout is settable |
 | **Dependencies** | Real `sqlite3` (bypasses test fakes at module level), temp file databases |
+
+### `test_sqlite_reliability.py` — SQLite Operational Configuration & Contention
+
+| Status | Strong |
+|--------|--------|
+| **What it tests** | `get_sql_connection()` pragma application, WAL snapshot isolation, writer busy_timeout behavior, FK enforcement under concurrent writes, connection initialization consistency, transaction rollback |
+| **Key behaviours** | WAL: reader doesn't see uncommitted writes, reader not blocked by concurrent writer, concurrent readers unblocked. Contention: busy_timeout=0 raises immediate SQLITE_BUSY, busy_timeout>0 waits then succeeds when lock released, short timeout expires. Atomicity: ROLLBACK undoes all changes, uncommitted work rolled back on disconnect. FK: violation aborts statement without partial data. Consistency: AST analysis confirms zero direct `_sq.connect()` calls outside `get_sql_connection()`. |
+| **Dependencies** | Real `sqlite3` (bypasses test fakes), temp file databases, `threading` for multi-connection contention tests (connections created inside threads per check_same_thread) |
 
 ### `test_api.py` — API Endpoints
 
@@ -117,6 +125,7 @@ and avoid external service dependencies.
   │   Domain/Unit     │  test_regressions.py, test_secrets.py
   │                   │  test_paths.py, test_websocket.py
   │                   │  test_sqlite.py, test_observability.py
+  │                   │  test_sqlite_reliability.py
   └──────────────────┘
 ```
 
@@ -285,12 +294,13 @@ This is intentionally NOT strict transactional (no rollback, no abort on partial
 
 ## Phase C Coverage (Reliability, Observability & Concurrency)
 
-Phase C adds 57 new tests across three new files. Current coverage:
+Phase C adds 76 new tests across four new files. Current coverage:
 
 | Area | Tests | File |
 |------|-------|------|
 | WebSocket `_CM` concurrency | 24 (basic + concurrent + event-controlled blocking, delayed disconnect, three-way races, dead cleanup under contention) | `test_websocket.py` |
 | SQLite pragmas | 10 (WAL persist, FK enforcement, busy timeout, combined, importable) | `test_sqlite.py` |
+| SQLite operational config & contention | 19 (get_sql_connection pragmas, WAL snapshot isolation, writer busy_timeout, rollback, FK enforcement under concurrent writes, connection consistency AST check) | `test_sqlite_reliability.py` |
 | Failure observability | 23 (budget parse, date parse, profile snapshot, vector ops, cache parse, graph relations, upsert, vector delete) | `test_observability.py` |
 | Frontend error handling | Manual validation via build | no automated frontend tests |
 
