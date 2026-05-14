@@ -1,3 +1,9 @@
+"""Scan orchestration and state management.
+
+Provides the ScanManager lifecycle state machine for scan, re-evaluate,
+and ghost mode coordination, plus the core scan and re-evaluate pipelines.
+"""
+
 import asyncio
 
 from fastapi import HTTPException
@@ -13,7 +19,15 @@ from config.secrets import resolve_secret
 
 
 class ScanManager:
+    """Lifecycle state machine for scan/reevaluate/ghost operations.
+
+    Manages concurrent access to scan and re-evaluation tasks via an
+    asyncio lock and dedicated stop events.  Only one scan, one
+    re-evaluation, or one ghost cycle may run at a time.
+    """
+
     def __init__(self) -> None:
+        """Initialize scan manager with idle task/event/lock state."""
         self._scan_task: asyncio.Task | None = None
         self._scan_stop: asyncio.Event = asyncio.Event()
         self._reevaluate_task: asyncio.Task | None = None
@@ -21,6 +35,15 @@ class ScanManager:
         self._ghost_lock: asyncio.Lock = asyncio.Lock()
 
     async def start_scan(self) -> dict:
+        """Start a new scan cycle.
+
+        Raises:
+            HTTPException 409: If ghost mode is active, a scan is already
+                running, or a re-evaluation is already running.
+
+        Returns:
+            dict: ``{"status": "scanning"}`` on success.
+        """
         if self._ghost_lock.locked():
             raise HTTPException(status_code=409, detail="Scan already in progress (ghost mode active)")
         if self._scan_task and not self._scan_task.done():
@@ -32,6 +55,12 @@ class ScanManager:
         return {"status": "scanning"}
 
     async def stop_scan(self) -> dict:
+        """Request cancellation of the currently running scan.
+
+        Returns:
+            dict: ``{"status": "stopping"}`` if a scan was running,
+            ``{"status": "idle"}`` otherwise.
+        """
         if not self._scan_task or self._scan_task.done():
             return {"status": "idle"}
         self._scan_stop.set()
@@ -40,6 +69,15 @@ class ScanManager:
         return {"status": "stopping"}
 
     async def start_reevaluate(self) -> dict:
+        """Start a new re-evaluation cycle.
+
+        Raises:
+            HTTPException 409: If ghost mode is active, a re-evaluation
+                is already running, or a scan is already running.
+
+        Returns:
+            dict: ``{"status": "reevaluating"}`` on success.
+        """
         if self._ghost_lock.locked():
             raise HTTPException(status_code=409, detail="Re-evaluation already in progress (ghost mode active)")
         if self._reevaluate_task and not self._reevaluate_task.done():
@@ -51,6 +89,12 @@ class ScanManager:
         return {"status": "reevaluating"}
 
     async def stop_reevaluate(self) -> dict:
+        """Request cancellation of the running re-evaluation.
+
+        Returns:
+            dict: ``{"status": "stopping"}`` if a re-evaluation was
+            running, ``{"status": "idle"}`` otherwise.
+        """
         if not self._reevaluate_task or self._reevaluate_task.done():
             return {"status": "idle"}
         self._reevaluate_stop.set()
@@ -59,12 +103,27 @@ class ScanManager:
         return {"status": "stopping"}
 
     def is_scanning(self) -> bool:
+        """Check whether a scan is currently running.
+
+        Returns:
+            bool: True if a scan task exists and has not completed.
+        """
         return bool(self._scan_task and not self._scan_task.done())
 
     def is_reevaluating(self) -> bool:
+        """Check whether a re-evaluation is currently running.
+
+        Returns:
+            bool: True if a re-evaluation task exists and has not completed.
+        """
         return bool(self._reevaluate_task and not self._reevaluate_task.done())
 
     async def _run_scan_task(self) -> None:
+        """Acquire the ghost lock and delegate to ``_run_scan``.
+
+        Catches ``CancelledError`` for clean user-initiated stops and
+        broadcasts failure messages on unexpected exceptions.
+        """
         try:
             await asyncio.wait_for(self._ghost_lock.acquire(), timeout=0)
         except asyncio.TimeoutError:
@@ -82,6 +141,11 @@ class ScanManager:
             self._ghost_lock.release()
 
     async def _run_reevaluate_jobs_task(self) -> None:
+        """Acquire the ghost lock and delegate to ``_run_reevaluate_jobs``.
+
+        Catches ``CancelledError`` for clean user-initiated stops and
+        broadcasts failure messages on unexpected exceptions.
+        """
         try:
             await asyncio.wait_for(self._ghost_lock.acquire(), timeout=0)
         except asyncio.TimeoutError:
@@ -105,10 +169,30 @@ _REEVALUATION_STATUS_LOCKS = {"approved", "applied", "interviewing", "rejected",
 
 
 def _should_preserve_job_status(status: str) -> bool:
+    """Determine whether a job status should be preserved during re-evaluation.
+
+    Terminal or actionable statuses (approved, applied, interviewing, etc.)
+    should not be overwritten by a re-score.
+
+    Args:
+        status: The current job lead status string.
+
+    Returns:
+        True if the status is in the preserved set.
+    """
     return status in _REEVALUATION_STATUS_LOCKS
 
 
 def _job_eval_document(lead: dict) -> str:
+    """Format a job lead into a plain-text evaluation document.
+
+    Args:
+        lead: A job lead dictionary with keys ``title``, ``company``,
+            ``url``, and optionally ``description``.
+
+    Returns:
+        A multi-line string suitable for consumption by the evaluator agent.
+    """
     desc = (lead.get("description") or "").strip()
     return (
         f"Job Title: {lead.get('title','')}\n"
@@ -119,6 +203,13 @@ def _job_eval_document(lead: dict) -> str:
 
 
 async def _run_reevaluate_jobs() -> None:
+    """Re-evaluate all stored job leads against the current profile.
+
+    Iterates over leads returned by ``get_job_leads_for_evaluation``,
+    submits each as an evaluation document to the scoring agent, and
+    persists updated scores.  Respects the re-evaluation stop event for
+    early termination.
+    """
     from db.client import get_settings, get_job_leads_for_evaluation, get_lead_by_id, update_lead_score, get_profile  # lazy: lancedb import takes ~7s
     from agents.evaluator import score as _score  # lazy: agents module (per-request dep)
 
@@ -176,6 +267,18 @@ async def _run_reevaluate_jobs() -> None:
 
 
 async def _run_scan() -> None:
+    """Execute a full scan cycle.
+
+    Pipeline steps:
+        1. X/Twitter signal scan
+        2. Free source signal scan
+        3. Profile-tailored search query generation
+        4. Scout (job board scraping via Apify)
+        5. LLM evaluation of discovered leads
+
+    Respects ``scan_manager._scan_stop`` for early termination between
+    phases and during evaluation.
+    """
     from db.client import get_settings, get_discovered_leads, update_lead_score, get_profile  # lazy: lancedb import takes ~7s
     from agents.scout import run as _scout  # lazy: agents module (per-request dep)
     from agents.evaluator import score as _score  # lazy: agents module (per-request dep)
@@ -253,6 +356,3 @@ async def _run_scan() -> None:
             await cm.broadcast({"type": "agent", "event": "eval_error", "msg": f"Eval failed for {lead.get('title','')}: {e}"})
 
     await cm.broadcast({"type": "agent", "event": "eval_done", "msg": "Evaluation cycle complete"})
-
-
-
