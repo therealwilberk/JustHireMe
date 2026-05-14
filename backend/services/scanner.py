@@ -132,7 +132,7 @@ async def _run_scan():
     profile = _profile_for_discovery(get_profile(), cfg)
     market_focus = cfg.get("job_market_focus", "global")
     raw_urls = _job_targets(cfg.get("job_boards", ""), market_focus)
-    from main import _run_x_signal_scan, _run_free_source_scan
+    from services.scout import _run_x_signal_scan, _run_free_source_scan
     await _run_x_signal_scan(cfg, "job", profile)
     await _run_free_source_scan(cfg, "job", profile)
 
