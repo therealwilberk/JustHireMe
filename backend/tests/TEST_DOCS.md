@@ -302,7 +302,8 @@ Phase C adds 76 new tests across four new files. Current coverage:
 | SQLite pragmas | 10 (WAL persist, FK enforcement, busy timeout, combined, importable) | `test_sqlite.py` |
 | SQLite operational config & contention | 19 (get_sql_connection pragmas, WAL snapshot isolation, writer busy_timeout, rollback, FK enforcement under concurrent writes, connection consistency AST check) | `test_sqlite_reliability.py` |
 | Failure observability | 23 (budget parse, date parse, profile snapshot, vector ops, cache parse, graph relations, upsert, vector delete) | `test_observability.py` |
-| Frontend error handling | Manual validation via build | no automated frontend tests |
+| Frontend error handling (SettingsModal) | 9 vitest tests verifying error visibility, success states, loading indicators, retry behavior, stale state clearing, network errors | `src/SettingsModal.test.tsx` |
+| Frontend error handling (ProfileView) | 11 vitest tests verifying delete/saveEdit/saveCandidate error visibility, server detail parsing, retry clearing, fallback messages | `src/views/ProfileView.test.tsx` |
 
 ---
 

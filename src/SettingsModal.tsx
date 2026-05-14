@@ -31,6 +31,7 @@ export default function SettingsModal({ api, onClose }: Props) {
   const save = async () => {
     setSaving(true);
     setSaveError(null);
+    setSaved(false);
     try {
       const res = await api("/api/v1/settings", {
         method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(cfg),

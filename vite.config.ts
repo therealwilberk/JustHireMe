@@ -10,8 +10,10 @@ export default defineConfig(async () => ({
   plugins: [react(), tailwindcss()],
   base: "./",
   test: {
-    environment: "node",
+    environment: "jsdom",
     include: ["src/**/*.test.ts", "src/**/*.test.tsx"],
+    setupFiles: ["src/test/setup.ts"],
+    css: false,
   },
 
   // Vite options tailored for Tauri development and only applied in `tauri dev` or `tauri build`

@@ -51,6 +51,7 @@ Phase A established the config layer including `config/logging.py` schema. Phase
 - [x] **Task 6 — SQLite WAL Mode & Connection Management**: Set `PRAGMA journal_mode=WAL` on all connections, add connection wrapper, set busy timeout. *(Done)*
 - [x] **Task 7 — Frontend Error Handling**: `SettingsModal` save failure shows user-facing error. `ProfileView` delete/save failures show user-facing error. *(Done)*
 - [x] **Task 8 — Build Configuration Fixes**: Enable `createUpdaterArtifacts`, set platform-specific bundle targets. *(Done)*
+- [x] **Task 11 — Frontend Reliability & User-Truthfulness Tests**: Add vitest component tests for SettingsModal and ProfileView error handling. *(Done)*
 - [ ] **Task 4 — Replace Silent Exception Suppression With Structured Error Reporting**: Replace every `except: pass` with logged warnings or structured errors carrying identifiers. *(Pending)*
 - [ ] **Task 9 — Structured Logging Infrastructure**: Centralized logging configuration, consistent format/levels/fields, file handler, correlation context propagation. *(Deferred to Task 4 completion)*
 
@@ -107,6 +108,7 @@ Phase A established the config layer including `config/logging.py` schema. Phase
 - [x] `[AFK]` **Task 6 — SQLite WAL Mode:** Add `get_sql_connection()` wrapper with `PRAGMA journal_mode=WAL`, `foreign_keys=ON`, `busy_timeout=5000`. Replace all 34 call sites. Write 10 pragma verification tests.
 - [x] `[AFK]` **Task 7 — Frontend Error Handling:** Add `saveError`/`actionError` state and catch blocks to `SettingsModal.tsx` (save) and `ProfileView.tsx` (delete, saveEdit, saveCandidate). Display user-facing error messages.
 - [x] `[AFK]` **Task 8 — Build Configuration:** Set `createUpdaterArtifacts: true`, add `deb` to bundle targets in `tauri.conf.json`.
+- [x] `[AFK]` **Task 11 — Frontend Reliability & User-Truthfulness Tests:** Add vitest component tests for SettingsModal (9) and ProfileView (11) verifying error visibility, retry, loading state, actionable messaging, and no false-success behavior. *(Done)*
 - [ ] `[AFK]` **Task 4 — Replace Silent Exception Suppression:** Replace all 40 `except: pass` instances across `db/client.py`, `main.py`, and `agents/` with logged warnings carrying identifiers. Document intentional passes (WebSocket ping/disconnect) with comments.
 - [ ] `[AFK]` **Task 9 — Structured Logging:** Centralize all `print()`/ad hoc logger calls through `backend/logger.py`. Add structured fields (correlation ID, subsystem, traceback). Add optional file handler.
 
@@ -179,6 +181,16 @@ This phase is Infra — no new API endpoints, schemas, or CLI commands. Changes 
 - [x] ProfileView saveEdit shows user-facing error on failure
 - [x] ProfileView saveCandidate shows user-facing error on failure
 - [x] No unhandled promise rejections in save/delete handlers
+
+### Task 11 — Frontend Reliability & User-Truthfulness Tests *(Done)*
+
+- [x] SettingsModal tests (9): error visibility for 500/422/503/network errors, success state, loading indicator reset after failure, retry clears error, stale success cleared by subsequent failure
+- [x] ProfileView deleteItem tests (5): error visibility on 500, no false error on success, server detail on 422, retry clears error, fallback on thrown error
+- [x] ProfileView saveEdit tests (2): error visibility on 500, server detail on 422
+- [x] ProfileView saveCandidate tests (4): error visibility on 500, server detail on 422, retry clears error, fallback on thrown error
+- [x] Tests simulate backend failure responses (500, 422, network error) and verify: explicit error state, no false-success, retry interaction, stale state clearing, loading indicator resolution, actionable error messages
+- [x] `renderView` helper uses unique DOM selector (`"1 SKILLS"` pill text) to avoid multi-element match
+- [x] Full test suite passes: 33 frontend tests + 280 backend tests
 
 ### Task 8 — Build Config *(Done)*
 
