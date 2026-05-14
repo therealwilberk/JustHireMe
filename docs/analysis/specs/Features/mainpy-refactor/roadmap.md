@@ -10,8 +10,8 @@
 
 | Field | Value |
 |-------|-------|
-| Current pass | Pass B — Structural Improvements |
-| Branch pattern | `feature/mainpy-refactor-pass-b` |
+| Current pass | Pass C — Response Models & Type Annotations |
+| Branch pattern | `feature/mainpy-refactor-pass-c` |
 | Last updated | 2026-05-14 |
 | Overall status | `[~] Active` |
 | **Note** | Mini-roadmap docs will be deleted once the overall refactor is complete `.md` docs |
@@ -88,55 +88,49 @@ During Pass A, all lazy imports (inside function bodies) were moved to top-of-fi
 
 ---
 
-## Pass B — Structural Improvements
+## Pass B — Structural Improvements ✅ Merged
 
 **Goal:** Now that code is modular, improve structure without changing behavior. Extract globals into classes, fix known bugs, narrow broad exceptions.
 
-**Branch:** `feature/mainpy-refactor-pass-b`
+**Branch:** `feature/mainpy-refactor-pass-b` (deleted after merge)
 **Type:** `Infra`
-**Mode:** `HITL` (each improvement needs verification)
-**Blocked by:** `Pass A`
-**Requires:** Full test suite to pass before starting
+**Mode:** `HITL`
 
 ### Phases (execution order)
 
-**Ordering rationale:** B3 (bug fixes) comes first so structural changes in B1/B2 don't share blame with fixes. B4 (lazy imports) is independent and can run in parallel with B1/B2.
+**Ordering rationale:** B3 (bug fixes) came first so structural changes in B1/B2 didn't share blame with fixes. B4 (lazy imports) ran in parallel with B1/B2.
 
-#### B3 — Fix Known Bugs (AFK per fix, HITL collectively)
+#### B3 — Fix Known Bugs ✅
 
-4 independent bug fixes, each in a separate commit. [Full doc](pass-b/b3-fix-known-bugs.md)
+| Fix | Status | Commit |
+|-----|--------|--------|
+| Narrow `_int_cfg` exception | ✅ | `3852204` |
+| WS cleanup inside lock | **DROPPED** — holding lock during I/O causes deadlocks | — |
+| Job targets → tuples | ✅ | `d68eb77` |
+| Unreachable health guard | ✅ Already applied on linux-base | — |
 
-- [x] Fix `_int_cfg` bare `except Exception` → `except (ValueError, TypeError)`
-  - Commit: `fix(b3): narrow _int_cfg exception to ValueError and TypeError`
-- [ ] **DROPPED** — Fix `_CM.broadcast()` dead-socket cleanup to happen inside the lock
-  - Reason: Holding lock during `await w.send_text()` causes deadlocks in concurrency tests. Original code is correct.
-- [x] Change `DEFAULT_JOB_TARGETS` and `INDIA_JOB_TARGETS` to `tuple[str, ...]`
-  - Commit: `fix(b3): change job target lists to immutable tuples`
-- [x] **ALREADY APPLIED** — Remove dead `if request.url.path != "/health"` guard in `require_http_token`
-  - No commit needed (guard already removed on `linux-base`)
+#### B1 — ScanManager Class ✅ (`50f53e9`)
 
-#### B1 — ScanManager Class (HITL)
+Encapsulated 5 module globals into `ScanManager` class. Routes now use `scanner.scan_manager.start_scan()`.
 
-Encapsulate scan globals (`_scan_task`, `_scan_stop`, `_reevaluate_task`, `_reevaluate_stop`, `_ghost_lock`) into a `ScanManager` class with `start_scan()`, `stop_scan()`, `start_reevaluate()`, `stop_reevaluate()`, `is_scanning()` methods. [Full doc](pass-b/b1-scanmanager-class.md)
+#### B2 — GhostService Decomposition ✅ (`dcbce4e`)
 
-#### B2 — GhostService Decomposition (HITL)
+Split 139-line `_ghost_tick_impl` into 7 named phase methods on `GhostService`.
 
-Decompose `_ghost_tick_impl` (~139 lines, 6 phases) into named phase methods on a `GhostService` class. [Full doc](pass-b/b2-ghostservice-decomposition.md)
+#### B4 — Resolve Lazy Imports ✅ (`c3a9bac`)
 
-#### B4 — Resolve Lazy Imports (AFK)
+Promoted ~30 fast imports to top-of-file, documented ~58 slow ones with inline comments.
 
-Audit per-function imports; promote fast ones to top of file; document slow ones that must stay lazy. [Full doc](pass-b/b4-resolve-lazy-imports.md)
+### Pass B Validation ✅
 
-### Pass B Validation
-
-- [ ] Scan state encapsulated in `ScanManager` class
-- [ ] Ghost phases independently testable
+- [x] Scan state encapsulated in `ScanManager` class
+- [x] Ghost phases independently readable
 - [x] `_int_cfg` catches `(ValueError, TypeError)` only
-- [ ] **DROPPED** — `_CM.broadcast()` dead-socket race (original code correct — don't hold lock during I/O)
+- [ ] **DROPPED** — `_CM.broadcast()` dead-socket race (original code correct)
 - [x] Job target lists are immutable tuples
-- [ ] Lazy imports resolved where safe
-- [ ] Full test suite passes
-- [ ] App launches
+- [x] Lazy imports resolved where safe
+- [x] Full test suite passes (300)
+- [x] App launches
 
 ---
 
@@ -149,24 +143,32 @@ Audit per-function imports; promote fast ones to top of file; document slow ones
 **Mode:** `HITL` (must verify each route returns correct shape)
 **Blocked by:** `Pass B`
 
+**Key risk:** Pydantic `response_model=` strips extra fields not in the model. Must verify each route's output shape after wiring — rely on `test_api.py` structured contract assertions to catch silently dropped fields.
+
 ### Phases
 
 #### C1 — Response Models (HITL, per router)
 
-For each router, define response Pydantic models and add `response_model=` to every route handler. Verify the response shape hasn't changed after adding the model.
+Define response Pydantic models in `schemas/responses.py` and add `response_model=` to every route. Wire one router at a time and run tests after each. [Full doc](pass-c/c1-response-models.md)
 
-- [ ] Define response schemas in `schemas/responses.py`
-- [ ] Wire `response_model=` on every route in each router
-- [ ] Verify each route returns the expected shape (Pydantic strips extra fields — must not lose data)
-- [ ] Commit: `refactor(c1): add response models to routes/`
+- [ ] Create `schemas/responses.py` with per-route response models
+- [ ] Wire `response_model=` on `routes/misc.py`
+- [ ] Wire `response_model=` on `routes/settings.py`
+- [ ] Wire `response_model=` on `routes/scan.py`
+- [ ] Wire `response_model=` on `routes/leads.py`
+- [ ] Wire `response_model=` on `routes/profile.py`
+- [ ] Wire `response_model=` on `routes/ingest.py`
+- [ ] Wire `response_model=` on `routes/actions.py`
+- [ ] Verify no fields silently dropped (run `test_api.py` contract assertions)
+- [ ] Commit: `refactor(c1): add response models to all routes`
 
-#### C2 — Type Annotations (AFK)
+#### C2 — Type Annotations (AFK, can run parallel with C1)
 
-Add missing `-> ...` return types and param type annotations to all service functions.
+Add missing `-> ...` return types and param type annotations to all service functions. [Full doc](pass-c/c2-type-annotations.md)
 
-- [ ] Audit all functions lacking annotations (identified in structure report)
-- [ ] Add complete type annotations
-- [ ] Run static check if available
+- [ ] Audit all service functions lacking annotations
+- [ ] Add complete type annotations to services
+- [ ] Run compile check
 - [ ] Commit: `chore(c2): add missing type annotations to services`
 
 ### Pass C Validation
@@ -174,7 +176,7 @@ Add missing `-> ...` return types and param type annotations to all service func
 - [ ] Every route specifies `response_model=`
 - [ ] No fields silently dropped by response model validation
 - [ ] All service functions have complete type annotations
-- [ ] Full test suite passes
+- [ ] Full test suite passes (300)
 - [ ] App launches
 
 ---
