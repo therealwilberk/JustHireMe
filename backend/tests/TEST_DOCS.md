@@ -86,8 +86,17 @@ and avoid external service dependencies.
 ## Test Commands
 
 ```bash
-# Run full backend test suite
+# Run default suite (excludes external tests)
 uv run python -m pytest tests/
+
+# Run all tests including external
+uv run python -m pytest tests/ -m ""
+
+# Run only integration tests
+uv run python -m pytest tests/ -m "integration"
+
+# Run only external tests (filesystem side effects)
+uv run python -m pytest tests/ -m "external"
 
 # Run with verbose output
 uv run python -m pytest tests/ -v
@@ -104,6 +113,18 @@ uv run python -m pytest tests/test_regressions.py::TestLeadQualityGate::test_val
 # Run with coverage
 uv run python -m pytest tests/ --cov=.
 ```
+
+## Pytest Markers
+
+| Marker | Meaning | Default | Tests |
+|--------|---------|---------|-------|
+| `integration` | Crosses component boundaries (routing, graph orchestration) | Included | `test_api.py`, `test_graph.py` |
+| `external` | Writes to filesystem or has side effects | Excluded | `test_generator_render_keeps_pdf_to_one_page`, `test_generator_uses_local_fallback_when_llm_is_unavailable` |
+| `requires_browser` | Requires Playwright/Chromium automation | Excluded | (none currently) |
+
+**Integration tests** use fakes for external storage but exercise the real FastAPI routing and LangGraph orchestration layers. They are CI-safe.
+
+**External tests** write PDF files to disk. They are excluded from the default run and must be opted into with `-m "external"`.
 
 ---
 
