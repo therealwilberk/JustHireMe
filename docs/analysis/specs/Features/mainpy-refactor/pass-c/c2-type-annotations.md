@@ -2,13 +2,45 @@
 
 **Mode:** AFK
 **Branch:** `feature/mainpy-refactor-pass-c`
-**Blocked by:** Pass C1 (recommended, but can run in parallel)
+**Blocked by:** Can run in parallel with C1 (no file overlap)
 
 ---
 
 ## Goal
 
-Add missing `-> ...` return types and param type annotations to all service functions. This is purely cosmetic/static-analysis — no behavioral change.
+Add missing return types and param type annotations to all service functions. This is **static-analysis hardening only** — no behavioral changes, no logic refactors, no architecture cleanup mixed in.
+
+## Scope Discipline
+
+This pass does ONE thing: annotate what's already there. Do NOT:
+- Refactor logic while touching signatures
+- Change function bodies
+- Add new abstractions
+- Fix bugs found along the way (note them, move on)
+- Mix with architecture cleanup
+
+The value is cognitive compression — answering "what comes in? what goes out? nullable? sync or async? side-effect only?" without reading the implementation body.
+
+## Async annotations matter disproportionately
+
+Explicit return types on async functions are far more valuable than sync ones because async workflows already carry high cognitive load:
+
+```python
+# Weak:
+async def run_scan(...) -> Any:
+
+# Strong:
+async def run_scan(...) -> ScanResult:
+```
+
+## Avoid `dict[str, Any]` spread unless truly necessary
+
+Many service functions have implicit stable structure. Prefer:
+- `TypedDict` for dict-shaped returns
+- `dataclass` for simple containers
+- Existing Pydantic models where they already match
+
+`dict[str, Any]` is acceptable as transitional typing, but if it becomes the universal answer the pass loses most of its value.
 
 ## What to Annotate
 
@@ -24,20 +56,26 @@ All functions in:
 
 ## What NOT to Annotate
 
-- Route handlers — they're annotated by `response_model=` in C1
+- Route handlers — `response_model=` covers outbound shape; route annotations can be deferred (route files are still being stabilized)
 - Pydantic models in `schemas/` — already typed
-- `db/client.py`, `agents/*`, `graph/*` — out of scope (separate effort)
+- `db/client.py`, `agents/*`, `graph/*` — out of scope (need characterization before aggressive typing)
 
 ## Execution
 
-1. Read each service file, find functions missing annotations
-2. Add return types and param types
-3. No behavioral changes
-4. Run tests after each significant file
+1. Read each file, find functions missing annotations
+2. Add return types and param types (no body changes)
+3. Run tests after each file
 
 ## Verification
 
 ```bash
 cd backend && uv run python -m pytest tests/ -q --tb=line
-uv run python -m py_compile backend/services/scanner.py  # compile check
+uv run python -m py_compile backend/services/scanner.py  # syntax check
 ```
+
+`py_compile` proves syntax validity only. For deeper validation, consider running:
+```bash
+cd backend && uv run python -m mypy --ignore-missing-imports backend/services/  # informational
+```
+
+Not as a CI gate yet, but as informational analysis — otherwise annotations exist but may be semantically meaningless.
