@@ -1,11 +1,12 @@
 import asyncio
 from typing import Any
 
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
 from config import settings as cfg_settings
 from core.config_constants import _sched
-from schemas.requests import SettingsBody
-from schemas.responses import OkResponse
+from schemas.requests import SettingsBody, JobTargetsUpdateBody
+from schemas.responses import OkResponse, JobTargetsResponse
+from services.job_targets import get_job_targets, get_blocked_markers, save_job_targets, validate_job_targets
 from services.ghost import _ghost_tick
 from config.secrets import resolve_secret
 from services.provider_probe import _sensitive, _probe_provider_key, _log_sensitive_deprecation
@@ -68,3 +69,44 @@ async def save_cfg(body: SettingsBody):
     if ghost and not _sched.get_job("ghost"):
         _sched.add_job(_ghost_tick, "interval", hours=6, id="ghost")
     return {"ok": True}
+
+
+@router.get("/settings/job-targets", response_model=JobTargetsResponse)
+async def get_job_targets_endpoint():
+    return JobTargetsResponse(
+        targets=get_job_targets(),
+        blocked=get_blocked_markers(),
+    )
+
+
+@router.put("/settings/job-targets", response_model=JobTargetsResponse)
+async def update_job_targets(body: JobTargetsUpdateBody):
+    targets = body.targets
+    blocked = body.blocked
+
+    if targets is not None:
+        errs = validate_job_targets(targets)
+        if errs:
+            raise HTTPException(status_code=422, detail="; ".join(errs))
+    if blocked is not None:
+        errs = validate_job_targets(blocked)
+        if errs:
+            raise HTTPException(status_code=422, detail="; ".join(errs))
+
+    current_targets = get_job_targets()
+    current_blocked = get_blocked_markers()
+
+    save_job_targets(
+        targets if targets is not None else current_targets,
+        blocked if blocked is not None else current_blocked,
+    )
+    return JobTargetsResponse(
+        targets=targets if targets is not None else current_targets,
+        blocked=blocked if blocked is not None else current_blocked,
+    )
+
+
+@router.delete("/settings/job-targets", response_model=JobTargetsResponse)
+async def clear_job_targets():
+    save_job_targets([], [])
+    return JobTargetsResponse(targets=[], blocked=[])

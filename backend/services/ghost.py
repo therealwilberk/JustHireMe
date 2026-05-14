@@ -45,7 +45,7 @@ class GhostService:
         has_x = _has_x_token(cfg)
         has_free = _free_sources_enabled(cfg)
         if not boards and not has_x and not has_free:
-            await cm.broadcast({"type": "agent", "event": "ghost_warn", "msg": "Ghost Mode: no job boards configured — skipping"})
+            await cm.broadcast({"type": "agent", "event": "ghost_warn", "msg": "Ghost Mode: no job targets configured — add targets in Settings"})
             return None
 
         return (cfg, profile, boards)

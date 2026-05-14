@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import Any
 
 
@@ -77,3 +77,8 @@ class IngestProfileResponse(BaseModel):
     status: str
     stats: dict[str, Any]
     errors: list[str]
+
+
+class JobTargetsResponse(BaseModel):
+    targets: list[str] = Field(default_factory=list)
+    blocked: list[str] = Field(default_factory=list)

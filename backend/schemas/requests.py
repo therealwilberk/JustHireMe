@@ -154,3 +154,8 @@ class ProfileImportBody(BaseModel):
 
 class FormReadBody(StrictBody):
     url: str = Field(default="", max_length=2000)
+
+
+class JobTargetsUpdateBody(BaseModel):
+    targets: list[str] | None = None
+    blocked: list[str] | None = None
