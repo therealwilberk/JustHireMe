@@ -1,3 +1,10 @@
+"""Ghost mode automated scanning pipeline.
+
+Orchestrates the full ghost-mode lifecycle: preflight checks, signal
+scans (X/Twitter + free sources), job board scouting, LLM evaluation,
+resume/cover letter generation, and optional auto-apply submission.
+"""
+
 import asyncio
 
 from core.ws_manager import cm
@@ -11,10 +18,29 @@ from config.secrets import resolve_secret
 
 
 class GhostService:
+    """Automated scan cycle that decomposes the ghost pipeline into phases.
+
+    Each ``_phase_*`` method handles one step of the pipeline.  The
+    top-level :meth:`run` method sequences them and provides structured
+    logging via a correlation context.
+    """
+
     def __init__(self, scan_manager: ScanManager) -> None:
+        """Initialize ghost service with a reference to the shared scan manager.
+
+        Args:
+            scan_manager: The application-wide :class:`ScanManager` instance
+                used for ghost-lock coordination.
+        """
         self._scan_manager = scan_manager
 
     async def run(self) -> None:
+        """Execute the full ghost pipeline.
+
+        Phases are executed sequentially: preflight, X scan, free scan,
+        scout, evaluation, generation, and (optionally) apply.  A
+        correlation context is active for the duration of the run.
+        """
         ctx = new_context(workflow_type="ghost_scan", subsystem="scheduler")
         token = set_context(ctx)
         try:
@@ -34,6 +60,13 @@ class GhostService:
             reset_context(token)
 
     async def _phase_preflight(self) -> tuple[dict, dict, list[str]] | None:
+        """Check that ghost mode is enabled and that targets exist.
+
+        Returns:
+            A ``(cfg, profile, boards)`` tuple if ghost mode is active
+            and at least one target source is configured, or ``None`` to
+            abort the pipeline.
+        """
         from db.client import get_setting, get_settings, get_profile  # lazy: lancedb import takes ~7s
 
         cfg = get_settings()
@@ -51,14 +84,33 @@ class GhostService:
         return (cfg, profile, boards)
 
     async def _phase_x_scan(self, cfg: dict, profile: dict) -> None:
+        """Run the X/Twitter signal scan if a bearer token is configured.
+
+        Args:
+            cfg: Application settings dictionary.
+            profile: Enriched user profile dictionary.
+        """
         if _has_x_token(cfg):
             await _run_x_signal_scan(cfg, "job", profile)
 
     async def _phase_free_scan(self, cfg: dict, profile: dict) -> None:
+        """Run the free-source signal scan if it is enabled in settings.
+
+        Args:
+            cfg: Application settings dictionary.
+            profile: Enriched user profile dictionary.
+        """
         if _free_sources_enabled(cfg):
             await _run_free_source_scan(cfg, "job", profile)
 
     async def _phase_scout(self, cfg: dict, profile: dict, boards: list[str]) -> None:
+        """Generate profile-tailored search queries and scrape job boards.
+
+        Args:
+            cfg: Application settings dictionary.
+            profile: Enriched user profile dictionary.
+            boards: Raw job board target list from settings.
+        """
         from agents.query_gen import generate as _gen_queries  # lazy: agents module (per-request dep)
         from agents.scout import run as _scout  # lazy: agents module (per-request dep)
 
@@ -83,6 +135,15 @@ class GhostService:
             await cm.broadcast({"type": "agent", "event": "ghost_error", "msg": f"Scout failed: {exc}"})
 
     async def _phase_eval(self, cfg: dict, profile: dict) -> list[dict]:
+        """Evaluate discovered leads and return those scoring >= 85.
+
+        Args:
+            cfg: Application settings dictionary.
+            profile: Enriched user profile dictionary.
+
+        Returns:
+            List of approved lead dicts (score >= 85).  May be empty.
+        """
         from db.client import get_discovered_leads, update_lead_score, get_profile  # lazy: lancedb import takes ~7s
         from agents.evaluator import score as _score  # lazy: agents module (per-request dep)
 
@@ -119,6 +180,15 @@ class GhostService:
         return approved
 
     async def _phase_gen(self, approved: list[dict]) -> list[dict]:
+        """Generate resumes and cover letters for approved leads.
+
+        Args:
+            approved: List of lead dicts that scored >= 85.
+
+        Returns:
+            List of enriched lead dicts with generated asset keys
+            (``resume_asset``, ``cover_letter_asset``, etc.).
+        """
         from agents.generator import run_package as _gen  # lazy: agents module (per-request dep)
         from db.client import save_asset_package  # lazy: lancedb import takes ~7s
 
@@ -152,6 +222,11 @@ class GhostService:
         return generated
 
     async def _phase_apply(self, generated: list[dict]) -> None:
+        """Submit applications for generated leads if auto-apply is enabled.
+
+        Args:
+            generated: List of lead dicts with generated assets.
+        """
         from db.client import get_setting  # lazy: lancedb import takes ~7s
         if get_setting("auto_apply", "false") != "true":
             await cm.broadcast({"type": "agent", "event": "ghost_done",
