@@ -26,9 +26,9 @@ def _fire_blocker(lead: dict, asset: str) -> tuple[int, str]:
 
 
 async def _generate_one(jid: str):
-    from agents.generator import run_package as _gen
-    from agents.contact_lookup import run as _contact_lookup
-    from db.client import get_lead_by_id, save_asset_package, save_contact_lookup, get_setting
+    from agents.generator import run_package as _gen  # lazy: agents module (per-request dep)
+    from agents.contact_lookup import run as _contact_lookup  # lazy: agents module (per-request dep)
+    from db.client import get_lead_by_id, save_asset_package, save_contact_lookup, get_setting  # lazy: lancedb import takes ~7s
     lead = get_lead_by_id(jid)
     if not lead:
         await cm.broadcast({"type": "agent", "event": "gen_error", "msg": f"Lead {jid} not found"})
@@ -54,7 +54,7 @@ async def _generate_one(jid: str):
         if package.get("cold_email"):
             _outreach_fields["outreach_email"] = package["cold_email"]
         if _outreach_fields:
-            from db.client import get_sql_connection
+            from db.client import get_sql_connection  # lazy: lancedb import takes ~7s
             c = get_sql_connection()
             sets = ", ".join(f"{k}=?" for k in _outreach_fields)
             vals = list(_outreach_fields.values()) + [jid]
@@ -91,8 +91,8 @@ async def _generate_one(jid: str):
 
 
 async def _actuate(jid: str):
-    from agents.actuator import run as _act
-    from db.client import get_lead_for_fire, mark_applied
+    from agents.actuator import run as _act  # lazy: agents module (per-request dep)
+    from db.client import get_lead_for_fire, mark_applied  # lazy: lancedb import takes ~7s
     try:
         lead, asset = await asyncio.to_thread(get_lead_for_fire, jid)
         _status, detail = _fire_blocker(lead, asset)

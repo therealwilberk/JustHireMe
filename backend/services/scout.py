@@ -8,6 +8,8 @@ from services.job_targets import (
     _broadcast_x_source_errors,
 )
 from log_context import new_context, set_context, reset_context
+from config import settings as _cfg
+from config.secrets import resolve_secret
 
 
 async def _run_x_signal_scan(cfg: dict, kind_filter: str, profile: dict | None = None) -> list[dict]:
@@ -17,13 +19,11 @@ async def _run_x_signal_scan(cfg: dict, kind_filter: str, profile: dict | None =
         if not _has_x_token(cfg):
             return []
 
-        from agents import x_scout
+        from agents import x_scout  # lazy: agents module (per-request dep)
 
         kind_filter = "job"
         label = "job leads"
         await cm.broadcast({"type": "agent", "event": "x_scout_start", "msg": f"Scanning X for {label}..."})
-        from config import settings as _cfg
-        from config.secrets import resolve_secret
         leads = await asyncio.to_thread(
             x_scout.run,
             bearer_token=resolve_secret(
@@ -67,7 +67,7 @@ async def _run_free_source_scan(cfg: dict, kind_filter: str | None = None, profi
         if not _free_sources_enabled(cfg):
             return []
 
-        from agents import free_scout
+        from agents import free_scout  # lazy: agents module (per-request dep)
 
         kind_filter = "job"
         label = "job leads"

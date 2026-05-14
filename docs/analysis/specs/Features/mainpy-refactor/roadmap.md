@@ -10,10 +10,11 @@
 
 | Field | Value |
 |-------|-------|
-| Current pass | Pass A — Pure Extraction |
-| Branch pattern | `feature/mainpy-refactor-pass-a` |
+| Current pass | Pass B — Structural Improvements |
+| Branch pattern | `feature/mainpy-refactor-pass-b` |
 | Last updated | 2026-05-14 |
-| Overall status | `[x] Complete` |
+| Overall status | `[~] Active` |
+| **Note** | Mini-roadmap docs will be deleted once the overall refactor is complete `.md` docs |
 
 ---
 
@@ -36,6 +37,10 @@ Each pass is a separate feature branch from `linux-base`. Each phase within a pa
 - Adding new functionality
 - Performance optimization
 - Replacing `asyncio.to_thread` with proper async patterns
+
+## Future Roadmap Items (Not In Pass C)
+
+- **Externalize job market lists** (`DEFAULT_JOB_TARGETS`, `INDIA_JOB_TARGETS`): Move hardcoded job board URLs out of `services/job_targets.py` into a user-editable config (YAML/DB + UI). These are living data — prefer UI update over code change. Needs validation on save (duplicate detection, format checks). Should be a stand-alone feature branch after the refactor is complete.
 
 ---
 
@@ -93,60 +98,42 @@ During Pass A, all lazy imports (inside function bodies) were moved to top-of-fi
 **Blocked by:** `Pass A`
 **Requires:** Full test suite to pass before starting
 
-### Phases
+### Phases (execution order)
 
-#### B1 — ScanManager Class (HITL)
-
-Wrap `_scan_task`, `_scan_stop`, `_reevaluate_task`, `_reevaluate_stop`, `_ghost_lock` into a `ScanManager` class. Methods: `start_scan()`, `stop_scan()`, `start_reevaluate()`, `stop_reevaluate()`, `is_scanning()`, `is_reevaluating()`.
-
-- [ ] Create `ScanManager` class wrapping all scan state
-- [ ] Expose as `scan_manager = ScanManager()` singleton
-- [ ] Update all route handlers and services to use `scan_manager` instead of module globals
-- [ ] Verify: scan/stop/reevaluate lifecycle works
-- [ ] Verify: tests pass
-- [ ] Commit: `refactor(b1): encapsulate scan state in ScanManager class`
-
-#### B2 — GhostService Decomposition (HITL)
-
-Decompose `_ghost_tick_impl` into phase methods. Verify the decomposed version produces identical outcomes.
-
-- [ ] Create `GhostService` class
-- [ ] Decompose into: `phase_preflight()`, `phase_scout()`, `phase_eval()`, `phase_gen()`, `phase_apply()`
-- [ ] Keep `run()` as the public entrypoint that calls phases sequentially
-- [ ] Verify: ghost mode tick executes without error
-- [ ] Verify: tests pass
-- [ ] Commit: `refactor(b2): decompose ghost tick into GhostService phase methods`
+**Ordering rationale:** B3 (bug fixes) comes first so structural changes in B1/B2 don't share blame with fixes. B4 (lazy imports) is independent and can run in parallel with B1/B2.
 
 #### B3 — Fix Known Bugs (AFK per fix, HITL collectively)
 
-Apply fixes identified in the structure report, each in a separate commit:
+4 independent bug fixes, each in a separate commit. [Full doc](pass-b/b3-fix-known-bugs.md)
 
-- [ ] Fix `_int_cfg` bare `except Exception` → `except (ValueError, TypeError)`
+- [x] Fix `_int_cfg` bare `except Exception` → `except (ValueError, TypeError)`
   - Commit: `fix(b3): narrow _int_cfg exception to ValueError and TypeError`
-- [ ] Fix `_CM.broadcast()` dead-socket cleanup to happen inside the lock
-  - Commit: `fix(b3): move ws cleanup inside lock in _CM.broadcast()`
-- [ ] Change `DEFAULT_JOB_TARGETS` and `INDIA_JOB_TARGETS` to `tuple[str, ...]`
+- [ ] **DROPPED** — Fix `_CM.broadcast()` dead-socket cleanup to happen inside the lock
+  - Reason: Holding lock during `await w.send_text()` causes deadlocks in concurrency tests. Original code is correct.
+- [x] Change `DEFAULT_JOB_TARGETS` and `INDIA_JOB_TARGETS` to `tuple[str, ...]`
   - Commit: `fix(b3): change job target lists to immutable tuples`
-- [ ] Remove dead `if request.url.path != "/health"` guard in `require_http_token`
-  - Commit: `fix(b3): remove unreachable health path guard in auth middleware`
+- [x] **ALREADY APPLIED** — Remove dead `if request.url.path != "/health"` guard in `require_http_token`
+  - No commit needed (guard already removed on `linux-base`)
+
+#### B1 — ScanManager Class (HITL)
+
+Encapsulate scan globals (`_scan_task`, `_scan_stop`, `_reevaluate_task`, `_reevaluate_stop`, `_ghost_lock`) into a `ScanManager` class with `start_scan()`, `stop_scan()`, `start_reevaluate()`, `stop_reevaluate()`, `is_scanning()` methods. [Full doc](pass-b/b1-scanmanager-class.md)
+
+#### B2 — GhostService Decomposition (HITL)
+
+Decompose `_ghost_tick_impl` (~139 lines, 6 phases) into named phase methods on a `GhostService` class. [Full doc](pass-b/b2-ghostservice-decomposition.md)
 
 #### B4 — Resolve Lazy Imports (AFK)
 
-Move lazy imports to top of each file where safe. Flag any circular import issues.
-
-- [ ] Audit all per-function imports in extracted modules
-- [ ] Move to top of file where no circular import risk
-- [ ] Document any that must remain lazy with a comment explaining why
-- [ ] Verify: tests pass
-- [ ] Commit: `refactor(b4): resolve lazy imports to top-of-file where safe`
+Audit per-function imports; promote fast ones to top of file; document slow ones that must stay lazy. [Full doc](pass-b/b4-resolve-lazy-imports.md)
 
 ### Pass B Validation
 
 - [ ] Scan state encapsulated in `ScanManager` class
 - [ ] Ghost phases independently testable
-- [ ] `_int_cfg` catches `(ValueError, TypeError)` only
-- [ ] `_CM.broadcast()` no longer has dead-socket race
-- [ ] Job target lists are immutable tuples
+- [x] `_int_cfg` catches `(ValueError, TypeError)` only
+- [ ] **DROPPED** — `_CM.broadcast()` dead-socket race (original code correct — don't hold lock during I/O)
+- [x] Job target lists are immutable tuples
 - [ ] Lazy imports resolved where safe
 - [ ] Full test suite passes
 - [ ] App launches

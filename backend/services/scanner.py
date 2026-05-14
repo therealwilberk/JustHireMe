@@ -1,18 +1,99 @@
 import asyncio
 
+from fastapi import HTTPException
+
 from core.ws_manager import cm
 from core.config_constants import _log
 from config import settings
 from services.job_targets import (
     _job_targets, _profile_for_discovery,
 )
+from services.scout import _run_x_signal_scan, _run_free_source_scan
+from config.secrets import resolve_secret
 
 
-_scan_stop = asyncio.Event()
-_scan_task: asyncio.Task | None = None
-_reevaluate_stop = asyncio.Event()
-_reevaluate_task: asyncio.Task | None = None
-_ghost_lock = asyncio.Lock()
+class ScanManager:
+    def __init__(self):
+        self._scan_task: asyncio.Task | None = None
+        self._scan_stop: asyncio.Event = asyncio.Event()
+        self._reevaluate_task: asyncio.Task | None = None
+        self._reevaluate_stop: asyncio.Event = asyncio.Event()
+        self._ghost_lock: asyncio.Lock = asyncio.Lock()
+
+    async def start_scan(self) -> dict:
+        if self._ghost_lock.locked():
+            raise HTTPException(status_code=409, detail="Scan already in progress (ghost mode active)")
+        if self._scan_task and not self._scan_task.done():
+            raise HTTPException(status_code=409, detail="Scan already running")
+        if self._reevaluate_task and not self._reevaluate_task.done():
+            raise HTTPException(status_code=409, detail="Re-evaluation already running")
+        self._scan_stop.clear()
+        self._scan_task = asyncio.create_task(self._run_scan_task())
+        return {"status": "scanning"}
+
+    async def stop_scan(self) -> dict:
+        if not self._scan_task or self._scan_task.done():
+            return {"status": "idle"}
+        self._scan_stop.set()
+        await cm.broadcast({"type": "agent", "event": "eval_done", "msg": "Scan stopped by user."})
+        return {"status": "stopping"}
+
+    async def start_reevaluate(self) -> dict:
+        if self._ghost_lock.locked():
+            raise HTTPException(status_code=409, detail="Re-evaluation already in progress (ghost mode active)")
+        if self._reevaluate_task and not self._reevaluate_task.done():
+            raise HTTPException(status_code=409, detail="Re-evaluation already running")
+        if self._scan_task and not self._scan_task.done():
+            raise HTTPException(status_code=409, detail="Scan already running")
+        self._reevaluate_stop.clear()
+        self._reevaluate_task = asyncio.create_task(self._run_reevaluate_jobs_task())
+        return {"status": "reevaluating"}
+
+    async def stop_reevaluate(self) -> dict:
+        if not self._reevaluate_task or self._reevaluate_task.done():
+            return {"status": "idle"}
+        self._reevaluate_stop.set()
+        await cm.broadcast({"type": "agent", "event": "reeval_done", "msg": "Re-evaluation stopped by user."})
+        return {"status": "stopping"}
+
+    def is_scanning(self) -> bool:
+        return bool(self._scan_task and not self._scan_task.done())
+
+    def is_reevaluating(self) -> bool:
+        return bool(self._reevaluate_task and not self._reevaluate_task.done())
+
+    async def _run_scan_task(self):
+        try:
+            await asyncio.wait_for(self._ghost_lock.acquire(), timeout=0)
+        except asyncio.TimeoutError:
+            _log.warning("scan task skipped — ghost lock held")
+            return
+        try:
+            await _run_scan()
+        except Exception as exc:
+            _log.error("scan failed: %s", exc)
+            await cm.broadcast({"type": "agent", "event": "eval_done", "msg": f"Scan failed: {exc}"})
+        finally:
+            self._scan_task = None
+            self._ghost_lock.release()
+
+    async def _run_reevaluate_jobs_task(self):
+        try:
+            await asyncio.wait_for(self._ghost_lock.acquire(), timeout=0)
+        except asyncio.TimeoutError:
+            _log.warning("reevaluate task skipped — ghost lock held")
+            return
+        try:
+            await _run_reevaluate_jobs()
+        except Exception as exc:
+            _log.error("reevaluate failed: %s", exc)
+            await cm.broadcast({"type": "agent", "event": "reeval_done", "msg": f"Re-evaluation failed: {exc}"})
+        finally:
+            self._reevaluate_task = None
+            self._ghost_lock.release()
+
+
+scan_manager = ScanManager()
 
 _REEVALUATION_STATUS_LOCKS = {"approved", "applied", "interviewing", "rejected", "accepted", "discarded"}
 
@@ -31,43 +112,9 @@ def _job_eval_document(lead: dict) -> str:
     )
 
 
-async def _run_scan_task():
-    global _scan_task
-    try:
-        await asyncio.wait_for(_ghost_lock.acquire(), timeout=0)
-    except asyncio.TimeoutError:
-        _log.warning("scan task skipped — ghost lock held")
-        return
-    try:
-        await _run_scan()
-    except Exception as exc:
-        _log.error("scan failed: %s", exc)
-        await cm.broadcast({"type": "agent", "event": "eval_done", "msg": f"Scan failed: {exc}"})
-    finally:
-        _scan_task = None
-        _ghost_lock.release()
-
-
-async def _run_reevaluate_jobs_task():
-    global _reevaluate_task
-    try:
-        await asyncio.wait_for(_ghost_lock.acquire(), timeout=0)
-    except asyncio.TimeoutError:
-        _log.warning("reevaluate task skipped — ghost lock held")
-        return
-    try:
-        await _run_reevaluate_jobs()
-    except Exception as exc:
-        _log.error("reevaluate failed: %s", exc)
-        await cm.broadcast({"type": "agent", "event": "reeval_done", "msg": f"Re-evaluation failed: {exc}"})
-    finally:
-        _reevaluate_task = None
-        _ghost_lock.release()
-
-
 async def _run_reevaluate_jobs():
-    from db.client import get_settings, get_job_leads_for_evaluation, get_lead_by_id, update_lead_score, get_profile
-    from agents.evaluator import score as _score
+    from db.client import get_settings, get_job_leads_for_evaluation, get_lead_by_id, update_lead_score, get_profile  # lazy: lancedb import takes ~7s
+    from agents.evaluator import score as _score  # lazy: agents module (per-request dep)
 
     cfg = await asyncio.to_thread(get_settings)
     profile = await asyncio.to_thread(get_profile)
@@ -83,7 +130,7 @@ async def _run_reevaluate_jobs():
     })
 
     for index, lead in enumerate(jobs, start=1):
-        if _reevaluate_stop.is_set():
+        if scan_manager._reevaluate_stop.is_set():
             await cm.broadcast({
                 "type": "agent",
                 "event": "reeval_done",
@@ -123,16 +170,15 @@ async def _run_reevaluate_jobs():
 
 
 async def _run_scan():
-    from db.client import get_settings, get_discovered_leads, update_lead_score, get_profile
-    from agents.scout import run as _scout
-    from agents.evaluator import score as _score
-    from agents.query_gen import generate as _gen_queries
+    from db.client import get_settings, get_discovered_leads, update_lead_score, get_profile  # lazy: lancedb import takes ~7s
+    from agents.scout import run as _scout  # lazy: agents module (per-request dep)
+    from agents.evaluator import score as _score  # lazy: agents module (per-request dep)
+    from agents.query_gen import generate as _gen_queries  # lazy: agents module (per-request dep)
 
     cfg     = get_settings()
     profile = _profile_for_discovery(get_profile(), cfg)
     market_focus = cfg.get("job_market_focus", "global")
     raw_urls = _job_targets(cfg.get("job_boards", ""), market_focus)
-    from services.scout import _run_x_signal_scan, _run_free_source_scan
     await _run_x_signal_scan(cfg, "job", profile)
     await _run_free_source_scan(cfg, "job", profile)
 
@@ -151,7 +197,6 @@ async def _run_scan():
 
     await cm.broadcast({"type": "agent", "event": "scout_start", "msg": f"Launching scan for {len(urls)} targets\u2026"})
 
-    from config.secrets import resolve_secret
     leads = await asyncio.to_thread(
         _scout,
         urls=urls,
@@ -166,7 +211,7 @@ async def _run_scan():
     )
     await cm.broadcast({"type": "agent", "event": "scout_done", "msg": f"Scout finished \u2014 {len(leads)} new leads found"})
 
-    if _scan_stop.is_set():
+    if scan_manager._scan_stop.is_set():
         await cm.broadcast({"type": "agent", "event": "eval_done", "msg": "Scan stopped after scouting."})
         return
 
@@ -174,7 +219,7 @@ async def _run_scan():
     await cm.broadcast({"type": "agent", "event": "eval_start", "msg": f"Evaluating {len(discovered)} leads via {cfg.get('llm_provider', 'ollama')}"})
 
     for lead in discovered:
-        if _scan_stop.is_set():
+        if scan_manager._scan_stop.is_set():
             await cm.broadcast({"type": "agent", "event": "eval_done", "msg": "Scan stopped during evaluation."})
             return
         try:

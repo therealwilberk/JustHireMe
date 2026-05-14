@@ -20,7 +20,7 @@ router = APIRouter(prefix="/api/v1", tags=["leads"])
 
 
 def _annotate_job_lead(lead: dict) -> dict:
-    from agents.scout import classify_job_seniority
+    from agents.scout import classify_job_seniority  # lazy: agents module (per-request dep)
     meta = dict(lead.get("source_meta") or {})
     level = str(meta.get("seniority_level") or lead.get("seniority_level") or "").strip().lower()
     if level not in {"fresher", "junior", "mid", "senior", "unknown"}:
@@ -54,7 +54,7 @@ def _versioned_assets(job_id: str, base_dir: str) -> list[dict]:
 
 @router.get("/leads")
 async def leads(beginner_only: bool = False, seniority: str | None = None):
-    from db.client import get_all_leads
+    from db.client import get_all_leads  # lazy: lancedb import takes ~7s
     jobs = [_annotate_job_lead(lead) for lead in get_all_leads() if (lead.get("kind") or "job") == "job"]
     requested = str(seniority or "").strip().lower()
     if beginner_only or requested == "beginner":
@@ -66,7 +66,7 @@ async def leads(beginner_only: bool = False, seniority: str | None = None):
 
 @router.get("/leads/export.csv")
 async def export_leads_csv():
-    from db.client import get_all_leads
+    from db.client import get_all_leads  # lazy: lancedb import takes ~7s
     rows = get_all_leads()
     fields = [
         "job_id", "title", "company", "url", "platform", "status",
@@ -87,7 +87,7 @@ async def export_leads_csv():
 
 @router.get("/leads/{job_id}/versions")
 async def get_lead_versions(job_id: str):
-    from db.client import get_lead_by_id, data_base
+    from db.client import get_lead_by_id, data_base  # lazy: lancedb import takes ~7s
     lead = get_lead_by_id(job_id)
     if not lead:
         raise HTTPException(status_code=404, detail="Lead not found")
@@ -103,7 +103,7 @@ async def get_lead_versions(job_id: str):
 
 @router.get("/leads/{job_id}")
 async def get_lead(job_id: str):
-    from db.client import get_lead_by_id
+    from db.client import get_lead_by_id  # lazy: lancedb import takes ~7s
     lead = get_lead_by_id(job_id)
     if not lead:
         raise HTTPException(status_code=404, detail="Lead not found")
@@ -112,7 +112,7 @@ async def get_lead(job_id: str):
 
 @router.delete("/leads/{job_id}")
 async def delete_lead_endpoint(job_id: str):
-    from db.client import delete_lead
+    from db.client import delete_lead  # lazy: lancedb import takes ~7s
     try:
         delete_lead(job_id)
     except LookupError:
@@ -122,7 +122,7 @@ async def delete_lead_endpoint(job_id: str):
 
 @router.put("/leads/{job_id}/status")
 async def update_status(job_id: str, body: StatusBody):
-    from db.client import update_lead_status
+    from db.client import update_lead_status  # lazy: lancedb import takes ~7s
     try:
         update_lead_status(job_id, body.status)
         await cm.broadcast({"type": "LEAD_UPDATED", "data": {"job_id": job_id, "status": body.status}})
@@ -135,7 +135,7 @@ async def update_status(job_id: str, body: StatusBody):
 
 @router.put("/leads/{job_id}/feedback")
 async def update_feedback(job_id: str, body: FeedbackBody):
-    from db.client import save_lead_feedback
+    from db.client import save_lead_feedback  # lazy: lancedb import takes ~7s
     try:
         lead = save_lead_feedback(job_id, body.feedback, body.note)
     except ValueError as exc:
@@ -148,7 +148,7 @@ async def update_feedback(job_id: str, body: FeedbackBody):
 
 @router.put("/leads/{job_id}/followup")
 async def update_followup(job_id: str, body: FollowupBody):
-    from db.client import update_lead_followup
+    from db.client import update_lead_followup  # lazy: lancedb import takes ~7s
     lead = update_lead_followup(job_id, body.days)
     if not lead:
         raise HTTPException(status_code=404, detail="Lead not found")
@@ -160,8 +160,8 @@ async def update_followup(job_id: str, body: FollowupBody):
 async def create_manual_lead(body: ManualLeadBody):
     if not body.text.strip() and not body.url.strip():
         raise HTTPException(status_code=400, detail="Paste lead text or a URL")
-    from db.client import rank_lead_by_feedback, get_lead_by_id, save_lead
-    from agents.lead_intel import manual_lead_from_text
+    from db.client import rank_lead_by_feedback, get_lead_by_id, save_lead  # lazy: lancedb import takes ~7s
+    from agents.lead_intel import manual_lead_from_text  # lazy: agents module (per-request dep)
     lead = rank_lead_by_feedback(manual_lead_from_text(body.text, body.url, "job"))
     if lead.get("kind") != "job":
         raise HTTPException(status_code=422, detail="Only job leads are accepted right now")
@@ -200,13 +200,13 @@ async def create_manual_lead(body: ManualLeadBody):
 
 @router.get("/followups/due")
 async def due_followups(limit: int = 25):
-    from db.client import get_due_followups
+    from db.client import get_due_followups  # lazy: lancedb import takes ~7s
     return get_due_followups(limit)
 
 
 @router.post("/leads/{job_id}/generate")
 async def generate_for_lead(job_id: str):
-    from services.generator import _generate_one
+    from services.generator import _generate_one  # lazy: generator pulls in llm deps
     lead = await _generate_one(job_id)
     return {"status": "ready", "job_id": job_id, "lead": lead}
 
@@ -216,8 +216,8 @@ async def run_pipeline(job_id: str, bt: BackgroundTasks):
     ctx = new_context(workflow_type="pipeline_run", job_id=job_id, subsystem="pipeline")
     token = set_context(ctx)
     try:
-        from db.client import get_lead_by_id, get_profile, get_settings
-        from graph import PipelineState, eval_graph
+        from db.client import get_lead_by_id, get_profile, get_settings  # lazy: lancedb import takes ~7s
+        from graph import PipelineState, eval_graph  # lazy: langgraph import takes ~1.6s
         lead = await asyncio.to_thread(get_lead_by_id, job_id)
         if not lead:
             raise HTTPException(status_code=404, detail="lead not found")

@@ -2,9 +2,11 @@ import os
 import re
 
 from core.ws_manager import cm
+from config import settings
+from config.secrets import resolve_secret
 
 
-DEFAULT_JOB_TARGETS = [
+DEFAULT_JOB_TARGETS = (
     "hn-hiring",
     "https://remoteok.com/api",
     "https://remotive.com/api/remote-jobs",
@@ -24,9 +26,9 @@ DEFAULT_JOB_TARGETS = [
     "site:naukri.com",
     "site:instahyre.com",
     "site:cutshort.io/jobs",
-]
+)
 
-INDIA_JOB_TARGETS = [
+INDIA_JOB_TARGETS = (
     "site:wellfound.com/jobs India",
     "site:cutshort.io/jobs India startup",
     "site:instahyre.com jobs India",
@@ -40,7 +42,7 @@ INDIA_JOB_TARGETS = [
     "site:jobs.lever.co India",
     "site:jobs.ashbyhq.com India",
     "site:apply.workable.com India",
-]
+)
 
 _BLOCKED_JOB_TARGET_MARKERS = (
     "freelance", "upwork", "freelancer.com", "fiverr", "contra.com",
@@ -175,9 +177,6 @@ def _profile_x_queries(profile: dict, market_focus: str = "global") -> str:
 
 
 def _has_x_token(cfg: dict) -> bool:
-    from config import settings
-    from config.secrets import resolve_secret
-
     bt = settings.app.bearer_tokens
     return bool(
         resolve_secret(bt.x_bearer_token, settings.app.settings_key_names.x_bearer_token)
@@ -188,7 +187,7 @@ def _has_x_token(cfg: dict) -> bool:
 def _int_cfg(cfg: dict, key: str, default: int, min_value: int, max_value: int) -> int:
     try:
         value = int(str(cfg.get(key, "") or "").strip())
-    except Exception:
+    except (ValueError, TypeError):
         value = default
     return max(min_value, min(value, max_value))
 
