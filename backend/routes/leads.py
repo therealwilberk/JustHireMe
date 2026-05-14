@@ -1,3 +1,5 @@
+"""Lead CRUD, pipeline execution, CSV export, and follow-up management."""
+
 import asyncio
 import csv
 import io
@@ -22,6 +24,14 @@ router = APIRouter(prefix="/api/v1", tags=["leads"])
 
 
 def _annotate_job_lead(lead: dict) -> dict:
+    """Classify seniority level and enrich lead metadata inline.
+
+    Args:
+        lead: Raw lead dict from the database.
+
+    Returns:
+        Lead dict with source_meta enriched and seniority_level set.
+    """
     from agents.scout import classify_job_seniority  # lazy: agents module (per-request dep)
     meta = dict(lead.get("source_meta") or {})
     level = str(meta.get("seniority_level") or lead.get("seniority_level") or "").strip().lower()
@@ -33,6 +43,16 @@ def _annotate_job_lead(lead: dict) -> dict:
 
 
 def _versioned_assets(job_id: str, base_dir: str) -> list[dict]:
+    """Discover versioned resume and cover letter PDFs on disk.
+
+    Args:
+        job_id: Unique job identifier used in asset filenames.
+        base_dir: Directory to scan for asset files.
+
+    Returns:
+        List of version dicts sorted newest-first, each with optional
+        ``resume`` and ``cover_letter`` keys.
+    """
     versions: dict[int, dict] = {}
     patterns = [
         ("resume", re.compile(rf"^{re.escape(job_id)}_v(\d+)\.pdf$")),
@@ -56,6 +76,15 @@ def _versioned_assets(job_id: str, base_dir: str) -> list[dict]:
 
 @router.get("/leads", response_model=list[dict[str, Any]])
 async def leads(beginner_only: bool = False, seniority: str | None = None):
+    """GET /api/v1/leads — Retrieve all job leads, optionally filtered by seniority.
+
+    Args:
+        beginner_only: When true, return only fresher/junior leads.
+        seniority: Optional seniority level filter string.
+
+    Returns:
+        List of annotated lead dicts.
+    """
     from db.client import get_all_leads  # lazy: lancedb import takes ~7s
     jobs = [_annotate_job_lead(lead) for lead in get_all_leads() if (lead.get("kind") or "job") == "job"]
     requested = str(seniority or "").strip().lower()
@@ -68,6 +97,11 @@ async def leads(beginner_only: bool = False, seniority: str | None = None):
 
 @router.get("/leads/export.csv")
 async def export_leads_csv():
+    """GET /api/v1/leads/export.csv — Export all leads as a CSV download.
+
+    Returns:
+        StreamingResponse with CSV content.
+    """
     from db.client import get_all_leads  # lazy: lancedb import takes ~7s
     rows = get_all_leads()
     fields = [
@@ -89,6 +123,17 @@ async def export_leads_csv():
 
 @router.get("/leads/{job_id}/versions", response_model=list[dict[str, Any]])
 async def get_lead_versions(job_id: str):
+    """GET /api/v1/leads/{job_id}/versions — List versioned PDF assets for a lead.
+
+    Args:
+        job_id: Unique job identifier.
+
+    Returns:
+        List of version dicts with resume/cover_letter paths.
+
+    Raises:
+        HTTPException 404: Lead not found.
+    """
     from db.client import get_lead_by_id, data_base  # lazy: lancedb import takes ~7s
     lead = get_lead_by_id(job_id)
     if not lead:
@@ -105,6 +150,17 @@ async def get_lead_versions(job_id: str):
 
 @router.get("/leads/{job_id}", response_model=dict[str, Any])
 async def get_lead(job_id: str):
+    """GET /api/v1/leads/{job_id} — Retrieve a single lead by ID.
+
+    Args:
+        job_id: Unique job identifier.
+
+    Returns:
+        Lead dict, annotated with seniority for job leads.
+
+    Raises:
+        HTTPException 404: Lead not found.
+    """
     from db.client import get_lead_by_id  # lazy: lancedb import takes ~7s
     lead = get_lead_by_id(job_id)
     if not lead:
@@ -114,6 +170,17 @@ async def get_lead(job_id: str):
 
 @router.delete("/leads/{job_id}", response_model=OkResponse)
 async def delete_lead_endpoint(job_id: str):
+    """DELETE /api/v1/leads/{job_id} — Delete a lead by ID.
+
+    Args:
+        job_id: Unique job identifier.
+
+    Returns:
+        OkResponse with ok: true.
+
+    Raises:
+        HTTPException 404: Lead not found.
+    """
     from db.client import delete_lead  # lazy: lancedb import takes ~7s
     try:
         delete_lead(job_id)
@@ -124,6 +191,19 @@ async def delete_lead_endpoint(job_id: str):
 
 @router.put("/leads/{job_id}/status", response_model=OkResponse)
 async def update_status(job_id: str, body: StatusBody):
+    """PUT /api/v1/leads/{job_id}/status — Update lead status and broadcast change.
+
+    Args:
+        job_id: Unique job identifier.
+        body: Request body with new status value.
+
+    Returns:
+        OkResponse with ok: true.
+
+    Raises:
+        HTTPException 404: Lead not found.
+        HTTPException 400: Invalid status value.
+    """
     from db.client import update_lead_status  # lazy: lancedb import takes ~7s
     try:
         update_lead_status(job_id, body.status)
@@ -137,6 +217,19 @@ async def update_status(job_id: str, body: StatusBody):
 
 @router.put("/leads/{job_id}/feedback", response_model=dict[str, Any])
 async def update_feedback(job_id: str, body: FeedbackBody):
+    """PUT /api/v1/leads/{job_id}/feedback — Save feedback note for a lead.
+
+    Args:
+        job_id: Unique job identifier.
+        body: Request body with feedback and optional note.
+
+    Returns:
+        Updated lead dict.
+
+    Raises:
+        HTTPException 400: Invalid feedback value.
+        HTTPException 404: Lead not found.
+    """
     from db.client import save_lead_feedback  # lazy: lancedb import takes ~7s
     try:
         lead = save_lead_feedback(job_id, body.feedback, body.note)
@@ -150,6 +243,18 @@ async def update_feedback(job_id: str, body: FeedbackBody):
 
 @router.put("/leads/{job_id}/followup", response_model=dict[str, Any])
 async def update_followup(job_id: str, body: FollowupBody):
+    """PUT /api/v1/leads/{job_id}/followup — Set follow-up interval for a lead.
+
+    Args:
+        job_id: Unique job identifier.
+        body: Request body with days until next follow-up.
+
+    Returns:
+        Updated lead dict.
+
+    Raises:
+        HTTPException 404: Lead not found.
+    """
     from db.client import update_lead_followup  # lazy: lancedb import takes ~7s
     lead = update_lead_followup(job_id, body.days)
     if not lead:
@@ -160,6 +265,18 @@ async def update_followup(job_id: str, body: FollowupBody):
 
 @router.post("/leads/manual", response_model=dict[str, Any])
 async def create_manual_lead(body: ManualLeadBody):
+    """POST /api/v1/leads/manual — Create a lead from pasted text or URL.
+
+    Args:
+        body: Request body with text and/or url fields.
+
+    Returns:
+        Saved lead dict.
+
+    Raises:
+        HTTPException 400: Neither text nor URL provided.
+        HTTPException 422: Non-job lead content rejected.
+    """
     if not body.text.strip() and not body.url.strip():
         raise HTTPException(status_code=400, detail="Paste lead text or a URL")
     from db.client import rank_lead_by_feedback, get_lead_by_id, save_lead  # lazy: lancedb import takes ~7s
@@ -202,12 +319,28 @@ async def create_manual_lead(body: ManualLeadBody):
 
 @router.get("/followups/due", response_model=list[dict[str, Any]])
 async def due_followups(limit: int = 25):
+    """GET /api/v1/followups/due — Retrieve leads with past-due follow-ups.
+
+    Args:
+        limit: Maximum number of leads to return.
+
+    Returns:
+        List of lead dicts with past-due follow-up dates.
+    """
     from db.client import get_due_followups  # lazy: lancedb import takes ~7s
     return get_due_followups(limit)
 
 
 @router.post("/leads/{job_id}/generate", response_model=LeadGenerateResponse)
 async def generate_for_lead(job_id: str):
+    """POST /api/v1/leads/{job_id}/generate — Trigger asset generation for a lead.
+
+    Args:
+        job_id: Unique job identifier.
+
+    Returns:
+        LeadGenerateResponse with status and lead data.
+    """
     from services.generator import _generate_one  # lazy: generator pulls in llm deps
     lead = await _generate_one(job_id)
     return {"status": "ready", "job_id": job_id, "lead": lead}
@@ -215,6 +348,21 @@ async def generate_for_lead(job_id: str):
 
 @router.post("/leads/{job_id}/pipeline/run", response_model=PipelineRunResponse)
 async def run_pipeline(job_id: str, bt: BackgroundTasks):
+    """POST /api/v1/leads/{job_id}/pipeline/run — Start pipeline evaluation in background.
+
+    Kicks off a LangGraph evaluation via BackgroundTasks and broadcasts
+    the result on completion.
+
+    Args:
+        job_id: Unique job identifier.
+        bt: FastAPI BackgroundTasks handle for deferred execution.
+
+    Returns:
+        PipelineRunResponse with started status.
+
+    Raises:
+        HTTPException 404: Lead not found.
+    """
     ctx = new_context(workflow_type="pipeline_run", job_id=job_id, subsystem="pipeline")
     token = set_context(ctx)
     try:
@@ -227,6 +375,7 @@ async def run_pipeline(job_id: str, bt: BackgroundTasks):
         cfg = await asyncio.to_thread(get_settings)
 
         async def _run():
+            """Execute the pipeline graph for a single lead and broadcast result."""
             state: PipelineState = {
                 "job_id": job_id,
                 "lead": lead,
