@@ -3,6 +3,8 @@ import socket
 import sys
 
 from core.config_constants import _API_TOKEN
+from config import validate_all
+from config.secrets import resolve_secret
 
 
 def _bind_port() -> int:
@@ -46,7 +48,6 @@ from services.ghost import _ghost_tick
 
 def _validate_config_on_startup():
     try:
-        from config import validate_all
         errs = validate_all()
         if errs:
             for e in errs:
@@ -59,7 +60,6 @@ def _validate_config_on_startup():
 
 
 def _log_startup_secret_diagnostics() -> None:
-    from config.secrets import resolve_secret
     secrets_to_check = [
         (settings.scraping.apify_key_names.token, settings.scraping.apify_settings_key_names.token),
         (settings.scraping.apify_key_names.actor, settings.scraping.apify_settings_key_names.actor),

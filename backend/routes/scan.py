@@ -5,6 +5,8 @@ from fastapi import APIRouter
 import services.scanner as scanner
 from core.ws_manager import cm
 from schemas.requests import HelpChatBody
+from services.job_targets import _profile_for_discovery
+from services.scout import _run_free_source_scan
 
 router = APIRouter(prefix="/api/v1", tags=["scan"])
 
@@ -31,7 +33,7 @@ async def stop_reevaluate_jobs():
 
 @router.post("/leads/cleanup")
 async def cleanup_leads(dry_run: bool = False, limit: int = 1000):
-    from db.client import cleanup_bad_leads, get_lead_by_id
+    from db.client import cleanup_bad_leads, get_lead_by_id  # lazy: lancedb import takes ~7s
 
     await cm.broadcast({
         "type": "agent",
@@ -57,9 +59,7 @@ async def cleanup_leads(dry_run: bool = False, limit: int = 1000):
 
 @router.post("/free-sources/scan")
 async def free_sources_scan():
-    from db.client import get_settings, get_profile
-    from services.job_targets import _profile_for_discovery
-    from services.scout import _run_free_source_scan
+    from db.client import get_settings, get_profile  # lazy: lancedb import takes ~7s
 
     cfg = get_settings()
     profile = _profile_for_discovery(await asyncio.to_thread(get_profile), cfg)
@@ -69,7 +69,7 @@ async def free_sources_scan():
 
 @router.post("/help/chat")
 async def help_chat(body: HelpChatBody):
-    from agents.help_agent import answer
+    from agents.help_agent import answer  # lazy: agents module (per-request dep)
 
     history = [item.model_dump() for item in body.history]
     return await asyncio.to_thread(answer, body.question, history)

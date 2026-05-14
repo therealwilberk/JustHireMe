@@ -5,14 +5,15 @@ from config import settings as cfg_settings
 from core.config_constants import _sched
 from schemas.requests import SettingsBody
 from services.ghost import _ghost_tick
+from config.secrets import resolve_secret
+from services.provider_probe import _sensitive, _probe_provider_key, _log_sensitive_deprecation
 
 router = APIRouter(prefix="/api/v1", tags=["settings"])
 
 
 @router.get("/settings")
 async def get_cfg():
-    from db.client import get_settings
-    from services.provider_probe import _sensitive
+    from db.client import get_settings  # lazy: lancedb import takes ~7s
     s = get_settings()
     _m = "••••••••••••••••••••"
     for k in _sensitive(s):
@@ -23,8 +24,8 @@ async def get_cfg():
 
 @router.get("/settings/validate")
 async def validate_settings():
-    from db.client import get_settings
-    from llm import _KEY_NAMES, _OPENAI_COMPAT_BASE_URLS
+    from db.client import get_settings  # lazy: lancedb import takes ~7s
+    from llm import _KEY_NAMES, _OPENAI_COMPAT_BASE_URLS  # lazy: anthropic/instructor/openai import takes ~7s total
 
     _ENV_NAMES = cfg_settings.llm.env_key_names.model_dump()
 
@@ -33,7 +34,6 @@ async def validate_settings():
     providers = ["anthropic", "gemini", "openai", "groq", *[p for p in _KEY_NAMES if p not in {"anthropic", "gemini", "openai", "groq"}]]
 
     async def one(provider: str):
-        from config.secrets import resolve_secret
         gemini_fallback = cfg_settings.llm.provider_specific.gemini_env_key_fallback
         env_name = _ENV_NAMES.get(provider, "")
         settings_key = _KEY_NAMES.get(provider, "")
@@ -45,7 +45,6 @@ async def validate_settings():
             return provider, {"status": "not_configured", "latency_ms": 0}
         if provider not in probed:
             return provider, {"status": "unchecked", "latency_ms": 0}
-        from services.provider_probe import _probe_provider_key
         return provider, await _probe_provider_key(provider, key)
 
     pairs = await asyncio.gather(*(one(provider) for provider in providers))
@@ -54,11 +53,10 @@ async def validate_settings():
 
 @router.post("/settings")
 async def save_cfg(body: SettingsBody):
-    from db.client import get_settings, save_settings
+    from db.client import get_settings, save_settings  # lazy: lancedb import takes ~7s
     payload = {k: "" if v is None else str(v) for k, v in body.model_dump().items()}
     old = get_settings()
     _m = "••••••••••••••••••••"
-    from services.provider_probe import _sensitive, _log_sensitive_deprecation
     for k in _sensitive({**old, **payload}):
         if payload.get(k) == _m:
             payload[k] = old.get(k, "")

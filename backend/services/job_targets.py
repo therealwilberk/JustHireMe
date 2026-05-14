@@ -2,6 +2,8 @@ import os
 import re
 
 from core.ws_manager import cm
+from config import settings
+from config.secrets import resolve_secret
 
 
 DEFAULT_JOB_TARGETS = (
@@ -175,9 +177,6 @@ def _profile_x_queries(profile: dict, market_focus: str = "global") -> str:
 
 
 def _has_x_token(cfg: dict) -> bool:
-    from config import settings
-    from config.secrets import resolve_secret
-
     bt = settings.app.bearer_tokens
     return bool(
         resolve_secret(bt.x_bearer_token, settings.app.settings_key_names.x_bearer_token)

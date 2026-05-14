@@ -8,6 +8,8 @@ from config import settings
 from services.job_targets import (
     _job_targets, _profile_for_discovery,
 )
+from services.scout import _run_x_signal_scan, _run_free_source_scan
+from config.secrets import resolve_secret
 
 
 class ScanManager:
@@ -111,8 +113,8 @@ def _job_eval_document(lead: dict) -> str:
 
 
 async def _run_reevaluate_jobs():
-    from db.client import get_settings, get_job_leads_for_evaluation, get_lead_by_id, update_lead_score, get_profile
-    from agents.evaluator import score as _score
+    from db.client import get_settings, get_job_leads_for_evaluation, get_lead_by_id, update_lead_score, get_profile  # lazy: lancedb import takes ~7s
+    from agents.evaluator import score as _score  # lazy: agents module (per-request dep)
 
     cfg = await asyncio.to_thread(get_settings)
     profile = await asyncio.to_thread(get_profile)
@@ -168,16 +170,15 @@ async def _run_reevaluate_jobs():
 
 
 async def _run_scan():
-    from db.client import get_settings, get_discovered_leads, update_lead_score, get_profile
-    from agents.scout import run as _scout
-    from agents.evaluator import score as _score
-    from agents.query_gen import generate as _gen_queries
+    from db.client import get_settings, get_discovered_leads, update_lead_score, get_profile  # lazy: lancedb import takes ~7s
+    from agents.scout import run as _scout  # lazy: agents module (per-request dep)
+    from agents.evaluator import score as _score  # lazy: agents module (per-request dep)
+    from agents.query_gen import generate as _gen_queries  # lazy: agents module (per-request dep)
 
     cfg     = get_settings()
     profile = _profile_for_discovery(get_profile(), cfg)
     market_focus = cfg.get("job_market_focus", "global")
     raw_urls = _job_targets(cfg.get("job_boards", ""), market_focus)
-    from services.scout import _run_x_signal_scan, _run_free_source_scan
     await _run_x_signal_scan(cfg, "job", profile)
     await _run_free_source_scan(cfg, "job", profile)
 
@@ -196,7 +197,6 @@ async def _run_scan():
 
     await cm.broadcast({"type": "agent", "event": "scout_start", "msg": f"Launching scan for {len(urls)} targets\u2026"})
 
-    from config.secrets import resolve_secret
     leads = await asyncio.to_thread(
         _scout,
         urls=urls,

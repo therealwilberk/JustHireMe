@@ -27,7 +27,7 @@ async def ingest(
     raw: str = Form(""),
     file: UploadFile | None = File(None),
 ):
-    from agents.ingestor import ingest as _ingest
+    from agents.ingestor import ingest as _ingest  # lazy: agents module (per-request dep)
     pdf_path = None
     if file and file.filename:
         tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".pdf")
@@ -37,7 +37,7 @@ async def ingest(
     try:
         p = await asyncio.to_thread(_ingest, raw, pdf_path)
         try:
-            from db.client import refresh_profile_snapshot
+            from db.client import refresh_profile_snapshot  # lazy: lancedb import takes ~7s
             await asyncio.to_thread(refresh_profile_snapshot)
         except Exception:
             _log.warning("ingestion snapshot refresh failed for lead %s", p.n if hasattr(p, 'n') else 'unknown')
@@ -53,8 +53,8 @@ async def ingest(
 
 @router.post("/ingest/linkedin")
 async def ingest_linkedin(file: UploadFile = File(...)):
-    from agents.linkedin_parser import parse_linkedin_export
-    from db.client import update_candidate, add_skill, add_experience, add_education, add_project, add_certification
+    from agents.linkedin_parser import parse_linkedin_export  # lazy: agents module (per-request dep)
+    from db.client import update_candidate, add_skill, add_experience, add_education, add_project, add_certification  # lazy: lancedb import takes ~7s
 
     if not (file.filename or "").endswith(".zip"):
         raise HTTPException(400, "expected a .zip file from LinkedIn data export")
@@ -115,8 +115,8 @@ async def ingest_linkedin(file: UploadFile = File(...)):
 
 @router.post("/ingest/github")
 async def ingest_github_endpoint(body: GithubIngestBody):
-    from agents.github_ingestor import ingest_github
-    from db.client import add_skill, add_project, save_settings
+    from agents.github_ingestor import ingest_github  # lazy: agents module (per-request dep)
+    from db.client import add_skill, add_project, save_settings  # lazy: lancedb import takes ~7s
     result = await ingest_github(
         body.username,
         token=body.token or None,
@@ -158,7 +158,7 @@ async def ingest_github_endpoint(body: GithubIngestBody):
 
 @router.post("/ingest/profile")
 async def import_profile_json(body: ProfileImportBody):
-    from db.client import (
+    from db.client import (  # lazy: lancedb import takes ~7s
         update_candidate, add_skill, add_experience,
         add_education, add_certification, add_achievement,
         add_project, save_settings,
@@ -253,7 +253,7 @@ async def get_profile_template():
 
 @router.post("/ingest/portfolio")
 async def ingest_portfolio_endpoint(body: PortfolioIngestBody):
-    from agents.portfolio_ingestor import ingest_portfolio_url
+    from agents.portfolio_ingestor import ingest_portfolio_url  # lazy: agents module (per-request dep)
     if not body.url.startswith(("http://", "https://")):
         raise HTTPException(400, "url must start with http:// or https://")
     result = await ingest_portfolio_url(body.url)

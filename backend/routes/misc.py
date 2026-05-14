@@ -7,6 +7,7 @@ from fastapi import APIRouter, HTTPException
 from fastapi.responses import JSONResponse
 
 
+from config import settings
 from schemas.requests import TemplateBody, HelpChatBody
 from core.config_constants import _log, _UP
 
@@ -31,9 +32,8 @@ async def health():
     Returns alive/uptime plus per-dependency status for database,
     browser binary, and configured API keys.
     """
-    from config import settings
-    from agents.browser_runtime import chromium_executable
-    from db.client import get_settings, get_sql_connection
+    from agents.browser_runtime import chromium_executable  # lazy: agents module (per-request dep)
+    from db.client import get_settings, get_sql_connection  # lazy: lancedb import takes ~7s
 
     db_status = "ok"
     db_latency = 0.0
@@ -75,32 +75,32 @@ async def health():
 
 @router.get("/api/v1/events")
 async def get_events_endpoint(limit: int = 100, job_id: str | None = None):
-    from db.client import get_events
+    from db.client import get_events  # lazy: lancedb import takes ~7s
     return get_events(limit=limit, job_id=job_id)
 
 
 @router.get("/api/v1/graph")
 async def graph_stats():
-    from db.client import graph_counts
+    from db.client import graph_counts  # lazy: lancedb import takes ~7s
     return graph_counts()
 
 
 @router.get("/api/v1/template")
 async def get_template():
-    from db.client import get_setting
+    from db.client import get_setting  # lazy: lancedb import takes ~7s
     return {"template": get_setting("resume_template", "")}
 
 
 @router.post("/api/v1/template")
 async def save_template(body: TemplateBody):
-    from db.client import save_settings
+    from db.client import save_settings  # lazy: lancedb import takes ~7s
     save_settings({"resume_template": body.template})
     return {"ok": True}
 
 
 @router.post("/api/v1/help/chat")
 async def help_chat(body: HelpChatBody):
-    from agents.help_agent import answer
+    from agents.help_agent import answer  # lazy: agents module (per-request dep)
 
     history = [item.model_dump() for item in body.history]
     return await asyncio.to_thread(answer, body.question, history)

@@ -11,8 +11,7 @@ router = APIRouter(prefix="/api/v1", tags=["actions"])
 
 @router.get("/leads/{job_id}/pdf")
 async def get_lead_pdf(job_id: str, kind: str = "resume", version: int | None = None):
-    from fastapi import HTTPException
-    from db.client import get_lead_by_id, data_base
+    from db.client import get_lead_by_id, data_base  # lazy: lancedb import takes ~7s
 
     lead = get_lead_by_id(job_id)
     if not lead:
@@ -44,8 +43,8 @@ async def get_lead_pdf(job_id: str, kind: str = "resume", version: int | None = 
 
 @router.post("/fire/{job_id}")
 async def fire(job_id: str, bt: BackgroundTasks):
-    from db.client import get_lead_for_fire
-    from services.generator import _fire_blocker, _actuate
+    from db.client import get_lead_for_fire  # lazy: lancedb import takes ~7s
+    from services.generator import _fire_blocker, _actuate  # lazy: generator pulls in llm deps
     lead, asset = await asyncio.to_thread(get_lead_for_fire, job_id)
     status, detail = _fire_blocker(lead, asset)
     if detail:
@@ -56,8 +55,8 @@ async def fire(job_id: str, bt: BackgroundTasks):
 
 @router.post("/leads/{job_id}/form/read")
 async def read_lead_form(job_id: str, body: FormReadBody):
-    from agents.actuator import read_form
-    from db.client import get_lead_by_id, get_profile, get_settings
+    from agents.actuator import read_form  # lazy: agents module (per-request dep)
+    from db.client import get_lead_by_id, get_profile, get_settings  # lazy: lancedb import takes ~7s
 
     lead = get_lead_by_id(job_id)
     if not lead:
@@ -100,7 +99,7 @@ async def read_lead_form(job_id: str, body: FormReadBody):
 
 @router.get("/identity")
 async def get_identity():
-    from db.client import get_settings
+    from db.client import get_settings  # lazy: lancedb import takes ~7s
     cfg = get_settings()
     return {
         "full_name":       cfg.get("full_name", ""),
@@ -116,9 +115,9 @@ async def get_identity():
 
 @router.post("/selectors/refresh")
 async def refresh_selectors():
-    from agents.selectors import get_selectors
+    from agents.selectors import get_selectors  # lazy: agents module (per-request dep)
 
-    from db.client import save_settings
+    from db.client import save_settings  # lazy: lancedb import takes ~7s
     save_settings({"selectors_fetched_at": "0"})
     data = await asyncio.to_thread(get_selectors)
     return {"version": data.get("version"), "platforms": list(data.get("platforms", {}).keys())}
@@ -126,9 +125,9 @@ async def refresh_selectors():
 
 @router.post("/leads/{job_id}/apply/preview")
 async def preview_apply(job_id: str):
-    from agents.actuator import run as _act
-    from db.client import get_lead_for_fire
-    from services.generator import _fire_blocker
+    from agents.actuator import run as _act  # lazy: agents module (per-request dep)
+    from db.client import get_lead_for_fire  # lazy: lancedb import takes ~7s
+    from services.generator import _fire_blocker  # lazy: generator pulls in llm deps
 
     lead, asset = await asyncio.to_thread(get_lead_for_fire, job_id)
     status_code, detail = _fire_blocker(lead, asset)

@@ -7,6 +7,7 @@ from services.job_targets import _job_targets, _profile_for_discovery, _has_x_to
 from services.scanner import scan_manager, _job_eval_document
 from services.scout import _run_x_signal_scan, _run_free_source_scan
 from log_context import new_context, set_context, reset_context
+from config.secrets import resolve_secret
 
 
 class GhostService:
@@ -33,7 +34,7 @@ class GhostService:
             reset_context(token)
 
     async def _phase_preflight(self):
-        from db.client import get_setting, get_settings, get_profile
+        from db.client import get_setting, get_settings, get_profile  # lazy: lancedb import takes ~7s
 
         cfg = get_settings()
         if get_setting("ghost_mode") != "true":
@@ -58,9 +59,8 @@ class GhostService:
             await _run_free_source_scan(cfg, "job", profile)
 
     async def _phase_scout(self, cfg, profile, boards):
-        from agents.query_gen import generate as _gen_queries
-        from agents.scout import run as _scout
-        from config.secrets import resolve_secret
+        from agents.query_gen import generate as _gen_queries  # lazy: agents module (per-request dep)
+        from agents.scout import run as _scout  # lazy: agents module (per-request dep)
 
         await cm.broadcast({"type": "agent", "event": "ghost_scout", "msg": "Ghost Mode: scout cycle starting"})
         try:
@@ -83,8 +83,8 @@ class GhostService:
             await cm.broadcast({"type": "agent", "event": "ghost_error", "msg": f"Scout failed: {exc}"})
 
     async def _phase_eval(self, cfg, profile):
-        from db.client import get_discovered_leads, update_lead_score, get_profile
-        from agents.evaluator import score as _score
+        from db.client import get_discovered_leads, update_lead_score, get_profile  # lazy: lancedb import takes ~7s
+        from agents.evaluator import score as _score  # lazy: agents module (per-request dep)
 
         profile = _profile_for_discovery(await asyncio.to_thread(get_profile), cfg)
         discovered = await asyncio.to_thread(get_discovered_leads)
@@ -119,8 +119,8 @@ class GhostService:
         return approved
 
     async def _phase_gen(self, approved):
-        from agents.generator import run_package as _gen
-        from db.client import save_asset_package
+        from agents.generator import run_package as _gen  # lazy: agents module (per-request dep)
+        from db.client import save_asset_package  # lazy: lancedb import takes ~7s
 
         await cm.broadcast({"type": "agent", "event": "ghost_gen",
                             "msg": f"Ghost Mode: generating assets for {len(approved)} leads"})
@@ -152,20 +152,20 @@ class GhostService:
         return generated
 
     async def _phase_apply(self, generated):
-        from db.client import get_setting
+        from db.client import get_setting  # lazy: lancedb import takes ~7s
         if get_setting("auto_apply", "false") != "true":
             await cm.broadcast({"type": "agent", "event": "ghost_done",
                                 "msg": f"Ghost cycle complete — {len(generated)} leads ready. Auto-apply is OFF."})
             return
 
-        from agents.actuator import run as _act
-        from db.client import get_lead_for_fire, mark_applied
+        from agents.actuator import run as _act  # lazy: agents module (per-request dep)
+        from db.client import get_lead_for_fire, mark_applied  # lazy: lancedb import takes ~7s
         await cm.broadcast({"type": "agent", "event": "ghost_apply",
                             "msg": f"Ghost Mode: auto-applying to {len(generated)} leads"})
         for item in generated:
             try:
                 lead, asset = await asyncio.to_thread(get_lead_for_fire, item["job_id"])
-                from main import _fire_blocker
+                from main import _fire_blocker  # lazy: avoids circular import
                 _status, detail = _fire_blocker(lead, asset)
                 if detail:
                     await cm.broadcast({"type": "agent", "event": "ghost_error",
