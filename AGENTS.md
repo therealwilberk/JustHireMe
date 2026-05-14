@@ -54,4 +54,4 @@ cd backend && uv run python -m pytest tests/test_regressions.py -v
 
 ## Current Phase
 
-Phase B (Security Remediation & Migration Paths) — active.
+Phase C (Reliability, Observability & Concurrency) — active.

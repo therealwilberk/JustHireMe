@@ -177,12 +177,15 @@ def _agent_event_action(msg: dict) -> str:
 class _CM:
     def __init__(self):
         self._ws: list[WebSocket] = []
+        self._lock = asyncio.Lock()
 
     async def add(self, ws: WebSocket):
-        self._ws.append(ws)
+        async with self._lock:
+            self._ws.append(ws)
 
-    def remove(self, ws: WebSocket):
-        self._ws = [w for w in self._ws if w != ws]
+    async def remove(self, ws: WebSocket):
+        async with self._lock:
+            self._ws = [w for w in self._ws if w is not ws]
 
     async def broadcast(self, msg: dict):
         if msg.get("type") == "agent":
@@ -190,15 +193,18 @@ class _CM:
                 from db.client import record_event
                 await asyncio.to_thread(record_event, msg.get("job_id") or "__system__", _agent_event_action(msg))
             except Exception:
-                pass
+                _log.warning("Failed to record agent event: job_id=%s", msg.get("job_id"))
+        async with self._lock:
+            snapshot = list(self._ws)
         dead = []
-        for w in self._ws:
+        for w in snapshot:
             try:
                 await w.send_text(json.dumps(msg))
             except Exception:
                 dead.append(w)
-        for w in dead:
-            self._ws.remove(w)
+        if dead:
+            async with self._lock:
+                self._ws = [w for w in self._ws if not any(w is d for d in dead)]
 
 
 cm = _CM()
@@ -2106,7 +2112,7 @@ async def ws_endpoint(ws: WebSocket):
     except Exception as exc:
         _log.warning("ws: %s", exc)
     finally:
-        cm.remove(ws)
+        await cm.remove(ws)
 
 
 if __name__ == "__main__":

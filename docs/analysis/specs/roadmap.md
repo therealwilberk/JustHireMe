@@ -21,9 +21,9 @@
 
 | Field | Value |
 |-------|-------|
-| Current phase | `Phase B — Security Remediation & Migration Paths` |
-| Phase started | `2026-05-13` |
-| Last updated | `2026-05-13` |
+| Current phase | `Phase C — Reliability, Observability & Concurrency` |
+| Phase started | `2026-05-14` |
+| Last updated | `2026-05-14` |
 | Overall status | `[~] Active` |
 
 ---
@@ -39,8 +39,8 @@ See [`AGENTS.md`](../../../AGENTS.md) for config architecture usage, branch rule
 | # | Phase | Type | Mode | Status | Blocks | Feature Spec |
 |---|-------|------|------|--------|--------|--------------|
 | A | Config Architecture & Validation Foundation | `Infra` | `TBD` | `[~] Active` | `B, C` | `features/phase-a-config-architecture.md` |
-| B | Security Remediation & Migration Paths | `Infra` | `TBD` | `[~] Active` | `D+` | `features/phase-b-security-migration.md` |
-| C | Reliability, Observability & Concurrency | `Infra` | `TBD` | `[ ] Pending` | `D+` | `[ ] Not created` |
+| B | Security Remediation & Migration Paths | `Infra` | `TBD` | `[x] Complete` | `D+` | `features/phase-b-security-migration.md` |
+| C | Reliability, Observability & Concurrency | `Infra` | `TBD` | `[~] Active` | `D+` | `features/phase-c-reliability-observability.md` |
 | D | Locale & Scraping Model | `Feature` | `TBD` | `[ ] Pending` | `none` | `[ ] Not created` |
 | E | PDF Quality | `Feature` | `TBD` | `[ ] Pending` | `none` | `[ ] Not created` |
 | F | UI Clarity | `Feature` | `TBD` | `[ ] Pending` | `none` | `[ ] Not created` |
@@ -123,16 +123,16 @@ See [`AGENTS.md`](../../../AGENTS.md) for config architecture usage, branch rule
 **Dependencies:** Phase A (needs config layer for env resolution)
 
 **Validation:**
-- [ ] Zero API keys stored in SQLite settings table
-- [ ] All keys resolved from env vars through config layer
-- [ ] Legacy SQLite keys trigger WARN-level deprecation with migration instructions
-- [ ] Fallback reads old keys but never writes them back to SQLite
-- [ ] Apify/Hunter tokens not present in URL query params
+- [x] Zero API keys stored in SQLite settings table
+- [x] All keys resolved from env vars through config layer
+- [x] Legacy SQLite keys trigger WARN-level deprecation with migration instructions
+- [x] Fallback reads old keys but never writes them back to SQLite
+- [x] Apify/Hunter tokens not present in URL query params
 - [ ] Auth token not present in stdout (deferred — see scope note)
 
 **Feature spec:** `features/phase-b-security-migration.md` — `[x] Created`
 
-**Status:** `[~] Active`
+**Status:** `[x] Complete`
 
 ---
 
@@ -160,7 +160,17 @@ See [`AGENTS.md`](../../../AGENTS.md) for config architecture usage, branch rule
 **Dependencies:** Phase A (config layer needed for constants extracted from error paths)
 
 **Validation:**
-- [ ] Zero `except: pass` remaining in production code
+
+**Task 4 — Replace Silent Exception Suppression:**
+- [ ] Every `except: pass` in production code replaced with logged warning, structured error, or explicit handling
+- [ ] Each replacement carries identifiers (request ID, job ID, lead ID, node name, subsystem) where available
+- [ ] Recoverable errors emit structured log (warning/error with context) and continue via fallback
+- [ ] Terminal errors log once and stop in a controlled way
+- [ ] Tracebacks preserved in exception logs (not reduced to strings)
+- [ ] Logging configured centrally — no ad hoc configuration in random modules
+- [ ] Logs carry consistent fields across all error paths
+
+**Task 5+ (remaining Phase C scope):**
 - [ ] Structured logging with correlation context on all error paths
 - [ ] SettingsModal save failure shows user-facing error
 - [ ] ProfileView save failure shows user-facing error
@@ -169,9 +179,13 @@ See [`AGENTS.md`](../../../AGENTS.md) for config architecture usage, branch rule
 - [ ] Updater artifacts generate on build
 - [ ] Bundle targets are platform-specific
 
-**Feature spec:** `features/phase-c-reliability-observability.md` — `[ ] Not created`
+**Phase C overall:**
+- [ ] Zero `except: pass` remaining in production code
+- [ ] All validation items above pass
 
-**Status:** `[ ] Pending`
+**Feature spec:** `features/phase-c-reliability-observability.md` — `[x] Created`
+
+**Status:** `[~] Active`
 
 ---
 
@@ -277,6 +291,8 @@ See [`AGENTS.md`](../../../AGENTS.md) for config architecture usage, branch rule
 
 | Date | Change | Reason |
 |------|--------|--------|
+| 2026-05-14 | Phase B completed, Phase C activated, feature spec created | Silent exception suppression → structured error reporting, logging standardization |
+| 2026-05-14 | Updated test count to 204 | Tests expanded with Phase B coverage |
 | 2026-05-13 | Phase B activated, feature spec created | Security migration: unified secret resolver, URL→headers, token→stderr, deprecation warnings |
 | 2026-05-13 | Completed Phase A implementation | Config architecture: schemas, resolver, validation gate, CI, docs. 128 tests pass. |
 | 2026-05-13 | Initial population after grill session | Phase structure from codebase audit + user decisions |

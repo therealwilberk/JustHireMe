@@ -6,7 +6,7 @@ This directory contains the deterministic test suite for the JustHireMe backend.
 All tests in this directory are designed to run in CI, produce consistent results,
 and avoid external service dependencies.
 
-**Test count:** 202  
+**Test count:** 204  
 **Framework:** pytest (via `unittest.TestCase`)  
 **Runner:** `uv run python -m pytest tests/`
 
@@ -250,6 +250,28 @@ This is intentionally NOT strict transactional (no rollback, no abort on partial
 - `_install_storage_fakes()` — replaces Kuzu, SQLite, LanceDB with in-memory fakes
 - Must be called **before** importing any backend module that uses these stores
 - Provides `_FakeConnection`, `_FakeSqlConnection`, `_FakeVectorStore`, `_FakeSemanticStore`
+
+---
+
+---
+
+## Phase C Coverage (Reliability, Observability & Concurrency)
+
+As of Phase C activation, these areas have **no or minimal** test coverage:
+
+| Area | Tests | Needed |
+|------|-------|--------|
+| Logging infrastructure | 8 partial refs (health `log_level`, secret warning dedup, agent log format) | Config-level tests (`config/logging.py`), env var override, format consistency |
+| WebSocket behavior | 2 auth-only (token connect, missing token) | Message contracts, concurrent mutation, `_CM` async-safety |
+| SQLite WAL/pragmas | None | Pragma verification on connection, busy timeout behavior |
+| Frontend error handling | None | SettingsModal/ProfileView save failure display |
+| `except: pass` replacement | None | Error paths produce expected log output |
+
+Tests for Phase C work belong in:
+- `test_secrets.py` — existing, for logging-related secret resolution tests
+- `test_logging.py` — new, for logging infrastructure and config
+- `test_websocket.py` — new, for WebSocket `_CM` concurrency and message contracts
+- `test_sqlite.py` — new, for WAL mode and connection pragmas
 
 ---
 
