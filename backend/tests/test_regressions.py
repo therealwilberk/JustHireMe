@@ -59,6 +59,10 @@ def _sample_scoring_profile():
 
 
 class RegressionTests(unittest.TestCase):
+    def setUp(self):
+        from services.job_targets import _split_configured_targets as _sct
+        self._split_targets = _sct
+
     def test_extended_llm_provider_catalog_is_configured(self):
         from llm import _DEFAULT_MODELS, _ENV_NAMES, _KEY_NAMES, _OPENAI_COMPAT_BASE_URLS
 
@@ -813,7 +817,7 @@ This role is a great fit for customer-facing technical professionals. Apply here
         ])
 
         self.assertEqual(
-            main._split_configured_targets(raw),
+            self._split_targets(raw),
             [
                 "https://remotive.com/api/remote-jobs?search=junior",
                 "site:jobs.lever.co",
