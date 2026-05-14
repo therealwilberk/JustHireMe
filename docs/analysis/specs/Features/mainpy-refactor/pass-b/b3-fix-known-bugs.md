@@ -47,43 +47,16 @@ cd backend && uv run python -m pytest tests/ -q --tb=line
 
 ---
 
-## Fix 2: `_CM.broadcast()` — Dead-socket cleanup inside lock
+## Fix 2: `_CM.broadcast()` — ~~Dead-socket cleanup inside lock~~ **DROPPED**
 
 **File:** `backend/core/ws_manager.py`  
-**Risk:** Low (behavioral change, but only for edge case of concurrent WS disconnect during broadcast)
+**Risk:** ~~Low~~ **BREAKS the test suite**
 
-**Current:** Dead sockets are collected outside the lock, then cleaned up inside a re-acquired lock. Between collection and cleanup, a new socket could be added that happens to have the same identity (unlikely in Python, but a race nonetheless).
+The proposed fix moves `await w.send_text()` inside the lock scope. This holds an `asyncio.Lock` across an I/O await, causing deadlocks in the WS concurrency tests (tests hang, ~15s baseline blows up to indefinite).
 
-**Fix:** Move the dead cleanup inside the same lock scope as the snapshot:
+**Why the original code is correct:** The identity comparison `w is d` means a newly-added socket can never match as "dead" — it's a different object with a different `id()`. The theoretical identity-reuse race is effectively impossible in CPython. The lock-release pattern (snapshot under lock → send outside lock → cleanup under re-acquired lock) is the correct async pattern: never hold a lock during I/O.
 
-```python
-    async def broadcast(self, msg: dict):
-        if msg.get("type") == "agent":
-            try:
-                from db.client import record_event
-                await asyncio.to_thread(
-                    record_event, msg.get("job_id") or "__system__", _agent_event_action(msg)
-                )
-            except Exception:
-                _log.warning("Failed to record agent event: job_id=%s", msg.get("job_id"))
-        async with self._lock:
-            snapshot = list(self._ws)
-            dead = []
-            for w in snapshot:
-                try:
-                    await w.send_text(json.dumps(msg))
-                except Exception:
-                    dead.append(w)
-            if dead:
-                self._ws = [w for w in self._ws if not any(w is d for d in dead)]
-```
-
-**Verify:**
-```bash
-cd backend && uv run python -m pytest tests/ -q --tb=line
-```
-
-**Commit:** `fix(b3): move ws cleanup inside lock in _CM.broadcast()`
+**Verdict:** Original code stands. Fix 2 skipped.
 
 ---
 
@@ -105,34 +78,11 @@ cd backend && uv run python -m pytest tests/ -q --tb=line
 
 ---
 
-## Fix 4: Remove unreachable `require_http_token` guard
+## Fix 4: Remove unreachable `require_http_token` guard — **ALREADY APPLIED**
 
-**File:** `backend/main.py`  
-**Risk:** Very low
+**File:** `backend/main.py`
 
-**Current:**
-```python
-if request.method == "OPTIONS" or request.url.path == "/health":
-    return await call_next(request)
-if request.url.path != "/health":
-    creds = await _bearer(request)
-```
-
-The `if request.url.path != "/health"` on line 3 is unreachable — `/health` already returned on line 2. Remove it.
-
-**Fix:**
-```python
-if request.method == "OPTIONS" or request.url.path == "/health":
-    return await call_next(request)
-creds = await _bearer(request)
-```
-
-**Verify:**
-```bash
-cd backend && uv run python -m pytest tests/ -q --tb=line
-```
-
-**Commit:** `fix(b3): remove unreachable health path guard in auth middleware`
+Already fixed on `linux-base` (cleaned up during Pass A or earlier). The guard is absent from the current code — no action needed.
 
 ---
 

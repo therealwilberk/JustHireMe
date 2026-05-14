@@ -38,6 +38,10 @@ Each pass is a separate feature branch from `linux-base`. Each phase within a pa
 - Performance optimization
 - Replacing `asyncio.to_thread` with proper async patterns
 
+## Future Roadmap Items (Not In Pass C)
+
+- **Externalize job market lists** (`DEFAULT_JOB_TARGETS`, `INDIA_JOB_TARGETS`): Move hardcoded job board URLs out of `services/job_targets.py` into a user-editable config (YAML/DB + UI). These are living data — prefer UI update over code change. Needs validation on save (duplicate detection, format checks). Should be a stand-alone feature branch after the refactor is complete.
+
 ---
 
 ## Pass A — Pure Extraction
@@ -102,14 +106,14 @@ During Pass A, all lazy imports (inside function bodies) were moved to top-of-fi
 
 4 independent bug fixes, each in a separate commit. [Full doc](pass-b/b3-fix-known-bugs.md)
 
-- [ ] Fix `_int_cfg` bare `except Exception` → `except (ValueError, TypeError)`
+- [x] Fix `_int_cfg` bare `except Exception` → `except (ValueError, TypeError)`
   - Commit: `fix(b3): narrow _int_cfg exception to ValueError and TypeError`
-- [ ] Fix `_CM.broadcast()` dead-socket cleanup to happen inside the lock
-  - Commit: `fix(b3): move ws cleanup inside lock in _CM.broadcast()`
-- [ ] Change `DEFAULT_JOB_TARGETS` and `INDIA_JOB_TARGETS` to `tuple[str, ...]`
+- [ ] **DROPPED** — Fix `_CM.broadcast()` dead-socket cleanup to happen inside the lock
+  - Reason: Holding lock during `await w.send_text()` causes deadlocks in concurrency tests. Original code is correct.
+- [x] Change `DEFAULT_JOB_TARGETS` and `INDIA_JOB_TARGETS` to `tuple[str, ...]`
   - Commit: `fix(b3): change job target lists to immutable tuples`
-- [ ] Remove dead `if request.url.path != "/health"` guard in `require_http_token`
-  - Commit: `fix(b3): remove unreachable health path guard in auth middleware`
+- [x] **ALREADY APPLIED** — Remove dead `if request.url.path != "/health"` guard in `require_http_token`
+  - No commit needed (guard already removed on `linux-base`)
 
 #### B1 — ScanManager Class (HITL)
 
@@ -127,9 +131,9 @@ Audit per-function imports; promote fast ones to top of file; document slow ones
 
 - [ ] Scan state encapsulated in `ScanManager` class
 - [ ] Ghost phases independently testable
-- [ ] `_int_cfg` catches `(ValueError, TypeError)` only
-- [ ] `_CM.broadcast()` no longer has dead-socket race
-- [ ] Job target lists are immutable tuples
+- [x] `_int_cfg` catches `(ValueError, TypeError)` only
+- [ ] **DROPPED** — `_CM.broadcast()` dead-socket race (original code correct — don't hold lock during I/O)
+- [x] Job target lists are immutable tuples
 - [ ] Lazy imports resolved where safe
 - [ ] Full test suite passes
 - [ ] App launches
