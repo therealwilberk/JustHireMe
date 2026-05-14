@@ -748,6 +748,33 @@ This role is a great fit for customer-facing technical professionals. Apply here
         finally:
             save_settings({"job_targets": ""})
 
+    def test_split_targets_preserves_entries_with_commas(self):
+        raw = 'site:opp ("jobs" OR "careers" OR "hiring"),\nsite:linkedin.com/jobs,\nhttps://remoteok.com/api'
+        result = self._split_targets(raw)
+        self.assertEqual(len(result), 3)
+        self.assertEqual(result[0], 'site:opp ("jobs" OR "careers" OR "hiring")')
+        self.assertEqual(result[1], "site:linkedin.com/jobs")
+        self.assertEqual(result[2], "https://remoteok.com/api")
+
+    def test_split_targets_strips_trailing_commas(self):
+        raw = "https://remoteok.com/api,\nsite:linkedin.com/jobs,"
+        result = self._split_targets(raw)
+        self.assertEqual(result, ["https://remoteok.com/api", "site:linkedin.com/jobs"])
+
+    def test_split_targets_skips_empty_lines_and_comments(self):
+        raw = "\nhttps://remoteok.com/api\n\n# this is a comment\nsite:linkedin.com/jobs\n"
+        result = self._split_targets(raw)
+        self.assertEqual(result, ["https://remoteok.com/api", "site:linkedin.com/jobs"])
+
+    def test_split_targets_handles_no_trailing_commas(self):
+        raw = "https://remoteok.com/api\nsite:linkedin.com/jobs"
+        result = self._split_targets(raw)
+        self.assertEqual(result, ["https://remoteok.com/api", "site:linkedin.com/jobs"])
+
+    def test_split_targets_empty_input(self):
+        self.assertEqual(self._split_targets(""), [])
+        self.assertEqual(self._split_targets(None), [])
+
     def test_india_query_generation_keeps_location_clause_on_fallback(self):
         from agents import query_gen
 

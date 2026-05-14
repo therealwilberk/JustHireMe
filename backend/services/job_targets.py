@@ -87,13 +87,10 @@ def validate_job_targets(entries: list[str]) -> list[str]:
 def _split_configured_targets(raw: str) -> list[str]:
     targets: list[str] = []
     for line in str(raw or "").splitlines():
-        line = line.strip()
-        if not line or line.startswith("#"):
+        target = line.strip().rstrip(",").strip()
+        if not target or target.startswith("#"):
             continue
-        for part in line.split(","):
-            target = part.strip()
-            if target and not target.startswith("#"):
-                targets.append(target)
+        targets.append(target)
     return targets
 
 
