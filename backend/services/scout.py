@@ -1,3 +1,10 @@
+"""X/Twitter and free source signal scanning.
+
+Provides the two signal-scan entry points used by the scan and ghost
+pipelines: ``_run_x_signal_scan`` for X/Twitter and
+``_run_free_source_scan`` for GitHub/HN/Reddit/custom connectors.
+"""
+
 import asyncio
 
 from core.ws_manager import cm
@@ -13,6 +20,22 @@ from config.secrets import resolve_secret
 
 
 async def _run_x_signal_scan(cfg: dict, kind_filter: str, profile: dict | None = None) -> list[dict]:
+    """Scan X/Twitter for job-lead signals using the x_scout agent.
+
+    Uses the X API bearer token from config, combined with configured
+    or profile-derived search queries and a watchlist.  Results are
+    broadcast as ``LEAD_UPDATED`` and hot leads (signal >= threshold)
+    are flagged.
+
+    Args:
+        cfg: Application settings dictionary.
+        kind_filter: Signal kind filter (e.g. ``"job"``).
+        profile: Optional user profile for query generation when no
+            explicit ``x_search_queries`` are configured.
+
+    Returns:
+        List of discovered lead dictionaries (may be empty).
+    """
     ctx = new_context(workflow_type="x_signal_scan", subsystem="scout")
     token = set_context(ctx)
     try:
@@ -61,6 +84,21 @@ async def _run_x_signal_scan(cfg: dict, kind_filter: str, profile: dict | None =
 
 
 async def _run_free_source_scan(cfg: dict, kind_filter: str | None = None, profile: dict | None = None) -> list[dict]:
+    """Scan free sources (GitHub, HN, Reddit, custom connectors) for signals.
+
+    Uses the free_scout agent with configured or profile-derived
+    targets, a company watchlist, and optional custom HTTP connectors.
+    Results are broadcast as ``LEAD_UPDATED`` events.
+
+    Args:
+        cfg: Application settings dictionary.
+        kind_filter: Optional signal kind filter.
+        profile: Optional user profile for target generation when no
+            explicit ``free_source_targets`` are configured.
+
+    Returns:
+        List of discovered lead dictionaries (may be empty).
+    """
     ctx = new_context(workflow_type="free_source_scan", subsystem="scout")
     token = set_context(ctx)
     try:
