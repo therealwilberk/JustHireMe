@@ -25,7 +25,7 @@
   },
   "bundle": {
     "active": true,
-    "createUpdaterArtifacts": false,
+    "createUpdaterArtifacts": true,
     "externalBin": [
       "resources/backend/jhm-sidecar"
     ],
@@ -59,7 +59,7 @@
         ]
       }
     },
-    "targets": ["appimage"],
+    "targets": ["appimage", "deb"],
     "macOS": {
       "signingIdentity": "-"
     }

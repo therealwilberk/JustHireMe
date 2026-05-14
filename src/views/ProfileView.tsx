@@ -10,6 +10,7 @@ const stackItems = (stack: any): string[] =>
 export function ProfileView({ api, setView }: { api: ApiFetch; setView: (v: View) => void }) {
   const [profile, setProfile] = useState<any>(null);
   const [profileErr, setProfileErr] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
   const [editId, setEditId] = useState<string | null>(null);
   const [editData, setEditData] = useState<any>(null);
   const [editingCandidate, setEditingCandidate] = useState(false);
@@ -52,27 +53,49 @@ export function ProfileView({ api, setView }: { api: ApiFetch; setView: (v: View
 
   const deleteItem = async (type: string, id: string) => {
     if (!window.confirm("Delete this item?")) return;
+    setActionError(null);
     try {
       const res = await api(`/api/v1/profile/${type}/${id}`, { method: "DELETE" });
-      if (!res.ok) console.error("Delete failed:", res.status);
-    } catch (err) {
-      console.error("Delete error:", err);
+      if (!res.ok) {
+        const body = await res.json().catch(() => null);
+        throw new Error(body?.detail || `Delete failed (${res.status})`);
+      }
+    } catch (err: any) {
+      setActionError(err?.message || "Failed to delete item");
     }
     await fetchProfile();
   };
 
   const saveEdit = async (type: string, id: string) => {
-    await api(`/api/v1/profile/${type}/${id}`, {
-      method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(editData),
-    });
-    setEditId(null); fetchProfile();
+    setActionError(null);
+    try {
+      const res = await api(`/api/v1/profile/${type}/${id}`, {
+        method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(editData),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => null);
+        throw new Error(body?.detail || `Save failed (${res.status})`);
+      }
+      setEditId(null); fetchProfile();
+    } catch (err: any) {
+      setActionError(err?.message || "Failed to save");
+    }
   };
 
   const saveCandidate = async () => {
-    await api(`/api/v1/profile/candidate`, {
-      method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(candForm),
-    });
-    setEditingCandidate(false); fetchProfile();
+    setActionError(null);
+    try {
+      const res = await api(`/api/v1/profile/candidate`, {
+        method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(candForm),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => null);
+        throw new Error(body?.detail || `Save failed (${res.status})`);
+      }
+      setEditingCandidate(false); fetchProfile();
+    } catch (err: any) {
+      setActionError(err?.message || "Failed to save identity");
+    }
   };
 
   const skills = profile?.skills || [];
@@ -116,6 +139,11 @@ export function ProfileView({ api, setView }: { api: ApiFetch; setView: (v: View
         {profileErr && (
           <div style={{ marginBottom: 16, padding: "12px 14px", borderRadius: 8, background: "var(--bad-soft)", border: "1px solid var(--bad)", color: "var(--bad)", fontSize: 13 }}>
             Could not refresh the Identity Graph. Your existing profile was not overwritten.
+          </div>
+        )}
+        {actionError && (
+          <div style={{ marginBottom: 16, padding: "12px 14px", borderRadius: 8, background: "var(--bad-soft)", border: "1px solid var(--bad)", color: "var(--bad)", fontSize: 13 }}>
+            {actionError}
           </div>
         )}
         <div className="profile-workspace">

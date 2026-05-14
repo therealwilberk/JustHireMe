@@ -13,6 +13,7 @@ export default function SettingsModal({ api, onClose }: Props) {
   const [cfg, setCfg]       = useState<Cfg>(EMPTY);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved]   = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   useEffect(() => {
     api("/api/v1/settings")
@@ -29,14 +30,21 @@ export default function SettingsModal({ api, onClose }: Props) {
 
   const save = async () => {
     setSaving(true);
+    setSaveError(null);
     try {
-      await api("/api/v1/settings", {
+      const res = await api("/api/v1/settings", {
         method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(cfg),
       });
+      if (!res.ok) {
+        const body = await res.json().catch(() => null);
+        throw new Error(body?.detail || `Save failed (${res.status})`);
+      }
       if (cfg.x_enable_notifications === "true" && "Notification" in window && Notification.permission === "default") {
         Notification.requestPermission().catch(() => {});
       }
       setSaved(true); setTimeout(() => setSaved(false), 2000);
+    } catch (e: any) {
+      setSaveError(e?.message || "Failed to save settings");
     } finally { setSaving(false); }
   };
 
@@ -63,7 +71,8 @@ export default function SettingsModal({ api, onClose }: Props) {
           <div style={{ height: 6 }} />
         </div>
 
-        <div style={{ padding: "14px 24px", borderTop: "1px solid var(--line)", background: "var(--paper-2)", display: "flex", justifyContent: "flex-end", gap: 10 }}>
+        <div style={{ padding: "14px 24px", borderTop: "1px solid var(--line)", background: "var(--paper-2)", display: "flex", justifyContent: "flex-end", gap: 10, alignItems: "center" }}>
+          {saveError && <span style={{ flex: 1, fontSize: 12.5, color: "var(--bad)" }}>{saveError}</span>}
           <button className="btn" onClick={onClose} style={{ padding: "9px 20px", fontSize: 13, borderRadius: 10 }}>Cancel</button>
           <button className="btn btn-accent" onClick={save} disabled={saving} style={{ padding: "9px 26px", fontSize: 13, borderRadius: 10, minWidth: 110 }}>
             {saved ? "? Saved" : saving ? "Saving?" : "Save settings"}
