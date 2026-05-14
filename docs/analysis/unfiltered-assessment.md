@@ -54,26 +54,35 @@ backend-db.md flags: 4 🔴 DEAD functions | 17 🔵 HARDCODED | 13 🟣 COUPLED
 
 Four dead functions. Thirteen coupling flags — more than any other unit. The config layer has a circular dependency with `db.client` because `secrets.py` uses `get_setting()` which is in the file that imports from config.
 
-**The fix:**
+**Is SQLite-only best practice? I researched it.**
 
-SQLite-only. Here's what you lose:
+Yes — for this scale it's not just acceptable, it's what the ecosystem is standardizing on. Here's what I found:
 
-| Database | What it does | SQLite replacement |
-|----------|-------------|-------------------|
-| Kuzu | `MATCH (c)-[:WORKED_AS]->(e)-[:EXP_UTILIZES]->(s)` | SQLite recursive CTE or 3 JOINs |
-| LanceDB | Semantic skill search | SQLite FTS5 + trigram similarity, or just `WHERE name LIKE '%skill%'` |
+There's a growing pattern called "SQLite for everything" in the embedded/single-user space. Multiple libraries prove it works:
 
-The graph queries in the Evaluator are 2-3 hop traversals over <500 nodes. SQLite handles that in milliseconds with proper indexes. The semantic fallback fires maybe 5% of the time (only when the profile graph is empty). For a desktop app with 200 vectors, a brute-force cosine similarity scan over a small in-memory list is faster than LanceDB's ANN index initialization.
+| Library | What it adds to SQLite | Use in this app |
+|---------|----------------------|-----------------|
+| **sqlite-vec** | Vector search as a virtual table (HNSW, cosine, L2) | Replaces LanceDB entirely — 384-dim skill vectors in a single BLOB column with `CREATE VIRTUAL TABLE vec USING vec0(embedding float[384])` |
+| **sqlite-graph** | Graph traversal via recursive CTEs + bi-temporal edges | Replaces Kuzu — `WITH RECURSIVE cte AS (...) SELECT` for 2-3 hop profile graph queries |
+| **FTS5** | Full-text search with BM25 ranking (built into SQLite stdlib) | Replaces any keyword search needs |
+| **sqlitesearch / faissqlite / SimpleVecDB** | Hybrid search (FTS5 + vector + RRF) in one file | All-in-one semantic + keyword search |
 
-**Interesting finding:** Kuzu actually has a SQLite extension that lets you ATTACH a SQLite database and run Cypher queries against it. So if you REALLY want graph queries, you can keep SQLite as the single store and use Kuzu as a query layer on demand. But I'd just use SQLite CTEs.
+The threshold for needing dedicated infrastructure is well above this app's data size:
+- Dedicated graph DB (Neo4j/Kuzu): >100K entities with deep traversals. This app has <500 nodes with 2-3 hop queries. SQLite CTEs handle this in milliseconds.
+- Dedicated vector DB (Pinecone/Qdrant): >100K vectors. This app has <200. Brute-force cosine similarity on an in-memory list is faster than initializing the ANN index.
 
-**Impact of going SQLite-only:**
+sqlite-vec specifically has matured rapidly (2024-2026) and is now production-grade for this use case. It supports cosine/euclidean/manhattan/hamming distance, HNSW indexing, and works as a virtual table you can query with standard SQL.
+
+Kuzu even has a SQLite extension that lets you ATTACH a SQLite database and run Cypher queries against it — proving the two are complementary, not competing.
+
+**Impact of going SQLite-only (+ optional sqlite-vec):**
 - `db/client.py` goes from 1,628 lines to ~400
 - Startup time drops by ~8.6s (LanceDB 7s + Kuzu 1.6s)
 - Removes 4 dead Kuzu functions
 - Ends the circular dependency with config
 - One connection model, one query syntax, one failure mode
 - `uv sync` becomes ~2GB lighter (no PyTorch for sentence-transformers)
+- `cp app.db backup.db` is your backup strategy (WAL mode: use `VACUUM INTO` for consistent snapshots)
 
 ---
 
@@ -101,13 +110,37 @@ Also: `classify_kind()` always returns `"job"` because the second branch is unre
 
 **Reality check:**
 
-The app defaults to Ollama (free, local, ~8GB RAM). If someone has Ollama running, they don't need the other 16. If they're paying for an API, they probably use Anthropic or OpenAI. The remaining 14 are configuration noise — they add surface area for bugs, staleness, and testing burden without evidence that anyone uses them.
+The app defaults to Ollama (free, local). If someone has Ollama running or wants to try it, they don't need the other 16. If they're paying for an API, they probably use Anthropic or OpenAI. The remaining 14 are configuration noise — they add surface area for bugs, staleness, and testing burden without evidence that anyone uses them.
 
-The `llm.py` monolithic if/elif chain for `call_llm` and `call_raw` is fragile. One provider's SDK update breaks the whole thing.
+That said, not everyone can run Ollama. Local LLMs need RAM, and laptop constraints vary. Here's a practical guide that should be surfaced in-app:
+
+**Ollama model recommendations by hardware:**
+
+| RAM | Recommended model | Disk | Quality | Install |
+|-----|------------------|------|---------|---------|
+| 8GB (budget laptop) | `mistral:7b` or `llama3.2:3b` | 2-4GB | Good for scoring | `ollama pull mistral` |
+| 16GB (modern laptop) | `llama3.1:8b` or `gemma2:9b` | 5GB | Very good | `ollama pull llama3.1` |
+| 32GB+ (workstation) | `deepseek-r1:14b` or `qwen2.5:14b` | 9GB | Excellent | `ollama pull deepseek-r1:14b` |
+| GPU (8GB+ VRAM) | Any 7-13B model runs fast | — | Best | GPU auto-detected |
+
+Mistral 7B is the sweet spot for 8GB laptops — 4.1GB disk, ~6-7GB RAM at runtime, Apache 2.0 license, and genuinely capable at scoring job descriptions. Llama 3.2 3B is the fallback for truly constrained hardware.
+
+**Free-ish API alternatives (when Ollama doesn't fit):**
+
+| Provider | Free tier | Notes |
+|----------|-----------|-------|
+| **NVIDIA NIM** | Free limited usage | Already in the provider list, uses same OpenAI-compatible API |
+| **Groq** | Free tier (30 req/min) | LPU inference, incredibly fast, no GPU needed |
+| **Together.ai** | $1 free credits | OpenAI-compatible, many open models |
+| **HuggingFace Inference** | 30K free monthly requests | Serverless, no key needed for some models |
+| **Perplexity** | $5/mo sonar-pro | Cheap, solid quality |
+| **OpenRouter** | Free tier with rate limits | Routes to cheapest available model |
+
+These make sense to keep in the provider list but consolidated into a "cloud free-tier" group with clear documentation on which have free tiers and what the limits are. The rest (Kimi, Cerebras, Fireworks, etc.) are niche.
 
 **What I'd do:**
 
-Keep 3: Ollama (default/free), Anthropic (best quality), OpenAI (broadest compatibility). Document the rest as "bring your own adapter." Remove the provider-specific conftest files. If someone wants Mistral or Groq, they can add it in 20 lines.
+Keep 4 groups: **Ollama** (default, recommended), **Anthropic** (best quality), **OpenAI** (broadest compatibility), and a **"Free/Cheap Cloud"** group (NVIDIA + Groq + OpenRouter — all OpenAI-compatible, all with free tiers). Collapse the if/elif chain into a provider-registry pattern so adding a new provider doesn't touch `llm.py`.
 
 ---
 
@@ -189,9 +222,8 @@ The profile graph data: 3 tables. `Candidate`, `Experience`, `Skill`. With forei
 **Effort:** Small (2-4 hours)
 **Impact:** Better scoring for every user at zero cost. The deterministic rubric becomes the fallback (and can be simplified). This flips the current architecture from "LLM as bonus" to "LLM as default."
 
-### 3. Run ALL 328 tests in CI
-**Effort:** Trivial (< 30 min)
-**Impact:** Currently 73 tests run in CI. 255 are silent. The graph failure tests, WebSocket concurrency tests, SQLite reliability tests — these would catch regressions the day they're introduced. The fact that they DON'T run means you're flying blind on 78% of your test coverage.
+### [✓] Tests already run in CI
+**Correction:** All 328 tests already run. The CI command is `uv run python -m pytest tests/ -v` with no exclusions. The "45% run in CI" claim was from the stale audit report written before the CI config was fixed. You're not flying blind — the full suite validates every push.
 
 ### 4. Fix the scoring feedback loop
 **Effort:** Medium (4-6 hours)
@@ -252,8 +284,8 @@ This is a genuinely useful app. The pipeline works. The config layer is excellen
 
 The single highest-leverage change is **Kuzu + LanceDB → SQLite-only**. It's not even close. Every other recommendation amplifies that one.
 
-The second highest is **run all 328 tests in CI**. 30 minutes of config work to know the day a change breaks something instead of finding out months later.
+The second highest is **LLM-first scoring** — flip the evaluation hierarchy, show hardware-guided Ollama recommendations in-app, and offer the free-tier cloud providers as alternatives when local isn't feasible.
 
-The third is **LLM-first scoring**. Ollama is free, local, private. Use it.
+The third is **unified settings path** — kill the SQLite `get_setting()` dual path and route everything through the Pydantic config layer.
 
 Everything else in this document is optimization around those three.
