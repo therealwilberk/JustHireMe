@@ -71,6 +71,15 @@ Each pass is a separate feature branch from `linux-base`. Each phase within a pa
 - [x] Full test suite passes (`uv run python -m pytest tests/ -q --tb=line`) — 298 passed
 - [x] App launches via `uvicorn main:app`
 - [x] `main.py` under 150 lines (137 lines)
+- [x] Startup time under 3s (was 19.7s, now 2.5s cumulative import time)
+
+### Key Discovery: Lazy Imports Required for Startup Performance
+
+During Pass A, all lazy imports (inside function bodies) were moved to top-of-file. This caused `db.client` (~7s via lancedb), `llm` (~3s via instructor+anthropic), and `graph`/`langgraph` (~1.6s) to load during module import, pushing total startup past the 15s sidecar timeout.
+
+**Fix applied:** Top-of-file imports were reverted to lazy per-function imports for all slow transitive dependencies (`db.client`, `agents.*`, `graph`, `llm`, `services.generator`). Only fast modules (stdlib, `core/*`, `schemas/*`) remain at top level. The `__main__` block was also moved before heavy imports (early fix) as defense-in-depth.
+
+**Lesson for future passes:** Slow imports (>1s) should always remain lazy unless the module is used on every single request. The original `main.py` used lazy imports everywhere for this exact reason — the refactor should preserve that pattern.
 
 ---
 
