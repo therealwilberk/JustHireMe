@@ -111,13 +111,13 @@ async def read_form(
                         if len(lbl_lower) < 60:
                             unmatched.append(lbl.strip())
             except Exception:
-                pass
+                _log.warning("unmatched labels processing failed")
 
             try:
                 raw = await page.screenshot(type="png", full_page=False)
                 screenshot_b64 = base64.b64encode(raw).decode()
             except Exception:
-                pass
+                _log.warning("screenshot failed for %s", url)
 
             await browser.close()
 
@@ -191,7 +191,7 @@ async def _fill_dom(p, j: dict, a: str):
             result["fields"].append(key)
             await p.wait_for_timeout(_FILL_DELAY)
         except Exception:
-            pass
+            _log.warning("form fill failed at step %s", key)
     result["uploaded"] = await _upload_resume(p, a)
     return result
 
@@ -356,7 +356,7 @@ async def _find_submit(p):
             await btn.wait_for(state="visible", timeout=2000)
             return btn
         except Exception:
-            pass
+            _log.warning("submit button lookup failed")
     return None
 
 

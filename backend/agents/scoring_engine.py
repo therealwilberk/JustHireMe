@@ -626,7 +626,7 @@ def _budget_amount(text: str) -> int | None:
         try:
             amounts.append(int(raw.replace(",", "")))
         except ValueError:
-            pass
+            _log.warning("budget parse failed for value %s", raw)
     return max(amounts) if amounts else None
 
 

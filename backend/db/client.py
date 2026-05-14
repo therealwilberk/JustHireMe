@@ -230,12 +230,12 @@ def _init_sql():
         try:
             c.execute(f"ALTER TABLE leads ADD COLUMN {col} {definition}")
         except Exception:
-            pass  # column already exists
+            _log.debug("column %s already exists — skipping", col)
     try:
         c.execute("ALTER TABLE leads ADD COLUMN resume_version INTEGER DEFAULT 0")
         c.commit()
     except Exception:
-        pass  # column already exists
+            _log.debug("column resume_version already exists — skipping")
     c.commit()
     c.close()
 
@@ -1209,7 +1209,7 @@ def _save_profile_snapshot(profile: dict):
         c.commit()
         c.close()
     except Exception:
-        pass
+        _log.warning("_save_profile_snapshot failed for profile")
 
 
 def _read_profile_from_graph() -> dict:
@@ -1299,7 +1299,7 @@ def refresh_profile_snapshot():
     try:
         _save_profile_snapshot(_read_profile_from_graph())
     except Exception:
-        pass
+        _log.warning("refresh_profile_snapshot failed for profile")
 
 
 # ── CRUD: Skills ──────────────────────────────────────────────────
@@ -1320,12 +1320,12 @@ def add_skill(n: str, cat: str) -> dict:
     try:
         c2.execute("MATCH (c:Candidate) RETURN c.id LIMIT 1")
     except Exception:
-        pass
+        _log.warning("failed to query candidate for skill %s", sid)
     # Add to vector store
     try:
         _add_skill_vec(sid, n, cat)
     except Exception:
-        pass
+        _log.warning("_add_skill_vec failed for %s", sid)
     refresh_profile_snapshot()
     return {"id": sid, "n": n, "cat": cat}
 
@@ -1339,7 +1339,7 @@ def update_skill(sid: str, n: str, cat: str) -> dict:
     try:
         _add_skill_vec(sid, n, cat)
     except Exception:
-        pass
+        _log.warning("_add_skill_vec failed for %s", sid)
     refresh_profile_snapshot()
     return {"id": sid, "n": n, "cat": cat}
 
@@ -1385,7 +1385,7 @@ def add_experience(role: str, co: str, period: str, d: str) -> dict:
                 {"s": cid, "d": eid}
             )
     except Exception:
-        pass
+        _log.warning("failed to link experience to candidate %s", eid)
     refresh_profile_snapshot()
     return {"id": eid, "role": role, "co": co, "period": period, "d": d}
 
@@ -1446,12 +1446,12 @@ def add_project(title: str, stack: str, repo: str, impact: str) -> dict:
                 {"s": cid, "d": pid}
             )
     except Exception:
-        pass
+        _log.warning("failed to link project to candidate %s", pid)
     # Add to vector store
     try:
         _add_project_vec(pid, title, stack, impact)
     except Exception:
-        pass
+        _log.warning("_add_project_vec failed for %s", pid)
     refresh_profile_snapshot()
     return {"id": pid, "title": title, "stack": stack.split(",") if stack else [], "repo": repo, "impact": impact}
 
@@ -1470,7 +1470,7 @@ def update_project(pid: str, title: str, stack: str, repo: str, impact: str) -> 
     try:
         _add_project_vec(pid, title, stack, impact)
     except Exception:
-        pass
+        _log.warning("_add_project_vec failed for %s", pid)
     refresh_profile_snapshot()
     return {"id": pid, "title": title, "stack": stack.split(",") if stack else [], "repo": repo, "impact": impact}
 
@@ -1493,7 +1493,7 @@ def add_education(title: str) -> dict:
     try:
         c.execute("CREATE (:Education {id: $id, title: $title})", {"id": eid, "title": title})
     except Exception:
-        pass  # already exists
+        _log.info("education %s already exists — skipping", title)
     c2 = Connection(db)
     try:
         r = c2.execute("MATCH (c:Candidate) RETURN c.id LIMIT 1")
@@ -1505,7 +1505,7 @@ def add_education(title: str) -> dict:
                 {"s": cid, "d": eid},
             )
     except Exception:
-        pass
+        _log.warning("failed to link education to candidate %s", eid)
     refresh_profile_snapshot()
     return {"id": eid, "title": title}
 
@@ -1520,7 +1520,7 @@ def add_certification(title: str) -> dict:
     try:
         c.execute("CREATE (:Certification {id: $id, title: $title})", {"id": cid_node, "title": title})
     except Exception:
-        pass  # already exists
+        _log.info("certification %s already exists — skipping", title)
     c2 = Connection(db)
     try:
         r = c2.execute("MATCH (c:Candidate) RETURN c.id LIMIT 1")
@@ -1532,7 +1532,7 @@ def add_certification(title: str) -> dict:
                 {"s": cand_id, "d": cid_node},
             )
     except Exception:
-        pass
+        _log.warning("failed to link certification to candidate %s", cid_node)
     refresh_profile_snapshot()
     return {"id": cid_node, "title": title}
 
@@ -1547,7 +1547,7 @@ def add_achievement(title: str) -> dict:
     try:
         c.execute("CREATE (:Achievement {id: $id, title: $title})", {"id": aid, "title": title})
     except Exception:
-        pass  # already exists
+        _log.info("achievement %s already exists — skipping", title)
     c2 = Connection(db)
     try:
         r = c2.execute("MATCH (c:Candidate) RETURN c.id LIMIT 1")
@@ -1559,7 +1559,7 @@ def add_achievement(title: str) -> dict:
                 {"s": cand_id, "d": aid},
             )
     except Exception:
-        pass
+        _log.warning("failed to link achievement to candidate %s", aid)
     refresh_profile_snapshot()
     return {"id": aid, "title": title}
 
@@ -1590,7 +1590,7 @@ def update_candidate(name: str, summary: str) -> dict:
                 {"id": cid, "n": name, "s": summary}
             )
         except Exception:
-            pass
+            _log.warning("failed to create candidate %s", cid)
     refresh_profile_snapshot()
     return {"n": name, "s": summary}
 
@@ -1607,7 +1607,7 @@ def _delete_vec_rows(table_name: str, ids: list[str]):
         quoted = ["'" + item.replace("'", "''") + "'" for item in ids]
         vec.open_table(table_name).delete("id IN (" + ", ".join(quoted) + ")")
     except Exception:
-        pass
+        _log.warning("_delete_vec_rows failed for %s", table_name)
 
 
 def _add_skill_vec(sid: str, n: str, cat: str):
@@ -1622,7 +1622,7 @@ def _add_skill_vec(sid: str, n: str, cat: str):
             else:
                 vec.create_table("skills", data=rows)
     except Exception:
-        pass
+        _log.warning("_add_skill_vec failed for %s", sid)
 
 
 def _add_project_vec(pid: str, title: str, stack: str, impact: str):
@@ -1638,4 +1638,4 @@ def _add_project_vec(pid: str, title: str, stack: str, impact: str):
             else:
                 vec.create_table("projects", data=rows)
     except Exception:
-        pass
+        _log.warning("_add_project_vec failed for %s", pid)

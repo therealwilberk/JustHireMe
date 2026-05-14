@@ -12,7 +12,9 @@ from datetime import datetime, timedelta, timezone
 from email.utils import parsedate_to_datetime
 
 from agents.lead_intel import clean_text, signal_quality
+from logger import get_logger
 
+_log = get_logger(__name__)
 
 MIN_DEFAULT_QUALITY = 60
 HOT_LEAD_THRESHOLD = 80
@@ -96,7 +98,7 @@ def _parse_date(value: str) -> datetime | None:
             parsed = parsed.replace(tzinfo=timezone.utc)
         return parsed
     except Exception:
-        pass
+        _log.debug("date parse failed for %s", raw)
     for fmt in ("%Y-%m-%dT%H:%M:%SZ", "%Y-%m-%d", "%d/%m/%Y", "%m/%d/%Y", "%b %d, %Y", "%d %b %Y"):
         try:
             return datetime.strptime(raw, fmt).replace(tzinfo=timezone.utc)

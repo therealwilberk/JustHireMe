@@ -32,7 +32,7 @@ def get_selectors() -> dict:
         try:
             return json.loads(cached_json)
         except Exception:
-            pass
+            _log.debug("cache parse failed for %s", _CACHE_KEY)
 
     if remote_url:
         try:
@@ -49,7 +49,7 @@ def get_selectors() -> dict:
         try:
             return json.loads(cached_json)
         except Exception:
-            pass
+            _log.debug("cache parse failed for %s", _CACHE_KEY)
 
     return _load_bundled()
 

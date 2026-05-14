@@ -64,7 +64,7 @@ async def ingest_portfolio_url(url: str) -> dict:
                 import base64
                 screenshot_b64 = base64.b64encode(raw).decode()
             except Exception:
-                pass
+                _log.warning("screenshot failed for %s", url)
             await browser.close()
     except Exception as exc:
         _log.warning("portfolio browser fetch failed for %s: %s; trying HTTP fallback", url, exc)

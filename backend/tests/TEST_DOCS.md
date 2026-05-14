@@ -6,7 +6,7 @@ This directory contains the deterministic test suite for the JustHireMe backend.
 All tests in this directory are designed to run in CI, produce consistent results,
 and avoid external service dependencies.
 
-**Test count:** 229  
+**Test count:** 261  
 **Framework:** pytest (via `unittest.TestCase`)  
 **Runner:** `uv run python -m pytest tests/`
 
@@ -26,9 +26,10 @@ and avoid external service dependencies.
 
 | Status | Strong |
 |--------|--------|
-| **What it tests** | `_CM` class async-safety: concurrent add/remove/broadcast, dead connection cleanup, identity safety |
-| **Key behaviours** | Lock guards list mutation, snapshot-under-lock pattern, dead connections removed from registry, identity-based comparison (not equality) |
-| **Dependencies** | None (mock WebSocket objects, no ASGI stack required) |
+| **What it tests** | `_CM` class async-safety: concurrent add/remove/broadcast, dead connection cleanup, identity safety, deterministic event-controlled blocking, delayed disconnect, three-way races, high-contention stress |
+| **Key behaviours** | Lock guards list mutation, snapshot-under-lock pattern ensures iteration independent of concurrent registry mutations, dead connections removed from registry, identity-based comparison (not equality), concurrent dead removal is idempotent |
+| **Dependencies** | None (mock WebSocket objects: `_MockWebSocket`, `_BrokenWebSocket`, `_ControlledWebSocket`, `_DisconnectingWebSocket`) |
+| **Sub-classes** | `TestCMAddRemoveBroadcast` (7 basic), `TestCMConcurrency` (8 concurrent), `TestCMControlledConcurrency` (9 event-controlled deterministic) |
 
 ### `test_sqlite.py` — SQLite Pragma Verification
 
@@ -81,6 +82,16 @@ and avoid external service dependencies.
 | **Dependencies** | Mocks evaluator, generator, and DB calls |
 | **Note** | Orchestration hardening — fault-tolerant semantics with structured error metadata. Previously started as characterization tests; behavior was then corrected (persist crash → structured error, error now append-only, missing job_id handled defensively). Do not revert these semantics. |
 
+### `test_observability.py` — Structured Logging & Failure Observability
+
+| Status | Strong |
+|--------|--------|
+| **What it tests** | Every `except:pass` replacement from Task 4: correct severity (WARNING/DEBUG/INFO), entity identifiers in log messages, degraded-vs-successful distinction, graceful fallback under failure |
+| **Key behaviours** | Budget parse (unreachable ValueError path — defense-in-depth), date parse (DEBUG on first-attempt failure, succeeds via format fallback), profile snapshot failure (WARNING with "profile"), vector operation failures (WARNING with entity hash/ID), cache parse failures (DEBUG with cache key), graph relation failures (WARNING with relation type), upsert failures (WARNING with table name), vector delete failures (WARNING with table name), row addition continues despite delete failure |
+| **Dependencies** | Pure function tests (budget, date parse) need no fakes. DB/agent tests use `_install_storage_fakes(use_real_sqlite=True)` and `unittest.mock.patch` for failure injection. Direct `logging.StreamHandler` capture (not `caplog`) because `get_logger()` sets `propagate=False`. |
+| **Assertion helpers (file-local)** | `assert_log_contains(buf, level, *substrings)` — scans captured buffer for a LEVEL-prefixed line containing all substrings (case-insensitive). `assert_warning_emitted`, `assert_debug_emitted`, `assert_info_emitted`, `assert_no_logs_at_level` — convenience wrappers. `assert_failure_event` — semantic alias for failure-path tests. Pattern: attach StringIO handler → trigger failure → assert level+context. |
+| **Philosophy** | Observability is a testable system property, not an incidental implementation detail. A log that just says "something went wrong" is indistinguishable from `except:pass`. Tests must verify severity correctness, entity identification, and degraded-vs-successful discrimination — without overfitting exact wording. |
+
 ### `test_regressions.py` — Domain Logic & Regression Prevention
 
 | Status | Strong |
@@ -105,7 +116,7 @@ and avoid external service dependencies.
   ├──────────────────┤
   │   Domain/Unit     │  test_regressions.py, test_secrets.py
   │                   │  test_paths.py, test_websocket.py
-  │                   │  test_sqlite.py
+  │                   │  test_sqlite.py, test_observability.py
   └──────────────────┘
 ```
 
@@ -274,15 +285,14 @@ This is intentionally NOT strict transactional (no rollback, no abort on partial
 
 ## Phase C Coverage (Reliability, Observability & Concurrency)
 
-Phase C adds 25 new tests across two new files. Current coverage:
+Phase C adds 57 new tests across three new files. Current coverage:
 
 | Area | Tests | File |
 |------|-------|------|
-| WebSocket `_CM` concurrency | 15 (add/remove/broadcast, concurrent ops, dead cleanup, identity safety) | `test_websocket.py` |
+| WebSocket `_CM` concurrency | 24 (basic + concurrent + event-controlled blocking, delayed disconnect, three-way races, dead cleanup under contention) | `test_websocket.py` |
 | SQLite pragmas | 10 (WAL persist, FK enforcement, busy timeout, combined, importable) | `test_sqlite.py` |
-| Logging infrastructure | 8 partial (health `log_level`, secret warning dedup, agent log format) | scattered — `test_logging.py` pending |
+| Failure observability | 23 (budget parse, date parse, profile snapshot, vector ops, cache parse, graph relations, upsert, vector delete) | `test_observability.py` |
 | Frontend error handling | Manual validation via build | no automated frontend tests |
-| `except: pass` replacement | Pending — will add tests when implemented | `test_exceptions.py` (planned) |
 
 ---
 

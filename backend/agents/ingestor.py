@@ -79,7 +79,7 @@ def _put_node(tbl: str, props: dict):
                 sets = ", ".join(f"n.{k} = ${k}" for k in props if k != pk)
                 c.execute(f"MATCH (n:{tbl}) WHERE n.{pk} = ${pk} SET {sets}", props)
         except Exception:
-            pass
+            _log.warning("upsert update failed for %s", tbl)
 
 
 def _put_rel(a: str, aid: str, b: str, bid: str, rel: str):
@@ -90,7 +90,7 @@ def _put_rel(a: str, aid: str, b: str, bid: str, rel: str):
             {"s": aid, "d": bid},
         )
     except Exception:
-        pass
+        _log.warning("graph relation failed — %s", rel)
 
 
 def _put_vec(name: str, rows: list):
@@ -104,7 +104,7 @@ def _put_vec(name: str, rows: list):
             try:
                 table.delete("id IN (" + ", ".join(quoted) + ")")
             except Exception:
-                pass
+                _log.warning("vector delete failed for %s", name)
         table.add(rows)
     else:
         vec.create_table(name, data=rows)

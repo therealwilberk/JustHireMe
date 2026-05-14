@@ -1569,7 +1569,7 @@ async def ingest(
             from db.client import refresh_profile_snapshot
             await asyncio.to_thread(refresh_profile_snapshot)
         except Exception:
-            pass
+            _log.warning("ingestion snapshot refresh failed for lead %s", p.n if hasattr(p, 'n') else 'unknown')
         await cm.broadcast({"type": "agent", "event": "ingested",
                             "msg": f"Profile ingested: {p.n} — {len(p.skills)} skills"})
         return p.model_dump()
@@ -1673,7 +1673,7 @@ async def ingest_linkedin(file: UploadFile = File(...)):
         try:
             await asyncio.to_thread(add_skill, skill["n"], skill["cat"])
         except Exception:
-            pass
+            _log.warning("skill import failed — %s", skill.get("n", "unknown"))
 
     for exp in parsed["experience"]:
         try:
@@ -1726,7 +1726,7 @@ async def ingest_github_endpoint(body: GithubIngestBody):
         try:
             await asyncio.to_thread(add_skill, skill["n"], skill["cat"])
         except Exception:
-            pass
+            _log.warning("GitHub skill import failed — %s", body.username)
 
     for proj in result["projects"]:
         try:
@@ -1793,7 +1793,7 @@ async def import_profile_json(body: ProfileImportBody):
             await asyncio.to_thread(add_skill, s.name, s.category)
             stats["skills"] += 1
         except Exception:
-            pass
+            _log.warning("skill add from identity form failed")
 
     for ex in body.experience:
         try:
@@ -2105,9 +2105,9 @@ async def ws_endpoint(ws: WebSocket):
                 if msg == "ping":
                     await ws.send_text(json.dumps({"type": "pong"}))
             except asyncio.TimeoutError:
-                pass
+                _log.debug("ws ping timeout — expected")
     except WebSocketDisconnect:
-        pass
+        _log.debug("ws client disconnected")
     except Exception as exc:
         _log.warning("ws: %s", exc)
     finally:
