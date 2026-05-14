@@ -10,10 +10,10 @@
 
 | Field | Value |
 |-------|-------|
-| Current pass | Pass C — Response Models & Type Annotations |
-| Branch pattern | `feature/mainpy-refactor-pass-c` |
+| Current pass | Complete — all three passes merged |
+| Branch pattern | `feature/mainpy-refactor-pass-*` (all deleted) |
 | Last updated | 2026-05-14 |
-| Overall status | `[~] Active` |
+| Overall status | `[x] Complete` |
 | **Note** | Mini-roadmap docs will be deleted once the overall refactor is complete `.md` docs |
 
 ---
@@ -134,50 +134,60 @@ Promoted ~30 fast imports to top-of-file, documented ~58 slow ones with inline c
 
 ---
 
-## Pass C — Response Models & Type Annotations
+## Pass C — Response Models & Type Annotations ✅ Merged
 
 **Goal:** Add `response_model=` to every route and complete missing type annotations now that the code is modular and easier to audit.
 
-**Branch:** `feature/mainpy-refactor-pass-c`
+**Branch:** `feature/mainpy-refactor-pass-c` (deleted after merge)
 **Type:** `Infra`
-**Mode:** `HITL` (must verify each route returns correct shape)
-**Blocked by:** `Pass B`
+**Mode:** `HITL`
 
-**Key risk:** Pydantic `response_model=` strips extra fields not in the model. Must verify each route's output shape after wiring — rely on `test_api.py` structured contract assertions to catch silently dropped fields.
+**Key risk:** Pydantic `response_model=` strips extra fields not in the model. Mitigated by one-router-at-a-time wiring and `test_response_contracts.py` post-refactor.
 
 ### Phases
 
-#### C1 — Response Models (HITL, per router)
+#### C1 — Response Models ✅ (`b1aab87`)
 
-Define response Pydantic models in `schemas/responses.py` and add `response_model=` to every route. Wire one router at a time and run tests after each. [Full doc](pass-c/c1-response-models.md)
+Response models added to all routes in `schemas/responses.py`. Wired one router at a time, ran full suite after each. [Full doc](pass-c/c1-response-models.md)
 
-- [ ] Create `schemas/responses.py` with per-route response models
-- [ ] Wire `response_model=` on `routes/misc.py`
-- [ ] Wire `response_model=` on `routes/settings.py`
-- [ ] Wire `response_model=` on `routes/scan.py`
-- [ ] Wire `response_model=` on `routes/leads.py`
-- [ ] Wire `response_model=` on `routes/profile.py`
-- [ ] Wire `response_model=` on `routes/ingest.py`
-- [ ] Wire `response_model=` on `routes/actions.py`
-- [ ] Verify no fields silently dropped (run `test_api.py` contract assertions)
-- [ ] Commit: `refactor(c1): add response models to all routes`
+- [x] Create `schemas/responses.py` with per-route response models
+- [x] Wire `response_model=` on `routes/misc.py`
+- [x] Wire `response_model=` on `routes/settings.py`
+- [x] Wire `response_model=` on `routes/scan.py`
+- [x] Wire `response_model=` on `routes/leads.py`
+- [x] Wire `response_model=` on `routes/profile.py`
+- [x] Wire `response_model=` on `routes/ingest.py`
+- [x] Wire `response_model=` on `routes/actions.py`
+- [x] Verify no fields silently dropped (validated by `test_response_contracts.py`)
+- [x] Commit: `refactor(c1): add response models to all routes`
 
-#### C2 — Type Annotations (AFK, can run parallel with C1)
+#### C2 — Type Annotations ✅ (`7d6e19d`)
 
-Add missing `-> ...` return types and param type annotations to all service functions. [Full doc](pass-c/c2-type-annotations.md)
+Added return type and param annotations to all service functions and core modules. [Full doc](pass-c/c2-type-annotations.md)
 
-- [ ] Audit all service functions lacking annotations
-- [ ] Add complete type annotations to services
-- [ ] Run compile check
-- [ ] Commit: `chore(c2): add missing type annotations to services`
+- [x] Audit all service functions lacking annotations
+- [x] Add complete type annotations to services
+- [x] Run compile check
+- [x] Commit: `chore(c2): add missing type annotations to services`
+
+#### C3 — Post-Refactor Test Coverage ✅ (`a53e020`)
+
+Added targeted tests for new abstractions introduced by the refactor. [Full doc](pass-c/c3-test-plan.md)
+
+- [x] Create `tests/test_scan_manager.py` — 7 state machine tests
+- [x] Create `tests/test_ghost_service.py` — 2 phase contract tests
+- [x] Create `tests/test_response_contracts.py` — 5 response model completeness tests
+- [x] Update `TEST_DOCS.md` with new test entries
+- [x] Full suite passes (314)
+- [x] Commit: `test: add coverage for ScanManager, GhostService phases, response model completeness`
 
 ### Pass C Validation
 
-- [ ] Every route specifies `response_model=`
-- [ ] No fields silently dropped by response model validation
-- [ ] All service functions have complete type annotations
-- [ ] Full test suite passes (300)
-- [ ] App launches
+- [x] Every route specifies `response_model=`
+- [x] No fields silently dropped by response model validation (verified by contracts test)
+- [x] All service functions have complete type annotations
+- [x] Full test suite passes (314)
+- [x] App launches
 
 ---
 
