@@ -1,3 +1,11 @@
+"""Logging setup with correlation context enrichment.
+
+Configures Python loggers with a CorrelationFilter that injects
+contextual metadata (correlation ID, workflow, lead, job) from
+the async CorrelationContext, and a ContextFormatter that appends
+non-empty context fields as structured key=value pairs.
+"""
+
 import logging
 import os
 import sys
@@ -7,7 +15,22 @@ from config import settings
 
 
 class CorrelationFilter(logging.Filter):
+    """Inject correlation context fields onto log records.
+
+    Reads the active CorrelationContext and attaches correlation_id
+    along with optional workflow, lead, job, node, subsystem, degraded,
+    and retrying fields to every log record.
+    """
+
     def filter(self, record: logging.LogRecord) -> bool:
+        """Enrich the log record with correlation context fields.
+
+        Args:
+            record: The log record to enrich.
+
+        Returns:
+            Always True to allow the record through the filter.
+        """
         try:
             from log_context import get_context
             ctx = get_context()
@@ -25,7 +48,22 @@ class CorrelationFilter(logging.Filter):
 
 
 class ContextFormatter(logging.Formatter):
+    """Format log records with appended context key=value pairs.
+
+    After the standard format is applied, non-empty context fields
+    (lead, job, node, subsystem, workflow, degraded, retrying) are
+    appended as a pipe-separated suffix.
+    """
+
     def format(self, record: logging.LogRecord) -> str:
+        """Apply standard formatting and append context fields.
+
+        Args:
+            record: The log record to format.
+
+        Returns:
+            The formatted log string with context suffix.
+        """
         s = super().format(record)
         extras = []
         if record._ctx_lead:
@@ -48,6 +86,18 @@ class ContextFormatter(logging.Formatter):
 
 
 def get_logger(name: str) -> logging.Logger:
+    """Get or create a configured logger with correlation context support.
+
+    Sets up a stderr stream handler (and optional rotating file handler)
+    with CorrelationFilter and standard Formatter. Handlers are added
+    only once per logger name.
+
+    Args:
+        name: The logger name, typically __name__ from the calling module.
+
+    Returns:
+        A configured logging.Logger instance.
+    """
     logger = logging.getLogger(name)
     if logger.handlers:
         return logger
