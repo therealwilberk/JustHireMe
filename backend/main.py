@@ -29,6 +29,13 @@ from services.job_targets import (
     _profile_x_queries, _profile_free_source_targets, _has_x_token, _int_cfg,
     _truthy, _free_sources_enabled, _broadcast_x_source_errors,
 )
+from services.scanner import (
+    _scan_stop, _reevaluate_stop, _ghost_lock,
+    _should_preserve_job_status, _job_eval_document,
+    _run_scan_task, _run_reevaluate_jobs_task, _run_reevaluate_jobs, _run_scan,
+    _sensitive, _log_sensitive_deprecation,
+)
+from services import scanner
 from schemas.requests import (
     StatusBody, FeedbackBody, FollowupBody, ManualLeadBody,
     HelpChatBody, TemplateBody, CandidateBody, SkillBody, ExperienceBody,
@@ -174,27 +181,7 @@ async def _run_free_source_scan(cfg: dict, kind_filter: str | None = None, profi
         reset_context(token)
 
 
-_scan_stop = asyncio.Event()
-_scan_task: asyncio.Task | None = None
-_reevaluate_stop = asyncio.Event()
-_reevaluate_task: asyncio.Task | None = None
-_ghost_lock = asyncio.Lock()
 
-_REEVALUATION_STATUS_LOCKS = {"approved", "applied", "interviewing", "rejected", "accepted", "discarded"}
-
-
-def _should_preserve_job_status(status: str) -> bool:
-    return status in _REEVALUATION_STATUS_LOCKS
-
-
-def _job_eval_document(lead: dict) -> str:
-    desc = (lead.get("description") or "").strip()
-    return (
-        f"Job Title: {lead.get('title','')}\n"
-        f"Company: {lead.get('company','')}\n"
-        f"URL: {lead.get('url','')}\n"
-        + (f"Description: {desc}" if desc else "")
-    )
 
 
 async def _ghost_tick():
@@ -865,19 +852,18 @@ async def delete_project_endpoint(pid: str):
 async def scan():
     if _ghost_lock.locked():
         raise HTTPException(status_code=409, detail="Scan already in progress (ghost mode active)")
-    global _scan_task
-    if _scan_task and not _scan_task.done():
+    if scanner._scan_task and not scanner._scan_task.done():
         raise HTTPException(status_code=409, detail="Scan already running")
-    if _reevaluate_task and not _reevaluate_task.done():
+    if scanner._reevaluate_task and not scanner._reevaluate_task.done():
         raise HTTPException(status_code=409, detail="Re-evaluation already running")
     _scan_stop.clear()
-    _scan_task = asyncio.create_task(_run_scan_task())
+    scanner._scan_task = asyncio.create_task(_run_scan_task())
     return {"status": "scanning"}
 
 
 @app.post("/api/v1/scan/stop")
 async def stop_scan():
-    if not _scan_task or _scan_task.done():
+    if not scanner._scan_task or scanner._scan_task.done():
         return {"status": "idle"}
     _scan_stop.set()
     await cm.broadcast({"type": "agent", "event": "eval_done", "msg": "Scan stopped by user."})
@@ -888,19 +874,18 @@ async def stop_scan():
 async def reevaluate_jobs():
     if _ghost_lock.locked():
         raise HTTPException(status_code=409, detail="Re-evaluation already in progress (ghost mode active)")
-    global _reevaluate_task
-    if _reevaluate_task and not _reevaluate_task.done():
+    if scanner._reevaluate_task and not scanner._reevaluate_task.done():
         raise HTTPException(status_code=409, detail="Re-evaluation already running")
-    if _scan_task and not _scan_task.done():
+    if scanner._scan_task and not scanner._scan_task.done():
         raise HTTPException(status_code=409, detail="Scan already running")
     _reevaluate_stop.clear()
-    _reevaluate_task = asyncio.create_task(_run_reevaluate_jobs_task())
+    scanner._reevaluate_task = asyncio.create_task(_run_reevaluate_jobs_task())
     return {"status": "reevaluating"}
 
 
 @app.post("/api/v1/leads/reevaluate/stop")
 async def stop_reevaluate_jobs():
-    if not _reevaluate_task or _reevaluate_task.done():
+    if not scanner._reevaluate_task or scanner._reevaluate_task.done():
         return {"status": "idle"}
     _reevaluate_stop.set()
     await cm.broadcast({"type": "agent", "event": "reeval_done", "msg": "Re-evaluation stopped by user."})
@@ -950,198 +935,7 @@ async def help_chat(body: HelpChatBody):
     return await asyncio.to_thread(answer, body.question, history)
 
 
-async def _run_scan_task():
-    global _scan_task
-    try:
-        await asyncio.wait_for(_ghost_lock.acquire(), timeout=0)
-    except asyncio.TimeoutError:
-        _log.warning("scan task skipped — ghost lock held")
-        return
-    try:
-        await _run_scan()
-    except Exception as exc:
-        _log.error("scan failed: %s", exc)
-        await cm.broadcast({"type": "agent", "event": "eval_done", "msg": f"Scan failed: {exc}"})
-    finally:
-        _scan_task = None
-        _ghost_lock.release()
 
-
-async def _run_reevaluate_jobs_task():
-    global _reevaluate_task
-    try:
-        await asyncio.wait_for(_ghost_lock.acquire(), timeout=0)
-    except asyncio.TimeoutError:
-        _log.warning("reevaluate task skipped — ghost lock held")
-        return
-    try:
-        await _run_reevaluate_jobs()
-    except Exception as exc:
-        _log.error("reevaluate failed: %s", exc)
-        await cm.broadcast({"type": "agent", "event": "reeval_done", "msg": f"Re-evaluation failed: {exc}"})
-    finally:
-        _reevaluate_task = None
-        _ghost_lock.release()
-
-
-async def _run_reevaluate_jobs():
-    from db.client import get_settings, get_job_leads_for_evaluation, get_lead_by_id, update_lead_score, get_profile
-    from agents.evaluator import score as _score
-
-    cfg = await asyncio.to_thread(get_settings)
-    profile = await asyncio.to_thread(get_profile)
-    jobs = await asyncio.to_thread(get_job_leads_for_evaluation)
-    total = len(jobs)
-    scored = 0
-    failed = 0
-
-    await cm.broadcast({
-        "type": "agent",
-        "event": "reeval_start",
-        "msg": f"Re-evaluating {total} job leads via {cfg.get('llm_provider', 'ollama')}",
-    })
-
-    for index, lead in enumerate(jobs, start=1):
-        if _reevaluate_stop.is_set():
-            await cm.broadcast({
-                "type": "agent",
-                "event": "reeval_done",
-                "msg": f"Re-evaluation stopped after {scored}/{total} jobs.",
-            })
-            return
-
-        try:
-            result = await asyncio.to_thread(_score, _job_eval_document(lead), profile)
-            preserve_status = _should_preserve_job_status(lead.get("status", ""))
-            await asyncio.to_thread(
-                update_lead_score,
-                lead["job_id"], result["score"], result["reason"],
-                result.get("match_points", []), result.get("gaps", []),
-                preserve_status,
-            )
-            saved = await asyncio.to_thread(get_lead_by_id, lead["job_id"])
-            await cm.broadcast({"type": "LEAD_UPDATED", "data": saved or {**lead, **result}})
-            scored += 1
-            await cm.broadcast({
-                "type": "agent",
-                "event": "reeval_scored",
-                "msg": f"[{index}/{total}] Re-scored {lead.get('title','')} = {result['score']}/100",
-            })
-        except Exception as e:
-            failed += 1
-            await cm.broadcast({
-                "type": "agent",
-                "event": "reeval_error",
-                "msg": f"Re-eval failed for {lead.get('title','')}: {e}",
-            })
-
-    summary = f"Re-evaluation complete - {scored}/{total} jobs scored"
-    if failed:
-        summary += f", {failed} failed"
-    await cm.broadcast({"type": "agent", "event": "reeval_done", "msg": summary})
-
-
-async def _run_scan():
-    from db.client import get_settings, get_discovered_leads, update_lead_score, get_profile
-    from agents.scout import run as _scout
-    from agents.evaluator import score as _score
-    from agents.query_gen import generate as _gen_queries
-
-    cfg     = get_settings()
-    profile = _profile_for_discovery(get_profile(), cfg)
-    market_focus = cfg.get("job_market_focus", "global")
-    raw_urls = _job_targets(cfg.get("job_boards", ""), market_focus)
-    await _run_x_signal_scan(cfg, "job", profile)
-    await _run_free_source_scan(cfg, "job", profile)
-
-    # ── Replace static site: keywords with profile-tailored queries ──────
-    await cm.broadcast({"type": "agent", "event": "query_gen_start",
-                        "msg": "Generating profile-tailored search queries…"})
-    try:
-        urls = await asyncio.to_thread(_gen_queries, profile, raw_urls, market_focus)
-        await cm.broadcast({"type": "agent", "event": "query_gen_done",
-                            "msg": f"Search plan ready — {len(urls)} targets"})
-        for u in urls:
-            await cm.broadcast({"type": "agent", "event": "query_gen_target", "msg": u})
-    except Exception as exc:
-        urls = raw_urls
-        await cm.broadcast({"type": "agent", "event": "query_gen_error",
-                            "msg": f"Query generation failed ({exc}), using raw URLs"})
-
-    await cm.broadcast({"type": "agent", "event": "scout_start", "msg": f"Launching scan for {len(urls)} targets…"})
-
-    from config.secrets import resolve_secret
-    leads = await asyncio.to_thread(
-        _scout,
-        urls=urls,
-        apify_token=resolve_secret(
-            settings.scraping.apify_key_names.token,
-            settings.scraping.apify_settings_key_names.token,
-        ) or None,
-        apify_actor=resolve_secret(
-            settings.scraping.apify_key_names.actor,
-            settings.scraping.apify_settings_key_names.actor,
-        ) or None,
-    )
-    await cm.broadcast({"type": "agent", "event": "scout_done", "msg": f"Scout finished — {len(leads)} new leads found"})
-
-    if _scan_stop.is_set():
-        await cm.broadcast({"type": "agent", "event": "eval_done", "msg": "Scan stopped after scouting."})
-        return
-
-    discovered = await asyncio.to_thread(get_discovered_leads)
-    await cm.broadcast({"type": "agent", "event": "eval_start", "msg": f"Evaluating {len(discovered)} leads via {cfg.get('llm_provider', 'ollama')}"})
-
-    for lead in discovered:
-        if _scan_stop.is_set():
-            await cm.broadcast({"type": "agent", "event": "eval_done", "msg": "Scan stopped during evaluation."})
-            return
-        try:
-            desc = (lead.get("description") or "").strip()
-            jd = (
-                f"Job Title: {lead.get('title','')}\n"
-                f"Company: {lead.get('company','')}\n"
-                f"URL: {lead.get('url','')}\n"
-                + (f"Description: {desc}" if desc else "")
-            )
-            result = await asyncio.to_thread(_score, jd, profile)
-            await asyncio.to_thread(
-                update_lead_score,
-                lead["job_id"], result["score"], result["reason"],
-                result.get("match_points", []), result.get("gaps", []),
-            )
-            await cm.broadcast({"type": "LEAD_UPDATED", "data": {**lead, **result}})
-            await cm.broadcast({"type": "agent", "event": "eval_scored", "msg": f"Scored {lead.get('title','')} = {result['score']}/100"})
-        except Exception as e:
-            await cm.broadcast({"type": "agent", "event": "eval_error", "msg": f"Eval failed for {lead.get('title','')}: {e}"})
-
-    await cm.broadcast({"type": "agent", "event": "eval_done", "msg": "Evaluation cycle complete"})
-
-
-def _sensitive(d: dict) -> set:
-    """Keys that should be masked on reads and preserved on writes."""
-    fixed = {"anthropic_key", "linkedin_cookie", "x_bearer_token", "custom_connector_headers"}
-    dynamic = {k for k in d if k.endswith("_api_key") or k.endswith("_key") or k.endswith("_token")}
-    return fixed | dynamic
-
-
-def _log_sensitive_deprecation(payload: dict) -> None:
-    sensitive_key_map = {
-        "apify_token": settings.scraping.apify_key_names.token,
-        "apify_actor": settings.scraping.apify_key_names.actor,
-        "hunter_api_key": settings.contact.api_key_names.hunter,
-        "proxycurl_api_key": settings.contact.api_key_names.proxycurl,
-        "x_bearer_token": settings.app.bearer_tokens.x_bearer_token,
-        "linkedin_cookie": "LINKEDIN_COOKIE",
-        "custom_connector_headers": "CUSTOM_CONNECTOR_HEADERS",
-    }
-    for settings_key, env_var in sensitive_key_map.items():
-        if settings_key in payload and payload[settings_key]:
-            _log.warning(
-                "Secret '%s' written to SQLite — deprecated. "
-                "Set %s environment variable instead.",
-                settings_key, env_var,
-            )
 
 
 @app.get("/api/v1/settings")
