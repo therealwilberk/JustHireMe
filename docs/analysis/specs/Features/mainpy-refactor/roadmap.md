@@ -10,10 +10,11 @@
 
 | Field | Value |
 |-------|-------|
-| Current pass | Pass A — Pure Extraction |
-| Branch pattern | `feature/mainpy-refactor-pass-a` |
+| Current pass | Pass B — Structural Improvements |
+| Branch pattern | `feature/mainpy-refactor-pass-b` |
 | Last updated | 2026-05-14 |
-| Overall status | `[x] Complete` |
+| Overall status | `[~] Active` |
+| **Note** | Mini-roadmap docs will be deleted once the overall refactor is complete `.md` docs |
 
 ---
 
@@ -93,33 +94,13 @@ During Pass A, all lazy imports (inside function bodies) were moved to top-of-fi
 **Blocked by:** `Pass A`
 **Requires:** Full test suite to pass before starting
 
-### Phases
+### Phases (execution order)
 
-#### B1 — ScanManager Class (HITL)
-
-Wrap `_scan_task`, `_scan_stop`, `_reevaluate_task`, `_reevaluate_stop`, `_ghost_lock` into a `ScanManager` class. Methods: `start_scan()`, `stop_scan()`, `start_reevaluate()`, `stop_reevaluate()`, `is_scanning()`, `is_reevaluating()`.
-
-- [ ] Create `ScanManager` class wrapping all scan state
-- [ ] Expose as `scan_manager = ScanManager()` singleton
-- [ ] Update all route handlers and services to use `scan_manager` instead of module globals
-- [ ] Verify: scan/stop/reevaluate lifecycle works
-- [ ] Verify: tests pass
-- [ ] Commit: `refactor(b1): encapsulate scan state in ScanManager class`
-
-#### B2 — GhostService Decomposition (HITL)
-
-Decompose `_ghost_tick_impl` into phase methods. Verify the decomposed version produces identical outcomes.
-
-- [ ] Create `GhostService` class
-- [ ] Decompose into: `phase_preflight()`, `phase_scout()`, `phase_eval()`, `phase_gen()`, `phase_apply()`
-- [ ] Keep `run()` as the public entrypoint that calls phases sequentially
-- [ ] Verify: ghost mode tick executes without error
-- [ ] Verify: tests pass
-- [ ] Commit: `refactor(b2): decompose ghost tick into GhostService phase methods`
+**Ordering rationale:** B3 (bug fixes) comes first so structural changes in B1/B2 don't share blame with fixes. B4 (lazy imports) is independent and can run in parallel with B1/B2.
 
 #### B3 — Fix Known Bugs (AFK per fix, HITL collectively)
 
-Apply fixes identified in the structure report, each in a separate commit:
+4 independent bug fixes, each in a separate commit. [Full doc](pass-b/b3-fix-known-bugs.md)
 
 - [ ] Fix `_int_cfg` bare `except Exception` → `except (ValueError, TypeError)`
   - Commit: `fix(b3): narrow _int_cfg exception to ValueError and TypeError`
@@ -130,15 +111,17 @@ Apply fixes identified in the structure report, each in a separate commit:
 - [ ] Remove dead `if request.url.path != "/health"` guard in `require_http_token`
   - Commit: `fix(b3): remove unreachable health path guard in auth middleware`
 
+#### B1 — ScanManager Class (HITL)
+
+Encapsulate scan globals (`_scan_task`, `_scan_stop`, `_reevaluate_task`, `_reevaluate_stop`, `_ghost_lock`) into a `ScanManager` class with `start_scan()`, `stop_scan()`, `start_reevaluate()`, `stop_reevaluate()`, `is_scanning()` methods. [Full doc](pass-b/b1-scanmanager-class.md)
+
+#### B2 — GhostService Decomposition (HITL)
+
+Decompose `_ghost_tick_impl` (~139 lines, 6 phases) into named phase methods on a `GhostService` class. [Full doc](pass-b/b2-ghostservice-decomposition.md)
+
 #### B4 — Resolve Lazy Imports (AFK)
 
-Move lazy imports to top of each file where safe. Flag any circular import issues.
-
-- [ ] Audit all per-function imports in extracted modules
-- [ ] Move to top of file where no circular import risk
-- [ ] Document any that must remain lazy with a comment explaining why
-- [ ] Verify: tests pass
-- [ ] Commit: `refactor(b4): resolve lazy imports to top-of-file where safe`
+Audit per-function imports; promote fast ones to top of file; document slow ones that must stay lazy. [Full doc](pass-b/b4-resolve-lazy-imports.md)
 
 ### Pass B Validation
 
