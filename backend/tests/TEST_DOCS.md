@@ -6,8 +6,8 @@ This directory contains the deterministic test suite for the JustHireMe backend.
 All tests in this directory are designed to run in CI, produce consistent results,
 and avoid external service dependencies.
 
-**Test count:** 300  
-**Framework:** pytest (via `unittest.TestCase`)  
+**Test count:** 314  
+**Framework:** pytest (via `unittest.TestCase` and `IsolatedAsyncioTestCase`)  
 **Runner:** `uv run python -m pytest tests/`
 
 ---
@@ -109,6 +109,31 @@ and avoid external service dependencies.
 | **Sub-classes** | `TestScoringEngineCaps`, `TestLeadQualityGate`, `TestBrowserRuntimePackaging` |
 | **Dependencies** | Mocks external agents, uses `_install_storage_fakes()` |
 
+### `test_scan_manager.py` — ScanManager State Machine
+
+| Status | Strong |
+|--------|--------|
+| **What it tests** | ScanManager lifecycle state machine: start/stop/idle transitions, concurrency guards (ghost lock, double-scan, scan+reevaluate overlap), task lifecycle integrity |
+| **Key behaviours** | `start_scan()` while ghost lock held raises 409, `start_scan()` while scan running raises 409, `stop_scan()` when idle returns idle, `is_scanning()` false when no task, ghost lock blocks both scan and reevaluate |
+| **Dependencies** | None (tests `ScanManager` directly — real in-memory state, no DB, no mocks) |
+
+### `test_ghost_service.py` — GhostService Phase Contracts
+
+| Status | Strong |
+|--------|--------|
+| **What it tests** | GhostService phase input/output contracts and orchestration sequencing: preflight skip when ghost off, preflight returns config/profile/boards tuple, phase execution order |
+| **Key behaviours** | `_phase_preflight` returns None when ghost mode disabled, `_phase_preflight` returns `(cfg, profile, boards)` when active, `run()` orchestrates phases in sequence |
+| **Dependencies** | Mocks `get_setting`, `get_settings`, `_profile_for_discovery`, `_job_targets`. Uses `IsolatedAsyncioTestCase`. |
+
+### `test_response_contracts.py` — Response Model Completeness
+
+| Status | Strong |
+|--------|--------|
+| **What it tests** | Every route's `response_model=` is a superset of the actual response payload — catches silent field dropping from Pydantic serialization |
+| **Key behaviours** | Health response fields exist in `HealthResponse`, identity fields exist in `IdentityResponse`, fire/scan/status responses match their models |
+| **Dependencies** | Uses `TestClient` with `_install_storage_fakes()` |
+| **Philosophy** | `response_model=` is an active serialization boundary — it strips fields not in the model. Most teams never test this explicitly. Re-serialization approach: call route, parse JSON, verify every returned key has a corresponding model field. |
+
 ---
 
 ## Test Pyramid
@@ -122,10 +147,12 @@ and avoid external service dependencies.
   │                   │  test_graph_failures.py
   │                   │  test_mcp_server.py (boundary)
   ├──────────────────┤
-  │   Domain/Unit     │  test_regressions.py, test_secrets.py
-  │                   │  test_paths.py, test_websocket.py
-  │                   │  test_sqlite.py, test_observability.py
-  │                   │  test_sqlite_reliability.py
+   │   Domain/Unit     │  test_regressions.py, test_secrets.py
+   │                   │  test_paths.py, test_websocket.py
+   │                   │  test_sqlite.py, test_observability.py
+   │                   │  test_sqlite_reliability.py
+   │                   │  test_scan_manager.py, test_ghost_service.py
+   │                   │  test_response_contracts.py
   └──────────────────┘
 ```
 
@@ -294,7 +321,7 @@ This is intentionally NOT strict transactional (no rollback, no abort on partial
 
 ## Phase C Coverage (Reliability, Observability & Concurrency)
 
-Phase C adds 94 backend + 20 frontend tests. Current coverage:
+Phase C adds 110 backend + 20 frontend tests. Current coverage:
 
 | Area | Tests | File |
 |------|-------|------|
@@ -306,6 +333,9 @@ Phase C adds 94 backend + 20 frontend tests. Current coverage:
 | Frontend error handling (ProfileView) | 11 vitest tests verifying delete/saveEdit/saveCandidate error visibility, server detail parsing, retry clearing, fallback messages | `src/views/ProfileView.test.tsx` |
 | Correlation context & structured logging | 18 (context isolation, enrich, formatter, filter, file handler, middleware header propagation) | `test_log_context.py` |
 | Startup smoke tests | 2 (token/port emission, port-binding race prevented) | `test_startup.py` |
+| ScanManager state machine | 7 (lifecycle transitions, concurrency guards, ghost lock, idle safety) | `test_scan_manager.py` |
+| GhostService phase contracts | 2+ (preflight skip, preflight returns, orchestration sequencing) | `test_ghost_service.py` |
+| Response model completeness | 5+ (every route's response_model superset check) | `test_response_contracts.py` |
 
 ---
 
