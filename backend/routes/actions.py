@@ -1,10 +1,13 @@
 import asyncio
 import os
 
+from typing import Any
+
 from fastapi import APIRouter, BackgroundTasks, HTTPException
 from fastapi.responses import FileResponse
 
 from schemas.requests import FormReadBody
+from schemas.responses import FireResponse, IdentityResponse, SelectorsRefreshResponse
 
 router = APIRouter(prefix="/api/v1", tags=["actions"])
 
@@ -41,7 +44,7 @@ async def get_lead_pdf(job_id: str, kind: str = "resume", version: int | None = 
     return FileResponse(path, media_type="application/pdf", filename=filename)
 
 
-@router.post("/fire/{job_id}")
+@router.post("/fire/{job_id}", response_model=FireResponse)
 async def fire(job_id: str, bt: BackgroundTasks):
     from db.client import get_lead_for_fire  # lazy: lancedb import takes ~7s
     from services.generator import _fire_blocker, _actuate  # lazy: generator pulls in llm deps
@@ -53,7 +56,7 @@ async def fire(job_id: str, bt: BackgroundTasks):
     return {"status": "firing", "job_id": job_id}
 
 
-@router.post("/leads/{job_id}/form/read")
+@router.post("/leads/{job_id}/form/read", response_model=dict[str, Any])
 async def read_lead_form(job_id: str, body: FormReadBody):
     from agents.actuator import read_form  # lazy: agents module (per-request dep)
     from db.client import get_lead_by_id, get_profile, get_settings  # lazy: lancedb import takes ~7s
@@ -97,7 +100,7 @@ async def read_lead_form(job_id: str, body: FormReadBody):
     return result
 
 
-@router.get("/identity")
+@router.get("/identity", response_model=IdentityResponse)
 async def get_identity():
     from db.client import get_settings  # lazy: lancedb import takes ~7s
     cfg = get_settings()
@@ -113,7 +116,7 @@ async def get_identity():
     }
 
 
-@router.post("/selectors/refresh")
+@router.post("/selectors/refresh", response_model=SelectorsRefreshResponse)
 async def refresh_selectors():
     from agents.selectors import get_selectors  # lazy: agents module (per-request dep)
 
@@ -123,7 +126,7 @@ async def refresh_selectors():
     return {"version": data.get("version"), "platforms": list(data.get("platforms", {}).keys())}
 
 
-@router.post("/leads/{job_id}/apply/preview")
+@router.post("/leads/{job_id}/apply/preview", response_model=dict[str, Any])
 async def preview_apply(job_id: str):
     from agents.actuator import run as _act  # lazy: agents module (per-request dep)
     from db.client import get_lead_for_fire  # lazy: lancedb import takes ~7s

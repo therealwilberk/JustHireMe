@@ -1,37 +1,39 @@
 import asyncio
+from typing import Any
 
 from fastapi import APIRouter
 
 import services.scanner as scanner
 from core.ws_manager import cm
 from schemas.requests import HelpChatBody
+from schemas.responses import StatusResponse, FreeSourcesScanResponse
 from services.job_targets import _profile_for_discovery
 from services.scout import _run_free_source_scan
 
 router = APIRouter(prefix="/api/v1", tags=["scan"])
 
 
-@router.post("/scan")
+@router.post("/scan", response_model=StatusResponse)
 async def scan():
     return await scanner.scan_manager.start_scan()
 
 
-@router.post("/scan/stop")
+@router.post("/scan/stop", response_model=StatusResponse)
 async def stop_scan():
     return await scanner.scan_manager.stop_scan()
 
 
-@router.post("/leads/reevaluate")
+@router.post("/leads/reevaluate", response_model=StatusResponse)
 async def reevaluate_jobs():
     return await scanner.scan_manager.start_reevaluate()
 
 
-@router.post("/leads/reevaluate/stop")
+@router.post("/leads/reevaluate/stop", response_model=StatusResponse)
 async def stop_reevaluate_jobs():
     return await scanner.scan_manager.stop_reevaluate()
 
 
-@router.post("/leads/cleanup")
+@router.post("/leads/cleanup", response_model=dict[str, Any])
 async def cleanup_leads(dry_run: bool = False, limit: int = 1000):
     from db.client import cleanup_bad_leads, get_lead_by_id  # lazy: lancedb import takes ~7s
 
@@ -57,7 +59,7 @@ async def cleanup_leads(dry_run: bool = False, limit: int = 1000):
     return result
 
 
-@router.post("/free-sources/scan")
+@router.post("/free-sources/scan", response_model=FreeSourcesScanResponse)
 async def free_sources_scan():
     from db.client import get_settings, get_profile  # lazy: lancedb import takes ~7s
 
@@ -67,7 +69,7 @@ async def free_sources_scan():
     return {"status": "done", "leads": len(leads)}
 
 
-@router.post("/help/chat")
+@router.post("/help/chat", response_model=dict[str, Any])
 async def help_chat(body: HelpChatBody):
     from agents.help_agent import answer  # lazy: agents module (per-request dep)
 

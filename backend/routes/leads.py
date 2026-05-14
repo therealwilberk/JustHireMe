@@ -3,6 +3,7 @@ import csv
 import io
 import os
 import re
+from typing import Any
 
 from fastapi import APIRouter, BackgroundTasks, HTTPException
 from fastapi.responses import StreamingResponse
@@ -15,6 +16,7 @@ from schemas.requests import (
     ManualLeadBody,
     StatusBody,
 )
+from schemas.responses import OkResponse, LeadGenerateResponse, PipelineRunResponse
 
 router = APIRouter(prefix="/api/v1", tags=["leads"])
 
@@ -52,7 +54,7 @@ def _versioned_assets(job_id: str, base_dir: str) -> list[dict]:
     return [versions[v] for v in sorted(versions, reverse=True)]
 
 
-@router.get("/leads")
+@router.get("/leads", response_model=list[dict[str, Any]])
 async def leads(beginner_only: bool = False, seniority: str | None = None):
     from db.client import get_all_leads  # lazy: lancedb import takes ~7s
     jobs = [_annotate_job_lead(lead) for lead in get_all_leads() if (lead.get("kind") or "job") == "job"]
@@ -85,7 +87,7 @@ async def export_leads_csv():
     )
 
 
-@router.get("/leads/{job_id}/versions")
+@router.get("/leads/{job_id}/versions", response_model=list[dict[str, Any]])
 async def get_lead_versions(job_id: str):
     from db.client import get_lead_by_id, data_base  # lazy: lancedb import takes ~7s
     lead = get_lead_by_id(job_id)
@@ -101,7 +103,7 @@ async def get_lead_versions(job_id: str):
     return _versioned_assets(job_id, base_dir)
 
 
-@router.get("/leads/{job_id}")
+@router.get("/leads/{job_id}", response_model=dict[str, Any])
 async def get_lead(job_id: str):
     from db.client import get_lead_by_id  # lazy: lancedb import takes ~7s
     lead = get_lead_by_id(job_id)
@@ -110,7 +112,7 @@ async def get_lead(job_id: str):
     return _annotate_job_lead(lead) if (lead.get("kind") or "job") == "job" else lead
 
 
-@router.delete("/leads/{job_id}")
+@router.delete("/leads/{job_id}", response_model=OkResponse)
 async def delete_lead_endpoint(job_id: str):
     from db.client import delete_lead  # lazy: lancedb import takes ~7s
     try:
@@ -120,7 +122,7 @@ async def delete_lead_endpoint(job_id: str):
     return {"ok": True}
 
 
-@router.put("/leads/{job_id}/status")
+@router.put("/leads/{job_id}/status", response_model=OkResponse)
 async def update_status(job_id: str, body: StatusBody):
     from db.client import update_lead_status  # lazy: lancedb import takes ~7s
     try:
@@ -133,7 +135,7 @@ async def update_status(job_id: str, body: StatusBody):
         raise HTTPException(status_code=400, detail=str(e))
 
 
-@router.put("/leads/{job_id}/feedback")
+@router.put("/leads/{job_id}/feedback", response_model=dict[str, Any])
 async def update_feedback(job_id: str, body: FeedbackBody):
     from db.client import save_lead_feedback  # lazy: lancedb import takes ~7s
     try:
@@ -146,7 +148,7 @@ async def update_feedback(job_id: str, body: FeedbackBody):
     return lead
 
 
-@router.put("/leads/{job_id}/followup")
+@router.put("/leads/{job_id}/followup", response_model=dict[str, Any])
 async def update_followup(job_id: str, body: FollowupBody):
     from db.client import update_lead_followup  # lazy: lancedb import takes ~7s
     lead = update_lead_followup(job_id, body.days)
@@ -156,7 +158,7 @@ async def update_followup(job_id: str, body: FollowupBody):
     return lead
 
 
-@router.post("/leads/manual")
+@router.post("/leads/manual", response_model=dict[str, Any])
 async def create_manual_lead(body: ManualLeadBody):
     if not body.text.strip() and not body.url.strip():
         raise HTTPException(status_code=400, detail="Paste lead text or a URL")
@@ -198,20 +200,20 @@ async def create_manual_lead(body: ManualLeadBody):
     return saved
 
 
-@router.get("/followups/due")
+@router.get("/followups/due", response_model=list[dict[str, Any]])
 async def due_followups(limit: int = 25):
     from db.client import get_due_followups  # lazy: lancedb import takes ~7s
     return get_due_followups(limit)
 
 
-@router.post("/leads/{job_id}/generate")
+@router.post("/leads/{job_id}/generate", response_model=LeadGenerateResponse)
 async def generate_for_lead(job_id: str):
     from services.generator import _generate_one  # lazy: generator pulls in llm deps
     lead = await _generate_one(job_id)
     return {"status": "ready", "job_id": job_id, "lead": lead}
 
 
-@router.post("/leads/{job_id}/pipeline/run")
+@router.post("/leads/{job_id}/pipeline/run", response_model=PipelineRunResponse)
 async def run_pipeline(job_id: str, bt: BackgroundTasks):
     ctx = new_context(workflow_type="pipeline_run", job_id=job_id, subsystem="pipeline")
     token = set_context(ctx)

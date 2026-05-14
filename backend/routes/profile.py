@@ -1,5 +1,8 @@
+from typing import Any
+
 from fastapi import APIRouter, HTTPException
 from schemas.requests import CandidateBody, SkillBody, ExperienceBody, ProjectBody
+from schemas.responses import OkResponse
 from db.client import (
     get_profile as _gp,
     update_candidate,
@@ -17,73 +20,73 @@ from db.client import (
 router = APIRouter(prefix="/api/v1", tags=["profile"])
 
 
-@router.get("/profile")
+@router.get("/profile", response_model=dict[str, Any])
 async def get_profile_endpoint():
     return _gp()
 
 
-@router.put("/profile/candidate")
+@router.put("/profile/candidate", response_model=dict[str, Any])
 async def update_candidate_endpoint(body: CandidateBody):
     if not body.n.strip() and not body.s.strip():
         raise HTTPException(status_code=422, detail="Name or summary is required")
     return update_candidate(body.n, body.s)
 
 
-@router.post("/profile/skill")
+@router.post("/profile/skill", response_model=dict[str, Any])
 async def add_skill_endpoint(body: SkillBody):
     if not body.n.strip():
         raise HTTPException(status_code=422, detail="Skill name is required")
     return add_skill(body.n, body.cat)
 
 
-@router.put("/profile/skill/{sid}")
+@router.put("/profile/skill/{sid}", response_model=dict[str, Any])
 async def update_skill_endpoint(sid: str, body: SkillBody):
     if not body.n.strip():
         raise HTTPException(status_code=422, detail="Skill name is required")
     return update_skill(sid, body.n, body.cat)
 
 
-@router.delete("/profile/skill/{sid}")
+@router.delete("/profile/skill/{sid}", response_model=OkResponse)
 async def delete_skill_endpoint(sid: str):
     delete_skill(sid)
     return {"ok": True}
 
 
-@router.post("/profile/experience")
+@router.post("/profile/experience", response_model=dict[str, Any])
 async def add_experience_endpoint(body: ExperienceBody):
     if not body.role.strip() and not body.co.strip():
         raise HTTPException(status_code=422, detail="Role or company is required")
     return add_experience(body.role, body.co, body.period, body.d)
 
 
-@router.put("/profile/experience/{eid}")
+@router.put("/profile/experience/{eid}", response_model=dict[str, Any])
 async def update_experience_endpoint(eid: str, body: ExperienceBody):
     if not body.role.strip() and not body.co.strip():
         raise HTTPException(status_code=422, detail="Role or company is required")
     return update_experience(eid, body.role, body.co, body.period, body.d)
 
 
-@router.delete("/profile/experience/{eid}")
+@router.delete("/profile/experience/{eid}", response_model=OkResponse)
 async def delete_experience_endpoint(eid: str):
     delete_experience(eid)
     return {"ok": True}
 
 
-@router.post("/profile/project")
+@router.post("/profile/project", response_model=dict[str, Any])
 async def add_project_endpoint(body: ProjectBody):
     if not body.title.strip():
         raise HTTPException(status_code=422, detail="Project title is required")
     return add_project(body.title, body.stack, body.repo, body.impact)
 
 
-@router.put("/profile/project/{pid}")
+@router.put("/profile/project/{pid}", response_model=dict[str, Any])
 async def update_project_endpoint(pid: str, body: ProjectBody):
     if not body.title.strip():
         raise HTTPException(status_code=422, detail="Project title is required")
     return update_project(pid, body.title, body.stack, body.repo, body.impact)
 
 
-@router.delete("/profile/project/{pid}")
+@router.delete("/profile/project/{pid}", response_model=OkResponse)
 async def delete_project_endpoint(pid: str):
     delete_project(pid)
     return {"ok": True}

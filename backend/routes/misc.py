@@ -2,6 +2,7 @@ import asyncio
 import os
 import time
 from datetime import datetime, timezone
+from typing import Any
 
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import JSONResponse
@@ -9,6 +10,7 @@ from fastapi.responses import JSONResponse
 
 from config import settings
 from schemas.requests import TemplateBody, HelpChatBody
+from schemas.responses import HealthResponse, OkResponse, TemplateResponse
 from core.config_constants import _log, _UP
 
 router = APIRouter(tags=["misc"])
@@ -25,7 +27,7 @@ def _configured_api_providers(settings: dict) -> list:
     return providers
 
 
-@router.get("/health", dependencies=[])
+@router.get("/health", dependencies=[], response_model=HealthResponse)
 async def health():
     """Lightweight health check with real dependency probes.
 
@@ -73,32 +75,32 @@ async def health():
     }
 
 
-@router.get("/api/v1/events")
+@router.get("/api/v1/events", response_model=list[dict[str, Any]])
 async def get_events_endpoint(limit: int = 100, job_id: str | None = None):
     from db.client import get_events  # lazy: lancedb import takes ~7s
     return get_events(limit=limit, job_id=job_id)
 
 
-@router.get("/api/v1/graph")
+@router.get("/api/v1/graph", response_model=dict[str, Any])
 async def graph_stats():
     from db.client import graph_counts  # lazy: lancedb import takes ~7s
     return graph_counts()
 
 
-@router.get("/api/v1/template")
+@router.get("/api/v1/template", response_model=TemplateResponse)
 async def get_template():
     from db.client import get_setting  # lazy: lancedb import takes ~7s
     return {"template": get_setting("resume_template", "")}
 
 
-@router.post("/api/v1/template")
+@router.post("/api/v1/template", response_model=OkResponse)
 async def save_template(body: TemplateBody):
     from db.client import save_settings  # lazy: lancedb import takes ~7s
     save_settings({"resume_template": body.template})
     return {"ok": True}
 
 
-@router.post("/api/v1/help/chat")
+@router.post("/api/v1/help/chat", response_model=dict[str, Any])
 async def help_chat(body: HelpChatBody):
     from agents.help_agent import answer  # lazy: agents module (per-request dep)
 

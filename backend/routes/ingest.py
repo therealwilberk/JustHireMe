@@ -5,6 +5,8 @@ import shutil
 import tempfile
 from pathlib import Path
 
+from typing import Any
+
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile
 
 from core.config_constants import _log
@@ -18,11 +20,12 @@ from schemas.requests import (
     ProfileProject,
     ProfileEntry,
 )
+from schemas.responses import IngestLinkedinResponse, IngestGithubResponse, IngestProfileResponse
 
 router = APIRouter(prefix="/api/v1", tags=["ingest"])
 
 
-@router.post("/ingest")
+@router.post("/ingest", response_model=dict[str, Any])
 async def ingest(
     raw: str = Form(""),
     file: UploadFile | None = File(None),
@@ -51,7 +54,7 @@ async def ingest(
             os.unlink(pdf_path)
 
 
-@router.post("/ingest/linkedin")
+@router.post("/ingest/linkedin", response_model=IngestLinkedinResponse)
 async def ingest_linkedin(file: UploadFile = File(...)):
     from agents.linkedin_parser import parse_linkedin_export  # lazy: agents module (per-request dep)
     from db.client import update_candidate, add_skill, add_experience, add_education, add_project, add_certification  # lazy: lancedb import takes ~7s
@@ -113,7 +116,7 @@ async def ingest_linkedin(file: UploadFile = File(...)):
     }
 
 
-@router.post("/ingest/github")
+@router.post("/ingest/github", response_model=IngestGithubResponse)
 async def ingest_github_endpoint(body: GithubIngestBody):
     from agents.github_ingestor import ingest_github  # lazy: agents module (per-request dep)
     from db.client import add_skill, add_project, save_settings  # lazy: lancedb import takes ~7s
@@ -156,7 +159,7 @@ async def ingest_github_endpoint(body: GithubIngestBody):
     }
 
 
-@router.post("/ingest/profile")
+@router.post("/ingest/profile", response_model=IngestProfileResponse)
 async def import_profile_json(body: ProfileImportBody):
     from db.client import (  # lazy: lancedb import takes ~7s
         update_candidate, add_skill, add_experience,
@@ -244,14 +247,14 @@ async def import_profile_json(body: ProfileImportBody):
     }
 
 
-@router.get("/ingest/profile/template")
+@router.get("/ingest/profile/template", response_model=dict[str, Any])
 async def get_profile_template():
     template_path = Path(__file__).resolve().parent.parent / "data" / "profile_schema_example.json"
     with open(template_path, encoding="utf-8") as f:
         return json.load(f)
 
 
-@router.post("/ingest/portfolio")
+@router.post("/ingest/portfolio", response_model=dict[str, Any])
 async def ingest_portfolio_endpoint(body: PortfolioIngestBody):
     from agents.portfolio_ingestor import ingest_portfolio_url  # lazy: agents module (per-request dep)
     if not body.url.startswith(("http://", "https://")):

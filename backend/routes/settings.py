@@ -1,9 +1,11 @@
 import asyncio
+from typing import Any
 
 from fastapi import APIRouter
 from config import settings as cfg_settings
 from core.config_constants import _sched
 from schemas.requests import SettingsBody
+from schemas.responses import OkResponse
 from services.ghost import _ghost_tick
 from config.secrets import resolve_secret
 from services.provider_probe import _sensitive, _probe_provider_key, _log_sensitive_deprecation
@@ -11,7 +13,7 @@ from services.provider_probe import _sensitive, _probe_provider_key, _log_sensit
 router = APIRouter(prefix="/api/v1", tags=["settings"])
 
 
-@router.get("/settings")
+@router.get("/settings", response_model=dict[str, Any])
 async def get_cfg():
     from db.client import get_settings  # lazy: lancedb import takes ~7s
     s = get_settings()
@@ -22,7 +24,7 @@ async def get_cfg():
     return s
 
 
-@router.get("/settings/validate")
+@router.get("/settings/validate", response_model=dict[str, Any])
 async def validate_settings():
     from db.client import get_settings  # lazy: lancedb import takes ~7s
     from llm import _KEY_NAMES, _OPENAI_COMPAT_BASE_URLS  # lazy: anthropic/instructor/openai import takes ~7s total
@@ -51,7 +53,7 @@ async def validate_settings():
     return {provider: result for provider, result in pairs}
 
 
-@router.post("/settings")
+@router.post("/settings", response_model=OkResponse)
 async def save_cfg(body: SettingsBody):
     from db.client import get_settings, save_settings  # lazy: lancedb import takes ~7s
     payload = {k: "" if v is None else str(v) for k, v in body.model_dump().items()}
