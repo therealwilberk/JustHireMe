@@ -6,7 +6,7 @@ This directory contains the deterministic test suite for the JustHireMe backend.
 All tests in this directory are designed to run in CI, produce consistent results,
 and avoid external service dependencies.
 
-**Test count:** 314  
+**Test count:** 315  
 **Framework:** pytest (via `unittest.TestCase` and `IsolatedAsyncioTestCase`)  
 **Runner:** `uv run python -m pytest tests/`
 
@@ -104,8 +104,8 @@ and avoid external service dependencies.
 
 | Status | Strong |
 |--------|--------|
-| **What it tests** | Scoring engine caps, quality gate, seniority filters, HN parsing, feedback ranker, job targets, query generation, X/twitter scout, browser runtime |
-| **Key behaviours** | Zero-experience senior cap, wrong-field penalty, stale lead rejection, HN job post filtering, feedback learning boost/penalty, India/global job target fallback |
+| **What it tests** | Scoring engine caps, quality gate, seniority filters, HN parsing, feedback ranker, job targets (settings-driven override, blocked markers, empty fallback), query generation, X/twitter scout, browser runtime |
+| **Key behaviours** | Zero-experience senior cap, wrong-field penalty, stale lead rejection, HN job post filtering, feedback learning boost/penalty, job target resolution reads from settings when `job_boards` is empty, blocked markers filter freelance platforms from settings |
 | **Sub-classes** | `TestScoringEngineCaps`, `TestLeadQualityGate`, `TestBrowserRuntimePackaging` |
 | **Dependencies** | Mocks external agents, uses `_install_storage_fakes()` |
 
@@ -321,7 +321,7 @@ This is intentionally NOT strict transactional (no rollback, no abort on partial
 
 ## Phase C Coverage (Reliability, Observability & Concurrency)
 
-Phase C adds 110 backend + 20 frontend tests. Current coverage:
+Phase C adds 111 backend + 20 frontend tests. Current coverage:
 
 | Area | Tests | File |
 |------|-------|------|
