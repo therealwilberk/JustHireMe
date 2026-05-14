@@ -4,10 +4,10 @@ import httpx
 
 from config import settings
 from core.config_constants import _log
-from llm import _OPENAI_COMPAT_BASE_URLS
 
 
 async def _probe_provider_key(provider: str, key: str) -> dict:
+    from llm import _OPENAI_COMPAT_BASE_URLS
     started = time.perf_counter()
     try:
         timeout = httpx.Timeout(5.0)

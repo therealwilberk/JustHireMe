@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import JSONResponse
 
-from db.client import get_settings, get_sql_connection, get_events, graph_counts, get_setting, save_settings
+
 from schemas.requests import TemplateBody, HelpChatBody
 from core.config_constants import _log, _UP
 
@@ -33,6 +33,7 @@ async def health():
     """
     from config import settings
     from agents.browser_runtime import chromium_executable
+    from db.client import get_settings, get_sql_connection
 
     db_status = "ok"
     db_latency = 0.0
@@ -74,21 +75,25 @@ async def health():
 
 @router.get("/api/v1/events")
 async def get_events_endpoint(limit: int = 100, job_id: str | None = None):
+    from db.client import get_events
     return get_events(limit=limit, job_id=job_id)
 
 
 @router.get("/api/v1/graph")
 async def graph_stats():
+    from db.client import graph_counts
     return graph_counts()
 
 
 @router.get("/api/v1/template")
 async def get_template():
+    from db.client import get_setting
     return {"template": get_setting("resume_template", "")}
 
 
 @router.post("/api/v1/template")
 async def save_template(body: TemplateBody):
+    from db.client import save_settings
     save_settings({"resume_template": body.template})
     return {"ok": True}
 

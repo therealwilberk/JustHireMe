@@ -390,7 +390,7 @@ class TestGenerateEndpoint(unittest.TestCase):
             "resume_asset": "/tmp/resume.pdf",
             "cover_letter_asset": "/tmp/cover.pdf",
         }
-        with mock.patch("routes.leads._generate_one", new=mock.AsyncMock(return_value=ready_lead)):
+        with mock.patch("services.generator._generate_one", new=mock.AsyncMock(return_value=ready_lead)):
             resp = post("/api/v1/leads/test-generate-001/generate")
 
         body = assert_success_response(resp, required_keys={"status", "job_id", "lead"})
@@ -531,11 +531,8 @@ class TestIngestionEndpoints(unittest.TestCase):
                 "error": None,
             }
 
-        import routes.ingest as _ingest_mod
-
-        with mock.patch.object(
-            _ingest_mod,
-            "ingest_portfolio_url",
+        with mock.patch(
+            "agents.portfolio_ingestor.ingest_portfolio_url",
             side_effect=_fake_ingest_portfolio_url,
         ):
             resp = post(

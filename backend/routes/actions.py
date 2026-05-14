@@ -4,16 +4,7 @@ import os
 from fastapi import APIRouter, BackgroundTasks, HTTPException
 from fastapi.responses import FileResponse
 
-from db.client import (
-    get_lead_by_id,
-    get_lead_for_fire,
-    get_profile,
-    get_settings,
-    data_base,
-    save_settings,
-)
 from schemas.requests import FormReadBody
-from services.generator import _fire_blocker, _actuate
 
 router = APIRouter(prefix="/api/v1", tags=["actions"])
 
@@ -21,6 +12,7 @@ router = APIRouter(prefix="/api/v1", tags=["actions"])
 @router.get("/leads/{job_id}/pdf")
 async def get_lead_pdf(job_id: str, kind: str = "resume", version: int | None = None):
     from fastapi import HTTPException
+    from db.client import get_lead_by_id, data_base
 
     lead = get_lead_by_id(job_id)
     if not lead:
@@ -52,6 +44,8 @@ async def get_lead_pdf(job_id: str, kind: str = "resume", version: int | None = 
 
 @router.post("/fire/{job_id}")
 async def fire(job_id: str, bt: BackgroundTasks):
+    from db.client import get_lead_for_fire
+    from services.generator import _fire_blocker, _actuate
     lead, asset = await asyncio.to_thread(get_lead_for_fire, job_id)
     status, detail = _fire_blocker(lead, asset)
     if detail:
@@ -63,6 +57,7 @@ async def fire(job_id: str, bt: BackgroundTasks):
 @router.post("/leads/{job_id}/form/read")
 async def read_lead_form(job_id: str, body: FormReadBody):
     from agents.actuator import read_form
+    from db.client import get_lead_by_id, get_profile, get_settings
 
     lead = get_lead_by_id(job_id)
     if not lead:
@@ -105,6 +100,7 @@ async def read_lead_form(job_id: str, body: FormReadBody):
 
 @router.get("/identity")
 async def get_identity():
+    from db.client import get_settings
     cfg = get_settings()
     return {
         "full_name":       cfg.get("full_name", ""),
@@ -122,6 +118,7 @@ async def get_identity():
 async def refresh_selectors():
     from agents.selectors import get_selectors
 
+    from db.client import save_settings
     save_settings({"selectors_fetched_at": "0"})
     data = await asyncio.to_thread(get_selectors)
     return {"version": data.get("version"), "platforms": list(data.get("platforms", {}).keys())}
@@ -130,6 +127,8 @@ async def refresh_selectors():
 @router.post("/leads/{job_id}/apply/preview")
 async def preview_apply(job_id: str):
     from agents.actuator import run as _act
+    from db.client import get_lead_for_fire
+    from services.generator import _fire_blocker
 
     lead, asset = await asyncio.to_thread(get_lead_for_fire, job_id)
     status_code, detail = _fire_blocker(lead, asset)

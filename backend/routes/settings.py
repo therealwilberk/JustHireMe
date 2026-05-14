@@ -5,7 +5,6 @@ from config import settings as cfg_settings
 from core.config_constants import _sched
 from schemas.requests import SettingsBody
 from services.ghost import _ghost_tick
-from services.provider_probe import _probe_provider_key, _sensitive, _log_sensitive_deprecation
 
 router = APIRouter(prefix="/api/v1", tags=["settings"])
 
@@ -13,6 +12,7 @@ router = APIRouter(prefix="/api/v1", tags=["settings"])
 @router.get("/settings")
 async def get_cfg():
     from db.client import get_settings
+    from services.provider_probe import _sensitive
     s = get_settings()
     _m = "••••••••••••••••••••"
     for k in _sensitive(s):
@@ -45,6 +45,7 @@ async def validate_settings():
             return provider, {"status": "not_configured", "latency_ms": 0}
         if provider not in probed:
             return provider, {"status": "unchecked", "latency_ms": 0}
+        from services.provider_probe import _probe_provider_key
         return provider, await _probe_provider_key(provider, key)
 
     pairs = await asyncio.gather(*(one(provider) for provider in providers))
@@ -57,6 +58,7 @@ async def save_cfg(body: SettingsBody):
     payload = {k: "" if v is None else str(v) for k, v in body.model_dump().items()}
     old = get_settings()
     _m = "••••••••••••••••••••"
+    from services.provider_probe import _sensitive, _log_sensitive_deprecation
     for k in _sensitive({**old, **payload}):
         if payload.get(k) == _m:
             payload[k] = old.get(k, "")
