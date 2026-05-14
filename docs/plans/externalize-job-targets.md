@@ -182,7 +182,57 @@ Removing `_BLOCKED_JOB_TARGET_MARKERS` from code means users can accidentally re
 - Warn when blocked list is empty: "No blocked markers configured. Freelance and low-quality platforms will not be filtered."
 - Consider future immutable internal safety filters (separate effort)
 
-## Extensibility note
+## Frontend-Backend Compatibility
+
+### Current data flow
+
+```
+Frontend textarea (job_boards)  ──POST /api/v1/settings──►  SQLite settings
+                                                            │
+Backend _job_targets() reads job_boards ──► split/parse ──► fallback to 
+                                                            DEFAULT_JOB_TARGETS / INDIA_JOB_TARGETS
+Frontend preset buttons  ──► append URLs to job_boards textarea
+Frontend market toggle   ──► writes job_market_focus to settings
+```
+
+### After changes — resolution order preserved
+
+```
+job_boards (frontend textarea) ──► parsed directly ──► used if non-empty
+                                    │
+job_targets (new settings key)  ──► JSON parse ──► used if job_boards empty
+                                    │
+[] (empty)                      ──► no targets configured
+```
+
+### What stays the same (no frontend changes needed)
+
+| Concern | Status | Why |
+|---------|--------|-----|
+| `job_boards` textarea | ✅ Unchanged | Backend still reads `job_boards` first in `_job_targets()` |
+| Quick-add buttons | ✅ Unchanged | They append to `job_boards` textarea — same behavior |
+| `GLOBAL_SOURCE_PRESET` / `INDIA_SOURCE_PRESET` | ✅ Unchanged | They populate the textarea — backend parses it the same way |
+| `job_market_focus` toggle | ✅ Unchanged | Backend ignores it for target selection, but still accepts it in settings passthrough |
+| `POST /api/v1/settings` | ✅ Unchanged | Still saves all flat key-value pairs including `job_boards` |
+
+### What changes (backend only, invisible to frontend until new UI)
+
+| Concern | Change | Frontend impact |
+|---------|--------|-----------------|
+| `_job_targets()` no fallback | Returns `[]` instead of hidden defaults | Behavioral — user sees "no targets" instead of invisible scan |
+| `blocked_markers` in settings | Moved from code constant to SQLite | None — frontend doesn't reference this |
+| New `GET /api/v1/settings/job-targets` | Additive API | None until new Settings UI consumes it |
+| `job_market_focus` decoupled | Backend ignores for target list selection | None — field still saved/loaded via settings passthrough |
+
+### Verification strategy
+
+Each phase is verifiable independently:
+
+1. **Phase 1** — `git diff` shows removed constants, added accessors. `pytest` proves behavioral equivalence when `job_boards` is populated.
+2. **Phase 2** — `job_boards=""` + `job_targets=""` → scan returns empty with WS event. Verify via `JHM_LOG_LEVEL=DEBUG`.
+3. **Phase 3** — CRUD API via `curl` or `httpx`. Round-trip: PUT → GET returns same data.
+4. **Phase 4** — `pytest` proves all edge cases covered.
+5. **Phase 5** — Start app, navigate to Settings, verify textarea still works, new CRUD UI shows correct state.
 
 The API shape (`targets: list[str]`) is a single flat list. This is correct now. Future discovery profiles (region-specific, role-specific, source-type-specific) would extend the schema with additional fields, not replace it. Avoid designing yourself into "one flat list forever" — the schema should accept additional keys gracefully (ignore extras, validate known ones).
 
