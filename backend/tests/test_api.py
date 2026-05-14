@@ -25,6 +25,9 @@ from fastapi.testclient import TestClient  # noqa: E402
 import main  # noqa: E402
 
 main._API_TOKEN = "test-token-abc123"
+# Also propagate to the actual module ws.py imports from (copied at import time)
+from routes import ws as _ws
+_ws._API_TOKEN = "test-token-abc123"
 
 from main import app  # noqa: E402  (same cached module, just for IDE clarity)
 
@@ -387,7 +390,7 @@ class TestGenerateEndpoint(unittest.TestCase):
             "resume_asset": "/tmp/resume.pdf",
             "cover_letter_asset": "/tmp/cover.pdf",
         }
-        with mock.patch.object(main, "_generate_one", new=mock.AsyncMock(return_value=ready_lead)):
+        with mock.patch("routes.leads._generate_one", new=mock.AsyncMock(return_value=ready_lead)):
             resp = post("/api/v1/leads/test-generate-001/generate")
 
         body = assert_success_response(resp, required_keys={"status", "job_id", "lead"})
@@ -512,8 +515,6 @@ class TestIngestionEndpoints(unittest.TestCase):
     }
 
     def test_portfolio_ingest_valid_url_structure(self):
-        import agents.portfolio_ingestor as _portfolio_mod
-
         async def _fake_ingest_portfolio_url(_url):
             return {
                 "source": "portfolio_url",
@@ -530,8 +531,10 @@ class TestIngestionEndpoints(unittest.TestCase):
                 "error": None,
             }
 
+        import routes.ingest as _ingest_mod
+
         with mock.patch.object(
-            _portfolio_mod,
+            _ingest_mod,
             "ingest_portfolio_url",
             side_effect=_fake_ingest_portfolio_url,
         ):

@@ -1,0 +1,256 @@
+import asyncio
+import csv
+import io
+import os
+import re
+
+from fastapi import APIRouter, BackgroundTasks, HTTPException
+from fastapi.responses import StreamingResponse
+
+from agents.lead_intel import manual_lead_from_text
+from agents.scout import classify_job_seniority
+from core.ws_manager import cm
+from db.client import (
+    data_base,
+    delete_lead,
+    get_all_leads,
+    get_due_followups,
+    get_lead_by_id,
+    get_profile,
+    get_settings,
+    rank_lead_by_feedback,
+    save_lead,
+    save_lead_feedback,
+    update_lead_followup,
+    update_lead_status,
+)
+from graph import PipelineState, eval_graph
+from log_context import new_context, reset_context, set_context
+from schemas.requests import (
+    FeedbackBody,
+    FollowupBody,
+    ManualLeadBody,
+    StatusBody,
+)
+from services.generator import _generate_one
+
+router = APIRouter(prefix="/api/v1", tags=["leads"])
+
+
+def _annotate_job_lead(lead: dict) -> dict:
+    meta = dict(lead.get("source_meta") or {})
+    level = str(meta.get("seniority_level") or lead.get("seniority_level") or "").strip().lower()
+    if level not in {"fresher", "junior", "mid", "senior", "unknown"}:
+        level = classify_job_seniority(lead)
+    meta["seniority_level"] = level
+    meta["is_beginner"] = level in {"fresher", "junior"}
+    return {**lead, "source_meta": meta, "seniority_level": level}
+
+
+def _versioned_assets(job_id: str, base_dir: str) -> list[dict]:
+    versions: dict[int, dict] = {}
+    patterns = [
+        ("resume", re.compile(rf"^{re.escape(job_id)}_v(\d+)\.pdf$")),
+        ("cover_letter", re.compile(rf"^{re.escape(job_id)}_cl_v(\d+)\.pdf$")),
+    ]
+    try:
+        names = os.listdir(base_dir)
+    except Exception:
+        return []
+    for name in names:
+        full = os.path.join(base_dir, name)
+        if not os.path.isfile(full):
+            continue
+        for key, pattern in patterns:
+            match = pattern.match(name)
+            if match:
+                version = int(match.group(1))
+                versions.setdefault(version, {"version": version})[key] = full
+    return [versions[v] for v in sorted(versions, reverse=True)]
+
+
+@router.get("/leads")
+async def leads(beginner_only: bool = False, seniority: str | None = None):
+    jobs = [_annotate_job_lead(lead) for lead in get_all_leads() if (lead.get("kind") or "job") == "job"]
+    requested = str(seniority or "").strip().lower()
+    if beginner_only or requested == "beginner":
+        return [lead for lead in jobs if lead.get("seniority_level") in {"fresher", "junior"}]
+    if requested in {"fresher", "junior", "mid", "senior", "unknown"}:
+        return [lead for lead in jobs if lead.get("seniority_level") == requested]
+    return jobs
+
+
+@router.get("/leads/export.csv")
+async def export_leads_csv():
+    rows = get_all_leads()
+    fields = [
+        "job_id", "title", "company", "url", "platform", "status",
+        "score", "signal_score", "seniority_level", "location",
+        "reason", "created_at",
+    ]
+    buf = io.StringIO()
+    writer = csv.DictWriter(buf, fieldnames=fields, extrasaction="ignore")
+    writer.writeheader()
+    writer.writerows(rows)
+    buf.seek(0)
+    return StreamingResponse(
+        iter([buf.getvalue()]),
+        media_type="text/csv",
+        headers={"Content-Disposition": "attachment; filename=jhm_pipeline.csv"},
+    )
+
+
+@router.get("/leads/{job_id}/versions")
+async def get_lead_versions(job_id: str):
+    lead = get_lead_by_id(job_id)
+    if not lead:
+        raise HTTPException(status_code=404, detail="Lead not found")
+    paths = [
+        lead.get("resume_asset") or lead.get("asset") or "",
+        lead.get("cover_letter_asset") or "",
+    ]
+    base_dir = next((os.path.dirname(path) for path in paths if path), None)
+    if not base_dir:
+        base_dir = os.path.join(data_base(), "assets")
+    return _versioned_assets(job_id, base_dir)
+
+
+@router.get("/leads/{job_id}")
+async def get_lead(job_id: str):
+    lead = get_lead_by_id(job_id)
+    if not lead:
+        raise HTTPException(status_code=404, detail="Lead not found")
+    return _annotate_job_lead(lead) if (lead.get("kind") or "job") == "job" else lead
+
+
+@router.delete("/leads/{job_id}")
+async def delete_lead_endpoint(job_id: str):
+    try:
+        delete_lead(job_id)
+    except LookupError:
+        raise HTTPException(status_code=404, detail="lead not found")
+    return {"ok": True}
+
+
+@router.put("/leads/{job_id}/status")
+async def update_status(job_id: str, body: StatusBody):
+    try:
+        update_lead_status(job_id, body.status)
+        await cm.broadcast({"type": "LEAD_UPDATED", "data": {"job_id": job_id, "status": body.status}})
+        return {"ok": True}
+    except LookupError:
+        raise HTTPException(status_code=404, detail="lead not found")
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.put("/leads/{job_id}/feedback")
+async def update_feedback(job_id: str, body: FeedbackBody):
+    try:
+        lead = save_lead_feedback(job_id, body.feedback, body.note)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    if not lead:
+        raise HTTPException(status_code=404, detail="Lead not found")
+    await cm.broadcast({"type": "LEAD_UPDATED", "data": lead})
+    return lead
+
+
+@router.put("/leads/{job_id}/followup")
+async def update_followup(job_id: str, body: FollowupBody):
+    lead = update_lead_followup(job_id, body.days)
+    if not lead:
+        raise HTTPException(status_code=404, detail="Lead not found")
+    await cm.broadcast({"type": "LEAD_UPDATED", "data": lead})
+    return lead
+
+
+@router.post("/leads/manual")
+async def create_manual_lead(body: ManualLeadBody):
+    if not body.text.strip() and not body.url.strip():
+        raise HTTPException(status_code=400, detail="Paste lead text or a URL")
+    lead = rank_lead_by_feedback(manual_lead_from_text(body.text, body.url, "job"))
+    if lead.get("kind") != "job":
+        raise HTTPException(status_code=422, detail="Only job leads are accepted right now")
+    lead = _annotate_job_lead(lead)
+    save_lead(
+        lead["job_id"],
+        lead["title"],
+        lead["company"],
+        lead["url"],
+        lead["platform"],
+        lead["description"],
+        kind=lead["kind"],
+        budget=lead["budget"],
+        signal_score=lead["signal_score"],
+        signal_reason=lead["signal_reason"],
+        signal_tags=lead["signal_tags"],
+        outreach_reply=lead["outreach_reply"],
+        outreach_dm=lead["outreach_dm"],
+        outreach_email=lead.get("outreach_email", ""),
+        proposal_draft=lead.get("proposal_draft", ""),
+        fit_bullets=lead.get("fit_bullets", []),
+        followup_sequence=lead.get("followup_sequence", []),
+        proof_snippet=lead.get("proof_snippet", ""),
+        tech_stack=lead.get("tech_stack", []),
+        location=lead.get("location", ""),
+        urgency=lead.get("urgency", ""),
+        base_signal_score=lead.get("base_signal_score"),
+        learning_delta=lead.get("learning_delta"),
+        learning_reason=lead.get("learning_reason", ""),
+        source_meta=lead["source_meta"],
+    )
+    saved = get_lead_by_id(lead["job_id"]) or lead
+    await cm.broadcast({"type": "LEAD_UPDATED", "data": saved})
+    return saved
+
+
+@router.get("/followups/due")
+async def due_followups(limit: int = 25):
+    return get_due_followups(limit)
+
+
+@router.post("/leads/{job_id}/generate")
+async def generate_for_lead(job_id: str):
+    lead = await _generate_one(job_id)
+    return {"status": "ready", "job_id": job_id, "lead": lead}
+
+
+@router.post("/leads/{job_id}/pipeline/run")
+async def run_pipeline(job_id: str, bt: BackgroundTasks):
+    ctx = new_context(workflow_type="pipeline_run", job_id=job_id, subsystem="pipeline")
+    token = set_context(ctx)
+    try:
+        lead = await asyncio.to_thread(get_lead_by_id, job_id)
+        if not lead:
+            raise HTTPException(status_code=404, detail="lead not found")
+        profile = await asyncio.to_thread(get_profile)
+        cfg = await asyncio.to_thread(get_settings)
+
+        async def _run():
+            state: PipelineState = {
+                "job_id": job_id,
+                "lead": lead,
+                "profile": profile,
+                "cfg": cfg,
+                "score": 0,
+                "reason": "",
+                "match_points": [],
+                "gaps": [],
+                "asset_path": "",
+                "cover_letter_path": "",
+                "error": None,
+            }
+            result = await asyncio.to_thread(eval_graph.invoke, state)
+            await cm.broadcast({
+                "type": "agent",
+                "kind": "agent",
+                "src": "pipeline",
+                "event": "pipeline_done",
+                "msg": f"Pipeline done for {job_id}: score={result['score']}, error={result['error']}",
+            })
+
+        bt.add_task(_run)
+        return {"status": "started", "job_id": job_id}
+    finally:
+        reset_context(token)

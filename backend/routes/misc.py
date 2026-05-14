@@ -1,0 +1,101 @@
+import asyncio
+import os
+import time
+from datetime import datetime, timezone
+
+from fastapi import APIRouter, HTTPException
+from fastapi.responses import JSONResponse
+
+from db.client import get_settings, get_sql_connection, get_events, graph_counts, get_setting, save_settings
+from schemas.requests import TemplateBody, HelpChatBody
+from core.config_constants import _log, _UP
+
+router = APIRouter(tags=["misc"])
+
+
+def _configured_api_providers(settings: dict) -> list:
+    """Return names of API providers that have a key configured."""
+    providers = []
+    for key, val in settings.items():
+        if key.endswith("_api_key") or key.endswith("_key") or key.endswith("_token"):
+            if val:
+                provider = key.replace("_api_key", "").replace("_key", "").replace("_token", "")
+                providers.append(provider)
+    return providers
+
+
+@router.get("/health", dependencies=[])
+async def health():
+    """Lightweight health check with real dependency probes.
+
+    Returns alive/uptime plus per-dependency status for database,
+    browser binary, and configured API keys.
+    """
+    from config import settings
+    from agents.browser_runtime import chromium_executable
+
+    db_status = "ok"
+    db_latency = 0.0
+    try:
+        t0 = time.monotonic()
+        get_sql_connection().execute("SELECT 1")
+        db_latency = round((time.monotonic() - t0) * 1000, 1)
+    except Exception as exc:
+        db_status = "error"
+        _log.warning("health: db probe failed — %s", exc)
+
+    browser_path = chromium_executable()
+    browser_status = "found" if browser_path else "not_found"
+
+    cfg = get_settings()
+    configured_providers = _configured_api_providers(cfg)
+
+    return {
+        "status": "alive",
+        "uptime_seconds": round(time.monotonic() - _UP, 2),
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "log_level": os.environ.get(settings.logging.env_var, settings.logging.default_level),
+        "dependencies": {
+            "database": {
+                "status": db_status,
+                "latency_ms": db_latency,
+            },
+            "browser": {
+                "status": browser_status,
+                "path": browser_path,
+            },
+            "api_keys": {
+                "status": "configured" if configured_providers else "missing",
+                "configured_providers": configured_providers,
+            },
+        },
+    }
+
+
+@router.get("/api/v1/events")
+async def get_events_endpoint(limit: int = 100, job_id: str | None = None):
+    return get_events(limit=limit, job_id=job_id)
+
+
+@router.get("/api/v1/graph")
+async def graph_stats():
+    return graph_counts()
+
+
+@router.get("/api/v1/template")
+async def get_template():
+    return {"template": get_setting("resume_template", "")}
+
+
+@router.post("/api/v1/template")
+async def save_template(body: TemplateBody):
+    save_settings({"resume_template": body.template})
+    return {"ok": True}
+
+
+@router.post("/api/v1/help/chat")
+async def help_chat(body: HelpChatBody):
+    from agents.help_agent import answer
+
+    history = [item.model_dump() for item in body.history]
+    return await asyncio.to_thread(answer, body.question, history)
