@@ -1,5 +1,10 @@
 import asyncio
+import io
+import logging
+import os
+import tempfile
 import uuid
+from pathlib import Path
 
 import pytest
 
@@ -11,6 +16,7 @@ from log_context import (
     set_context,
     enrich,
 )
+from logger import get_logger, CorrelationFilter, ContextFormatter
 
 
 class TestContextBasics:
@@ -129,3 +135,130 @@ class TestContextIsolation:
         asyncio.run(run())
         assert ("a", "a", "lead-a") in results
         assert ("b", "b", None) in results
+
+
+class TestCorrelationFilter:
+    def test_filter_injects_correlation_id_when_context_exists(self):
+        ctx = new_context(workflow_type="filter_test")
+        token = set_context(ctx)
+        try:
+            buf = io.StringIO()
+            handler = logging.StreamHandler(buf)
+            fmt = ContextFormatter("""%(asctime)s [%(levelname)s] [%(correlation_id)s] %(name)s: %(message)s""")
+            handler.setFormatter(fmt)
+            handler.addFilter(CorrelationFilter())
+            logger = logging.getLogger("test.filter.active")
+            logger.setLevel(logging.DEBUG)
+            logger.propagate = False
+            logger.addHandler(handler)
+            logger.info("hello")
+            output = buf.getvalue()
+            assert ctx.correlation_id in output
+        finally:
+            reset_context(token)
+
+    def test_filter_uses_dash_when_no_context(self):
+        buf = io.StringIO()
+        handler = logging.StreamHandler(buf)
+        fmt = ContextFormatter("""%(asctime)s [%(levelname)s] [%(correlation_id)s] %(name)s: %(message)s""")
+        handler.setFormatter(fmt)
+        handler.addFilter(CorrelationFilter())
+        logger = logging.getLogger("test.filter.null")
+        logger.setLevel(logging.DEBUG)
+        logger.propagate = False
+        logger.addHandler(handler)
+        logger.info("no context")
+        output = buf.getvalue()
+        assert "[-]" in output
+
+    def test_filter_appends_contextual_fields(self):
+        ctx = new_context(workflow_type="scan", lead_id="lead-42", job_id="job-7")
+        token = set_context(ctx)
+        try:
+            buf = io.StringIO()
+            handler = logging.StreamHandler(buf)
+            handler.setFormatter(ContextFormatter())
+            handler.addFilter(CorrelationFilter())
+            logger = logging.getLogger("test.filter.fields")
+            logger.setLevel(logging.DEBUG)
+            logger.propagate = False
+            logger.addHandler(handler)
+            logger.info("processing")
+            output = buf.getvalue()
+            assert "lead-42" in output
+            assert "job-7" in output
+            assert "flow=scan" in output
+        finally:
+            reset_context(token)
+
+
+class TestContextFormatter:
+    def test_format_with_context(self):
+        ctx = new_context(workflow_type="format_test", lead_id="l1")
+        token = set_context(ctx)
+        try:
+            buf = io.StringIO()
+            handler = logging.StreamHandler(buf)
+            fmt = ContextFormatter("%(asctime)s [%(levelname)s] [%(correlation_id)s] %(name)s: %(message)s")
+            handler.setFormatter(fmt)
+            handler.addFilter(CorrelationFilter())
+            logger = logging.getLogger("test.formatter")
+            logger.setLevel(logging.DEBUG)
+            logger.propagate = False
+            logger.addHandler(handler)
+            logger.info("format check")
+            output = buf.getvalue()
+            assert ctx.correlation_id in output
+            assert "|" in output
+            assert "l1" in output
+        finally:
+            reset_context(token)
+
+    def test_format_without_context(self):
+        buf = io.StringIO()
+        handler = logging.StreamHandler(buf)
+        fmt = ContextFormatter("%(asctime)s [%(levelname)s] [%(correlation_id)s] %(name)s: %(message)s")
+        handler.setFormatter(fmt)
+        handler.addFilter(CorrelationFilter())
+        logger = logging.getLogger("test.formatter.null")
+        logger.setLevel(logging.DEBUG)
+        logger.propagate = False
+        logger.addHandler(handler)
+        logger.info("no ctx here")
+        output = buf.getvalue()
+        assert "[-]" in output
+
+
+class TestFileHandler:
+    def test_get_logger_creates_file_handler_when_configured(self):
+        from config import settings
+        old_val = settings.logging.log_file
+        tmp = tempfile.NamedTemporaryFile(suffix=".log", delete=False)
+        tmp.close()
+        try:
+            settings.logging.log_file = tmp.name
+            uid = str(uuid.uuid4()).replace("-", "")
+            logger = get_logger("test.file_handler." + uid)
+            handler_types = [type(h).__name__ for h in logger.handlers]
+            assert "RotatingFileHandler" in handler_types
+            logger.info("file handler test")
+            content = Path(tmp.name).read_text()
+            assert "file handler test" in content
+        finally:
+            settings.logging.log_file = old_val
+            try:
+                Path(tmp.name).unlink(missing_ok=True)
+            except OSError:
+                pass
+
+    def test_get_logger_skips_file_handler_when_not_configured(self):
+        from config import settings
+        old_val = settings.logging.log_file
+        try:
+            settings.logging.log_file = ""
+            uid = str(uuid.uuid4()).replace("-", "")
+            logger = get_logger("test.no_file." + uid)
+            handler_types = [type(h).__name__ for h in logger.handlers]
+            assert "RotatingFileHandler" not in handler_types
+        finally:
+            settings.logging.log_file = old_val
