@@ -12,9 +12,9 @@ def _free_port() -> int:
 
 
 if __name__ == "__main__":
-    port = _free_port()
+    _port = _free_port()
     sys.stdout.write(f"JHM_TOKEN={_API_TOKEN}\n")
-    sys.stdout.write(f"PORT:{port}\n")
+    sys.stdout.write(f"PORT:{_port}\n")
     sys.stdout.flush()
 
 
@@ -143,3 +143,7 @@ from services.scanner import _should_preserve_job_status, _job_eval_document
 from services.generator import _fire_blocker, _generate_one
 from services.provider_probe import _sensitive
 from schemas.requests import FeedbackBody, SettingsBody, ExperienceBody, ProjectBody, ProfileImportBody
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="127.0.0.1", port=_port, log_level="warning")
