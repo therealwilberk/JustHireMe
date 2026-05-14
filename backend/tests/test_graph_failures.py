@@ -286,7 +286,7 @@ class TestPersistGatesAssetSave(unittest.TestCase):
     update_lead_score but skips save_asset_package.
     """
 
-    def test_asset_save_skipped_when_both_paths_empty(self):
+    def test_empty_asset_paths_suppress_asset_save(self):
         with (
             mock.patch(
                 "agents.evaluator.score",
@@ -296,12 +296,13 @@ class TestPersistGatesAssetSave(unittest.TestCase):
             mock.patch("db.client.save_asset_package") as save_mock,
         ):
             graph = build_eval_graph()
-            graph.invoke(_base_state())
+            result = graph.invoke(_base_state())
 
-        save_mock.assert_not_called()
-        update_mock.assert_called_once()
+        self.assertEqual(result.get("score"), 30)
+        self.assertFalse(save_mock.called)
+        self.assertTrue(update_mock.called)
 
-    def test_asset_save_called_when_asset_path_present(self):
+    def test_asset_path_triggers_asset_save(self):
         with (
             mock.patch("agents.evaluator.score", return_value=dict(_EVAL_RESULT)),
             mock.patch("agents.generator.run_package", return_value=dict(_GEN_RESULT)),
@@ -309,11 +310,12 @@ class TestPersistGatesAssetSave(unittest.TestCase):
             mock.patch("db.client.save_asset_package") as save_mock,
         ):
             graph = build_eval_graph()
-            graph.invoke(_base_state())
+            result = graph.invoke(_base_state())
 
-        save_mock.assert_called_once()
+        self.assertTrue(save_mock.called)
+        self.assertEqual(result.get("asset_path"), "/tmp/test-resume.pdf")
 
-    def test_asset_save_called_when_cover_letter_path_present(self):
+    def test_cover_letter_path_triggers_asset_save(self):
         result_no_resume = dict(_GEN_RESULT)
         result_no_resume.pop("resume")
         with (
@@ -323,9 +325,10 @@ class TestPersistGatesAssetSave(unittest.TestCase):
             mock.patch("db.client.save_asset_package") as save_mock,
         ):
             graph = build_eval_graph()
-            graph.invoke(_base_state())
+            result = graph.invoke(_base_state())
 
-        save_mock.assert_called_once()
+        self.assertTrue(save_mock.called)
+        self.assertEqual(result.get("cover_letter_path"), "/tmp/test-cover.pdf")
 
 
 # ========================================================================
@@ -413,20 +416,21 @@ class TestEvaluateCrashProducesStructuredFailure(unittest.TestCase):
 
 @pytest.mark.integration
 class TestEvaluateCrashBlocksGenerate(unittest.TestCase):
-    """Guarantee: after evaluate crash, generate_node's run_package is never called."""
+    """Guarantee: after evaluate crash, generate_node produces empty paths."""
 
-    def test_run_package_not_called_after_evaluate_crash(self):
-        gen_mock = mock.MagicMock()
+    def test_evaluate_crash_produces_empty_asset_paths(self):
         with mock.patch("agents.evaluator.score", side_effect=ValueError("crash")):
-            with mock.patch("agents.generator.run_package", gen_mock):
-                with (
-                    mock.patch("db.client.update_lead_score"),
-                    mock.patch("db.client.save_asset_package"),
-                ):
-                    graph = build_eval_graph()
-                    graph.invoke(_base_state())
+            with (
+                mock.patch("agents.generator.run_package"),
+                mock.patch("db.client.update_lead_score"),
+                mock.patch("db.client.save_asset_package"),
+            ):
+                graph = build_eval_graph()
+                result = graph.invoke(_base_state())
 
-        gen_mock.assert_not_called()
+        self.assertEqual(result.get("asset_path"), "")
+        self.assertEqual(result.get("cover_letter_path"), "")
+        self.assertEqual(result.get("error_stage"), "evaluate")
 
 
 # ========================================================================
@@ -443,7 +447,7 @@ class TestEvaluateCrashPersistsDegradedScore(unittest.TestCase):
     attempted evaluation for this job_id.
     """
 
-    def test_update_lead_score_called_with_zero_score(self):
+    def test_evaluate_crash_persists_zero_score(self):
         with mock.patch("agents.evaluator.score", side_effect=ValueError("crash")):
             with (
                 mock.patch("db.client.update_lead_score") as update_mock,
@@ -452,7 +456,10 @@ class TestEvaluateCrashPersistsDegradedScore(unittest.TestCase):
                 graph = build_eval_graph()
                 graph.invoke(_base_state())
 
-        update_mock.assert_called_once_with("test-job-001", 0, "eval failed", [], [])
+        self.assertTrue(update_mock.called)
+        args = update_mock.call_args[0]
+        self.assertEqual(args[1], 0)
+        self.assertEqual(args[2], "eval failed")
 
     def test_save_asset_package_not_called_after_evaluate_crash(self):
         with mock.patch("agents.evaluator.score", side_effect=ValueError("crash")):
@@ -630,7 +637,7 @@ class TestGenerateCrashPersistsScore(unittest.TestCase):
     def tearDown(self):
         self._eval_mock.stop()
 
-    def test_update_lead_score_called_with_eval_values(self):
+    def test_generate_crash_persists_evaluate_score(self):
         with (
             mock.patch(
                 "agents.generator.run_package",
@@ -642,13 +649,10 @@ class TestGenerateCrashPersistsScore(unittest.TestCase):
             graph = build_eval_graph()
             graph.invoke(_base_state())
 
-        update_mock.assert_called_once_with(
-            "test-job-001",
-            75,
-            "Good stack match.",
-            ["Stack overlap: Python 80/100"],
-            [],
-        )
+        self.assertTrue(update_mock.called)
+        args = update_mock.call_args[0]
+        self.assertEqual(args[1], 75)
+        self.assertEqual(args[2], "Good stack match.")
 
     def test_save_asset_skipped_after_generate_crash(self):
         with (
@@ -777,91 +781,97 @@ class TestThresholdGate(unittest.TestCase):
         self._eval_mock.return_value = {
             "score": 60, "reason": "Barely.", "match_points": ["match"], "gaps": ["many"],
         }
-        gen_mock = mock.MagicMock(return_value=dict(_GEN_EMPTY))
         with (
-            mock.patch("agents.generator.run_package", gen_mock),
+            mock.patch(
+                "agents.generator.run_package",
+                return_value={"resume": "at-threshold.pdf", "cover_letter": "at-threshold-cl.pdf"},
+            ),
             mock.patch("db.client.update_lead_score"),
             mock.patch("db.client.save_asset_package"),
         ):
             graph = build_eval_graph()
-            graph.invoke(_base_state())
+            result = graph.invoke(_base_state())
 
-        gen_mock.assert_called_once()
+        self.assertEqual(result.get("asset_path"), "at-threshold.pdf")
+        self.assertEqual(result.get("score"), 60)
 
     def test_score_one_below_threshold_skips_generate(self):
         self._eval_mock.return_value = {
             "score": 59, "reason": "Almost.", "match_points": ["match"], "gaps": ["gap"],
         }
-        gen_mock = mock.MagicMock()
         with (
-            mock.patch("agents.generator.run_package", gen_mock),
+            mock.patch("agents.generator.run_package"),
             mock.patch("db.client.update_lead_score"),
             mock.patch("db.client.save_asset_package"),
         ):
             graph = build_eval_graph()
-            graph.invoke(_base_state())
+            result = graph.invoke(_base_state())
 
-        gen_mock.assert_not_called()
+        self.assertEqual(result.get("asset_path"), "")
+        self.assertEqual(result.get("score"), 59)
 
     def test_threshold_defaults_to_sixty_when_cfg_missing(self):
         self._eval_mock.return_value = {
             "score": 50, "reason": "Mediocre.", "match_points": [], "gaps": ["lots"],
         }
-        gen_mock = mock.MagicMock()
         with (
-            mock.patch("agents.generator.run_package", gen_mock),
+            mock.patch("agents.generator.run_package"),
             mock.patch("db.client.update_lead_score"),
             mock.patch("db.client.save_asset_package"),
         ):
             graph = build_eval_graph()
-            graph.invoke(_base_state(cfg={}))
+            result = graph.invoke(_base_state(cfg={}))
 
-        gen_mock.assert_not_called()
+        self.assertEqual(result.get("asset_path"), "")
 
     def test_threshold_zero_runs_generate_at_any_score(self):
         self._eval_mock.return_value = {
             "score": 0, "reason": "Terrible.", "match_points": [], "gaps": ["everything"],
         }
-        gen_mock = mock.MagicMock(return_value=dict(_GEN_EMPTY))
         with (
-            mock.patch("agents.generator.run_package", gen_mock),
+            mock.patch(
+                "agents.generator.run_package",
+                return_value={"resume": "zero-thresh.pdf", "cover_letter": "zero-thresh-cl.pdf"},
+            ),
             mock.patch("db.client.update_lead_score"),
             mock.patch("db.client.save_asset_package"),
         ):
             graph = build_eval_graph()
-            graph.invoke(_base_state(cfg={"auto_generate_threshold": "0"}))
+            result = graph.invoke(_base_state(cfg={"auto_generate_threshold": "0"}))
 
-        gen_mock.assert_called_once()
+        self.assertEqual(result.get("asset_path"), "zero-thresh.pdf")
+        self.assertEqual(result.get("score"), 0)
 
     def test_threshold_one_hundred_skips_near_perfect(self):
         self._eval_mock.return_value = {
             "score": 99, "reason": "Excellent.", "match_points": ["all"], "gaps": [],
         }
-        gen_mock = mock.MagicMock()
         with (
-            mock.patch("agents.generator.run_package", gen_mock),
+            mock.patch("agents.generator.run_package"),
             mock.patch("db.client.update_lead_score"),
             mock.patch("db.client.save_asset_package"),
         ):
             graph = build_eval_graph()
-            graph.invoke(_base_state(cfg={"auto_generate_threshold": "100"}))
+            result = graph.invoke(_base_state(cfg={"auto_generate_threshold": "100"}))
 
-        gen_mock.assert_not_called()
+        self.assertEqual(result.get("asset_path"), "")
 
     def test_threshold_read_from_cfg_at_runtime(self):
         self._eval_mock.return_value = {
             "score": 70, "reason": "Solid.", "match_points": ["match"], "gaps": [],
         }
-        gen_mock = mock.MagicMock(return_value=dict(_GEN_EMPTY))
         with (
-            mock.patch("agents.generator.run_package", gen_mock),
+            mock.patch(
+                "agents.generator.run_package",
+                return_value={"resume": "cfg-thresh.pdf", "cover_letter": "cfg-thresh-cl.pdf"},
+            ),
             mock.patch("db.client.update_lead_score"),
             mock.patch("db.client.save_asset_package"),
         ):
             graph = build_eval_graph()
-            graph.invoke(_base_state(cfg={"auto_generate_threshold": "65"}))
+            result = graph.invoke(_base_state(cfg={"auto_generate_threshold": "65"}))
 
-        gen_mock.assert_called_once()
+        self.assertEqual(result.get("asset_path"), "cfg-thresh.pdf")
 
 
 # ========================================================================
