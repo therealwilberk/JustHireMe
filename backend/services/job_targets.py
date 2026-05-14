@@ -7,48 +7,81 @@ from config import settings
 from config.secrets import resolve_secret
 
 
-DEFAULT_JOB_TARGETS = (
-    "hn-hiring",
-    "https://remoteok.com/api",
-    "https://remotive.com/api/remote-jobs",
-    "https://jobicy.com/api/v2/remote-jobs?count=50",
-    "https://jobicy.com/feed/newjobs",
-    "https://weworkremotely.com/remote-jobs.rss",
-    "site:boards.greenhouse.io",
-    "site:jobs.lever.co",
-    "site:jobs.ashbyhq.com",
-    "site:apply.workable.com",
-    "site:wellfound.com/jobs",
-    "site:linkedin.com/jobs",
-    "site:indeed.com/jobs",
-    "site:glassdoor.com/Job",
-    "site:jobs.smartrecruiters.com",
-    "site:workdayjobs.com",
-    "site:naukri.com",
-    "site:instahyre.com",
-    "site:cutshort.io/jobs",
-)
+import json
+import os
+import re
+from typing import Any
 
-INDIA_JOB_TARGETS = (
-    "site:wellfound.com/jobs India",
-    "site:cutshort.io/jobs India startup",
-    "site:instahyre.com jobs India",
-    "site:naukri.com jobs India",
-    "site:foundit.in jobs India",
-    "site:internshala.com/jobs India",
-    "site:linkedin.com/jobs India",
-    "site:indeed.com/jobs India",
-    "site:glassdoor.co.in Job India",
-    "site:boards.greenhouse.io India",
-    "site:jobs.lever.co India",
-    "site:jobs.ashbyhq.com India",
-    "site:apply.workable.com India",
-)
+from core.ws_manager import cm
+from config import settings
+from config.secrets import resolve_secret
 
-_BLOCKED_JOB_TARGET_MARKERS = (
-    "freelance", "upwork", "freelancer.com", "fiverr", "contra.com",
-    "peopleperhour", "guru.com", "truelancer", "codementor", "toptal",
-)
+
+def get_job_targets() -> list[str]:
+    """Read configured job targets from settings. Empty = none configured."""
+    from db.client import get_settings
+    cfg = get_settings()
+    stored = cfg.get("job_targets", "")
+    if not stored:
+        return []
+    try:
+        result = json.loads(stored)
+        if isinstance(result, list):
+            return result
+    except (json.JSONDecodeError, TypeError):
+        pass
+    return []
+
+
+def get_blocked_markers() -> list[str]:
+    """Read configured blocked markers from settings."""
+    from db.client import get_settings
+    cfg = get_settings()
+    stored = cfg.get("blocked_markers", "")
+    if not stored:
+        return []
+    try:
+        result = json.loads(stored)
+        if isinstance(result, list):
+            return result
+    except (json.JSONDecodeError, TypeError):
+        pass
+    return []
+
+
+def save_job_targets(targets: list[str], blocked: list[str]) -> None:
+    from db.client import save_settings
+    save_settings({
+        "job_targets": json.dumps(targets),
+        "blocked_markers": json.dumps(blocked),
+    })
+
+
+def validate_job_targets(entries: list[str]) -> list[str]:
+    """Returns list of error messages (empty = valid)."""
+    errors: list[str] = []
+    if not isinstance(entries, list):
+        return ["must be a list of strings"]
+    if len(entries) > 100:
+        errors.append("exceeds maximum of 100 entries")
+    seen: set[str] = set()
+    for i, entry in enumerate(entries):
+        cleaned = entry.strip()
+        if not isinstance(entry, str) or not cleaned:
+            errors.append(f"[{i}]: entry must be a non-empty string")
+        elif len(cleaned) > 500:
+            errors.append(f"[{i}]: entry exceeds 500 character limit")
+        elif cleaned.lower() in seen:
+            errors.append(f"[{i}]: duplicate entry '{cleaned}'")
+        else:
+            seen.add(cleaned.lower())
+            if cleaned.startswith("http://") or cleaned.startswith("https://"):
+                pass
+            elif cleaned.startswith("site:") or cleaned.startswith("github:") or cleaned.startswith("hn:") or cleaned.startswith("reddit:"):
+                pass
+            else:
+                errors.append(f"[{i}]: entry must start with http://, https://, site:, github:, hn:, or reddit:")
+    return errors
 
 
 def _split_configured_targets(raw: str) -> list[str]:
@@ -64,54 +97,18 @@ def _split_configured_targets(raw: str) -> list[str]:
     return targets
 
 
-def _dedupe_targets(targets: list[str]) -> list[str]:
-    seen: set[str] = set()
-    out: list[str] = []
-    for target in targets:
-        key = target.strip().lower()
-        if key and key not in seen:
-            seen.add(key)
-            out.append(target.strip())
-    return out
-
-
 def _job_market_focus(value: str) -> str:
     focus = str(value or "global").strip().lower()
     return "india" if focus in {"india", "in", "indian", "indian_startups"} else "global"
 
 
-def _is_hn_target(target: str) -> bool:
-    lower = target.lower()
-    return lower.startswith("hn:") or "hn-hiring" in lower or "hackernews" in lower or "news.ycombinator.com" in lower
-
-
 def _job_targets(raw: str, market_focus: str = "global") -> list[str]:
-    focus = _job_market_focus(market_focus)
     targets = _split_configured_targets(raw)
     if not targets:
-        return list(INDIA_JOB_TARGETS if focus == "india" else DEFAULT_JOB_TARGETS)
+        return get_job_targets()
 
-    filtered: list[str] = []
-    for target in targets:
-        lower = target.lower()
-        if any(marker in lower for marker in _BLOCKED_JOB_TARGET_MARKERS):
-            continue
-        filtered.append(target)
-
-    if focus == "global" and filtered and all(_is_hn_target(target) for target in filtered):
-        filtered.extend(target for target in DEFAULT_JOB_TARGETS if not _is_hn_target(target))
-
-    if focus == "india":
-        india_markers = (
-            "india", "indian", "bangalore", "bengaluru", "mumbai", "delhi",
-            "gurgaon", "gurugram", "hyderabad", "pune", "chennai", "noida",
-            "cutshort", "instahyre", "naukri", "foundit", "internshala",
-            "glassdoor.co.in",
-        )
-        filtered = [target for target in filtered if any(marker in target.lower() for marker in india_markers)]
-
-    fallback = INDIA_JOB_TARGETS if focus == "india" else DEFAULT_JOB_TARGETS
-    return _dedupe_targets(filtered) or list(fallback)
+    blocked = get_blocked_markers()
+    return [target for target in targets if not any(marker in target.lower() for marker in blocked)]
 
 
 def _desired_position(cfg: dict) -> str:

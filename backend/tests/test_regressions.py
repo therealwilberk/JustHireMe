@@ -1,3 +1,4 @@
+import json
 import os
 from pathlib import Path
 import sys
@@ -683,59 +684,69 @@ This role is a great fit for customer-facing technical professionals. Apply here
 
     def test_job_targets_only_drop_freelance_sources(self):
         import main
+        from db.client import save_settings
 
-        targets = main._job_targets("\n".join([
-            "site:linkedin.com/jobs",
-            "site:indeed.com/jobs",
-            "site:jobs.lever.co",
-            "https://remoteok.com/api",
-            "site:freelancer.com/projects",
-        ]))
+        save_settings({"blocked_markers": '["freelance", "upwork", "freelancer.com", "fiverr"]'})
+        try:
+            targets = main._job_targets("\n".join([
+                "site:linkedin.com/jobs",
+                "site:indeed.com/jobs",
+                "site:jobs.lever.co",
+                "https://remoteok.com/api",
+                "site:freelancer.com/projects",
+            ]))
 
-        self.assertIn("site:jobs.lever.co", targets)
-        self.assertIn("https://remoteok.com/api", targets)
-        self.assertIn("site:linkedin.com/jobs", targets)
-        self.assertIn("site:indeed.com/jobs", targets)
-        self.assertNotIn("site:freelancer.com/projects", targets)
+            self.assertIn("site:jobs.lever.co", targets)
+            self.assertIn("https://remoteok.com/api", targets)
+            self.assertIn("site:linkedin.com/jobs", targets)
+            self.assertIn("site:indeed.com/jobs", targets)
+            self.assertNotIn("site:freelancer.com/projects", targets)
+        finally:
+            save_settings({"blocked_markers": ""})
 
-    def test_hn_only_job_targets_are_broadened(self):
+    def test_hn_only_job_targets_return_as_is(self):
         import main
 
         targets = main._job_targets("hn-hiring")
 
-        self.assertIn("hn-hiring", targets)
-        self.assertIn("https://remoteok.com/api", targets)
-        self.assertIn("site:jobs.lever.co", targets)
+        self.assertEqual(targets, ["hn-hiring"])
 
-    def test_india_job_targets_use_india_only_fallback_and_filter(self):
+    def test_job_targets_empty_returns_empty_when_no_settings(self):
         import main
 
-        defaults = main._job_targets("", "india")
-        self.assertIn("site:naukri.com jobs India", defaults)
-        self.assertIn("site:foundit.in jobs India", defaults)
-        self.assertIn("site:internshala.com/jobs India", defaults)
-        self.assertNotIn("software engineer", " ".join(defaults).lower())
+        targets = main._job_targets("")
+        self.assertEqual(targets, [])
 
-        targets = main._job_targets("\n".join([
-            "https://remoteok.com/api",
-            "site:jobs.lever.co India",
-            "site:cutshort.io/jobs India startup",
-        ]), "india")
+    def test_job_targets_reads_from_settings_when_job_boards_empty(self):
+        import main
+        from db.client import save_settings
 
-        self.assertIn("site:jobs.lever.co India", targets)
-        self.assertIn("site:cutshort.io/jobs India startup", targets)
-        self.assertNotIn("https://remoteok.com/api", targets)
+        save_settings({"job_targets": '["site:linkedin.com/jobs", "https://remoteok.com/api"]'})
+        try:
+            targets = main._job_targets("")
+            self.assertIn("site:linkedin.com/jobs", targets)
+            self.assertIn("https://remoteok.com/api", targets)
+        finally:
+            save_settings({"job_targets": ""})
 
     def test_global_job_targets_are_general_market_defaults(self):
         import main
+        from db.client import save_settings
 
-        targets = main._job_targets("", "global")
-
-        self.assertIn("site:linkedin.com/jobs", targets)
-        self.assertIn("site:indeed.com/jobs", targets)
-        self.assertIn("site:workdayjobs.com", targets)
-        self.assertIn("https://remotive.com/api/remote-jobs", targets)
-        self.assertNotIn("software engineer", " ".join(targets).lower())
+        save_settings({"job_targets": json.dumps([
+            "site:linkedin.com/jobs",
+            "site:indeed.com/jobs",
+            "site:workdayjobs.com",
+            "https://remotive.com/api/remote-jobs",
+        ])})
+        try:
+            targets = main._job_targets("")
+            self.assertIn("site:linkedin.com/jobs", targets)
+            self.assertIn("site:indeed.com/jobs", targets)
+            self.assertIn("site:workdayjobs.com", targets)
+            self.assertIn("https://remotive.com/api/remote-jobs", targets)
+        finally:
+            save_settings({"job_targets": ""})
 
     def test_india_query_generation_keeps_location_clause_on_fallback(self):
         from agents import query_gen
