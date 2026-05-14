@@ -6,7 +6,7 @@ This directory contains the deterministic test suite for the JustHireMe backend.
 All tests in this directory are designed to run in CI, produce consistent results,
 and avoid external service dependencies.
 
-**Test count:** 204  
+**Test count:** 229  
 **Framework:** pytest (via `unittest.TestCase`)  
 **Runner:** `uv run python -m pytest tests/`
 
@@ -21,6 +21,22 @@ and avoid external service dependencies.
 | **What it tests** | Secret resolution priority chain: env var → SQLite → None |
 | **Key behaviours** | Warning deduplication on SQLite fallback, env var precedence |
 | **Dependencies** | None (patches `os.environ`, mocks `get_setting`) |
+
+### `test_websocket.py` — WebSocket Connection Manager Concurrency
+
+| Status | Strong |
+|--------|--------|
+| **What it tests** | `_CM` class async-safety: concurrent add/remove/broadcast, dead connection cleanup, identity safety |
+| **Key behaviours** | Lock guards list mutation, snapshot-under-lock pattern, dead connections removed from registry, identity-based comparison (not equality) |
+| **Dependencies** | None (mock WebSocket objects, no ASGI stack required) |
+
+### `test_sqlite.py` — SQLite Pragma Verification
+
+| Status | Strong |
+|--------|--------|
+| **What it tests** | WAL journal mode persistence, foreign key enforcement, busy timeout settability, combined pragma behavior |
+| **Key behaviours** | WAL persists across connections on file DB, FK rejects violations, busy timeout is settable |
+| **Dependencies** | Real `sqlite3` (bypasses test fakes at module level), temp file databases |
 
 ### `test_api.py` — API Endpoints
 
@@ -88,7 +104,8 @@ and avoid external service dependencies.
   │                   │  test_mcp_server.py (boundary)
   ├──────────────────┤
   │   Domain/Unit     │  test_regressions.py, test_secrets.py
-  │                   │  test_paths.py
+  │                   │  test_paths.py, test_websocket.py
+  │                   │  test_sqlite.py
   └──────────────────┘
 ```
 
@@ -257,21 +274,15 @@ This is intentionally NOT strict transactional (no rollback, no abort on partial
 
 ## Phase C Coverage (Reliability, Observability & Concurrency)
 
-As of Phase C activation, these areas have **no or minimal** test coverage:
+Phase C adds 25 new tests across two new files. Current coverage:
 
-| Area | Tests | Needed |
-|------|-------|--------|
-| Logging infrastructure | 8 partial refs (health `log_level`, secret warning dedup, agent log format) | Config-level tests (`config/logging.py`), env var override, format consistency |
-| WebSocket behavior | 2 auth-only (token connect, missing token) | Message contracts, concurrent mutation, `_CM` async-safety |
-| SQLite WAL/pragmas | None | Pragma verification on connection, busy timeout behavior |
-| Frontend error handling | None | SettingsModal/ProfileView save failure display |
-| `except: pass` replacement | None | Error paths produce expected log output |
-
-Tests for Phase C work belong in:
-- `test_secrets.py` — existing, for logging-related secret resolution tests
-- `test_logging.py` — new, for logging infrastructure and config
-- `test_websocket.py` — new, for WebSocket `_CM` concurrency and message contracts
-- `test_sqlite.py` — new, for WAL mode and connection pragmas
+| Area | Tests | File |
+|------|-------|------|
+| WebSocket `_CM` concurrency | 15 (add/remove/broadcast, concurrent ops, dead cleanup, identity safety) | `test_websocket.py` |
+| SQLite pragmas | 10 (WAL persist, FK enforcement, busy timeout, combined, importable) | `test_sqlite.py` |
+| Logging infrastructure | 8 partial (health `log_level`, secret warning dedup, agent log format) | scattered — `test_logging.py` pending |
+| Frontend error handling | Manual validation via build | no automated frontend tests |
+| `except: pass` replacement | Pending — will add tests when implemented | `test_exceptions.py` (planned) |
 
 ---
 
