@@ -6,12 +6,12 @@
   "license": "SEE LICENSE IN LICENSE",
   "repository": {
     "type": "git",
-    "url": "https://github.com/vasu-devs/JustHireMe.git"
+    "url": "https://github.com/kamaa/JustHireMe.git"
   },
   "bugs": {
-    "url": "https://github.com/vasu-devs/JustHireMe/issues"
+    "url": "https://github.com/kamaa/JustHireMe/issues"
   },
-  "homepage": "https://github.com/vasu-devs/JustHireMe#readme",
+  "homepage": "https://github.com/kamaa/JustHireMe#readme",
   "type": "module",
   "scripts": {
     "dev": "vite",

@@ -38,13 +38,9 @@
 
 JustHireMe is a source-available, non-commercial desktop workbench for people who are tired of noisy job boards and black-box AI apply tools.
 
-## Maintainer And Sponsorship
+## Maintainer
 
-JustHireMe has started receiving encouraging traction, and I am grateful to everyone who has tried it, shared feedback, or contributed ideas. I built this project while actively looking for funded AI startups hiring for founder, founding engineer, or AI engineer roles where I can work deeply on applied AI products.
-
-If you or someone in your network is hiring for those kinds of roles, I would be happy to connect. You can reach me at [siddhvasudev1402@gmail.com](mailto:siddhvasudev1402@gmail.com), on X/Twitter at [@vasu_devs](https://twitter.com/vasu_devs), or through my portfolio at [vasudev.live](https://vasudev.live).
-
-I am also open to thoughtful sponsorship for JustHireMe as a source-available, non-commercial project. Sponsorship helps keep the project active, improve source coverage, maintain the local-first architecture, and support the work needed to make job search tooling more transparent and useful.
+Maintained by @kamaa as a solo fork of the upstream JustHireMe project.
 
 ## Current Status
 
@@ -257,7 +253,7 @@ JustHireMe/
 
 Use this path if you are not a developer and just want to run JustHireMe.
 
-1. Open the latest [GitHub Release](https://github.com/vasu-devs/JustHireMe/releases/latest).
+1. Open the latest [GitHub Release](https://github.com/kamaa/JustHireMe/releases/latest).
 2. Download the `JustHireMe_*_x64-setup.exe` installer.
 3. Run the installer.
 4. If Windows SmartScreen appears, click **More info**, then **Run anyway**.
@@ -284,6 +280,11 @@ sudo pacman -S webkit2gtk-4.1 gtk3 libayatana-appindicator librsvg \
 
 For other distributions, install the equivalent packages for WebKit2GTK 4.1, GTK3, and AppIndicator support.
 
+**Debian / Ubuntu:**
+```bash
+sudo apt install libwebkit2gtk-4.1-dev build-essential curl wget file libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev libsoup-3.0-dev libjavascriptcoregtk-4.1-dev
+```
+
 ### Browser Detection
 
 The app looks for a browser binary in this order:
@@ -304,7 +305,7 @@ Optional:
 Use this path if you just want to inspect the UI, design direction, or frontend code.
 
 ```bash
-git clone https://github.com/vasu-devs/JustHireMe.git
+git clone https://github.com/kamaa/JustHireMe.git
 cd JustHireMe
 npm install
 npm run dev
@@ -317,7 +318,7 @@ This starts the Vite frontend only. Backend-backed workflows may show empty, moc
 Use this path if you want the Tauri shell and Python backend sidecar.
 
 ```bash
-git clone https://github.com/vasu-devs/JustHireMe.git
+git clone https://github.com/kamaa/JustHireMe.git
 cd JustHireMe
 npm install
 cd backend
@@ -335,10 +336,7 @@ The Tauri shell starts the frontend and launches the Python backend sidecar/dev 
 
 ### Before Opening An Issue
 
-- Check whether the bug is in supported core behavior or experimental automation.
-- Remove API keys, cookies, resumes, local databases, and generated private documents from logs or screenshots.
-- For source requests, include a public example URL and expected normalized fields.
-- For ranking bugs, include the expected score behavior and sanitized job/profile snippets.
+This is a personal fork. Issues and feature requests are tracked internally.
 
 ---
 
@@ -351,8 +349,7 @@ The Tauri shell starts the frontend and launches the Python backend sidecar/dev 
 | TypeScript check | `npm run typecheck` |
 | Frontend tests | `npm test` |
 | Frontend build | `npm run build` |
-| Backend tests on Windows | `backend/.venv/Scripts/python.exe -m pytest backend/tests` |
-| Backend tests on macOS/Linux | `backend/.venv/bin/python -m pytest backend/tests` |
+| Backend tests | `cd backend && uv run python -m pytest tests/` |
 | MCP server on Windows | `backend/.venv/Scripts/python.exe backend/mcp_server.py` |
 | MCP server on macOS/Linux | `backend/.venv/bin/python backend/mcp_server.py` |
 | Rust check | `cd src-tauri && cargo check` |
@@ -522,18 +519,9 @@ Planned improvement:
 
 ---
 
-## Windows Release Build
+## Linux Release Build
 
-The first public packaging target is Windows. Public installers are built and published by GitHub Actions when a `v*` tag is pushed.
-
-```powershell
-.\scripts\build-sidecar.ps1
-npm run package:windows
-```
-
-For local smoke tests without installer bundling, use `npm run package:fast`.
-
-Release smoke test and packaging details: [docs/windows-release.md](docs/windows-release.md)
+Linux releases are built from tagged commits via GitHub Actions. For local builds, run `npm run tauri build`.
 
 ---
 
@@ -623,7 +611,7 @@ JustHireMe is released under the [JustHireMe Source-Available Non-Commercial Lic
 
 Personal, educational, research, evaluation, and other non-commercial use are
 allowed. Any monetary use is prohibited without express prior written permission
-from Vasudev Siddh or vasu-devs.
+from @kamaa.
 
 Commercial use includes selling, paid services, hosted services, client work,
 business operations, advertising or subscription revenue, commissions, lead

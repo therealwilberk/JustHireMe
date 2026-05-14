@@ -74,27 +74,22 @@ tail -f /tmp/jhm.log
 
 `chore/externalize-job-targets` — active. Moving hardcoded job board lists to user-configurable settings. See `docs/plans/externalize-job-targets.md`.
 
-## Remaining India References (Separate Scope)
+## Deferred Items
 
-These files still contain India-specific logic that was part of the old hardcoded job target system. They are NOT modified by the `chore/externalize-job-targets` branch — that branch only removed India from `services/job_targets.py` and `config/app.py`.
+All deferred/backlog items are documented in `docs/deferred/` — one file per topic with status badges. Current items:
 
-| File | What has India | Why not removed |
-|------|----------------|-----------------|
-| `agents/query_gen.py` | `_india_clause()`, market focus branching in prompt templates | Agent layer — separate effort |
-| `agents/help_agent.py` | Help prompt text mentions India presets | Agent layer — separate effort |
-| `agents/lead_intel.py` | `if "india" in lower` → "Remote India" | Agent layer — separate effort |
-| `config/scoring.py` | Location list includes "india" | Scoring engine — not target config |
-| `agents/scoring_engine.py` | Location scoring includes India | Scoring engine — not target config |
-| `src/settings/shared.tsx` | `INDIA_SOURCE_PRESET`, market focus toggle | Frontend — separate branch |
-| `src/settings/DiscoverySettings.tsx` | India market button, India quick-add buttons | Frontend — separate branch |
-| `src/components/OnboardingWizard.tsx` | India dropdown option | Frontend — separate branch |
-
-## Known Issues (Deferred)
-
-### Textarea input bypasses validation
-
-The `job_boards` textarea (frontend → `POST /api/v1/settings`) has no input validation. Entries like `site:opp ("jobs" OR "careers")` pass through `_split_configured_targets()` unscathed. Validation only runs on the new `PUT /api/v1/settings/job-targets` CRUD API. Fix: wire the textarea through validation, or replace it with the CRUD UI (Phase 5: Frontend).
-
-### Stop scan button may not update UI state
-
-`POST /api/v1/scan/stop` force-cancels the running task and releases the ghost lock. Backend returns `{"status": "stopping"}` and broadcasts an `eval_done` WS event. If the button stays stuck, the `AgentOnline` component likely isn't handling the HTTP response or WS event — investigate its state management.
+| File | Status |
+|------|--------|
+| `docs/deferred/os-keychain.md` | Pending |
+| `docs/deferred/upstream-merge-tracking.md` | Pending |
+| `docs/deferred/cors-origin-regex-config.md` | Pending |
+| `docs/deferred/settings-dual-path.md` | Pending |
+| `docs/deferred/startup-no-config-test.md` | Pending |
+| `docs/deferred/api-key-encryption.md` | Pending |
+| `docs/deferred/placeholder-phone-in-generator.md` | Pending |
+| `docs/deferred/dependency-pins.md` | Pending |
+| `docs/deferred/textarea-validation-gap.md` | Pending |
+| `docs/deferred/stop-scan-ui-bug.md` | Partial |
+| `docs/deferred/india-references-cleanup.md` | Pending |
+| `docs/deferred/frontend-component-tests.md` | Partial |
+| `docs/deferred/ke-scrapers.md` | Pending (separate project) |

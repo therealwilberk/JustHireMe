@@ -532,7 +532,7 @@ def _draft_package(profile: dict, proof: str, j: dict, template: str = "") -> _D
         "```\n"
         "# Candidate Name\n"
         "Linkedin: linkedin.com/in/handle Email: email@example.com\n"
-        "Github: github.com/handle Mobile: +91-XXXXXXXXXX\n\n"
+        "Github: github.com/handle Mobile: +1-555-555-0100\n\n"
 
         "## SUMMARY\n"
         "One compact 2-line professional summary tailored to the exact role and JD keywords.\n\n"

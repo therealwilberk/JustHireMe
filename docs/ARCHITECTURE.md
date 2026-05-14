@@ -31,7 +31,7 @@ The frontend talks to the backend through authenticated local HTTP requests. Tau
 
 The Python backend in `backend/` is responsible for:
 
-- FastAPI routes
+- FastAPI routes (organized in `backend/routes/` with domain-aligned modules; `backend/main.py` is the entry point at ~190 lines)
 - source scraping
 - quality gating
 - ranking and evaluation

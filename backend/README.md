@@ -23,16 +23,8 @@ uv sync --dev
 
 ## Tests
 
-Windows:
-
 ```bash
-backend/.venv/Scripts/python.exe -m pytest backend/tests
-```
-
-macOS/Linux:
-
-```bash
-backend/.venv/bin/python -m pytest backend/tests
+cd backend && uv run python -m pytest tests/
 ```
 
 ## Notes

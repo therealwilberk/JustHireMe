@@ -327,6 +327,10 @@ jobs:
             exit 1
           fi
 
+      - name: Enable NO_STRIP for Linux AppImage
+        if: matrix.platform == 'linux'
+        run: echo "NO_STRIP=true" >> $GITHUB_ENV
+
       - name: Build Tauri installer
         env:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
@@ -364,7 +368,7 @@ jobs:
           asset_list="$release_dir/assets.txt"
 
           if [ "${{ matrix.platform }}" = "linux" ]; then
-            find src-tauri/target/release/bundle -type f \( -name "*.deb" -o -name "*.AppImage" -o -name "*.sig" \) | sort > "$asset_list"
+            find src-tauri/target/release/bundle -type f \( -name "*.AppImage" -o -name "*.sig" \) | sort > "$asset_list"
           else
             find src-tauri/target/release/bundle -type f \( -name "*.dmg" -o -name "*.tar.gz" -o -name "*.sig" \) | sort > "$asset_list"
           fi
@@ -470,8 +474,8 @@ jobs:
             if find release-assets -maxdepth 1 -type f -name "*.exe" | grep -q .; then
               echo "- Windows: download JustHireMe_${version}_x64-setup.exe, run it, and use More info -> Run anyway if SmartScreen appears."
             fi
-            if find release-assets -maxdepth 1 -type f \( -name "*.AppImage" -o -name "*.deb" \) | grep -q .; then
-              echo "- Linux: download the .AppImage, run chmod a+x on it, then launch it; or install the .deb on Debian/Ubuntu-based systems."
+            if find release-assets -maxdepth 1 -type f -name "*.AppImage" | grep -q .; then
+              echo "- Linux: download the .AppImage, run chmod a+x on it, then launch it."
             fi
             if find release-assets -maxdepth 1 -type f -name "*.dmg" | grep -q .; then
               echo "- macOS: download the .dmg and drag JustHireMe into Applications. This alpha build uses ad-hoc signing, so macOS may require Privacy & Security -> Open Anyway."

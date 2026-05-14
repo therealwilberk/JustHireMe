@@ -140,8 +140,7 @@ and avoid external service dependencies.
 
 ```
   ┌──────────────────┐
-  │   E2E (manual)    │  scripts/run_ingestion_pipeline.py
-  │                   │  e2e/manval/run_live_fire.py
+  │   E2E (manual)    │  e2e/manval/run_live_fire.py
   ├──────────────────┤
   │   Integration     │  test_api.py, test_graph.py,
   │                   │  test_graph_failures.py
