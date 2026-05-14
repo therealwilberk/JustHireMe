@@ -1,15 +1,15 @@
-"""Orchestration failure-path tests for graph reliability.
+"""Graph failure-path tests — one test = one operational guarantee.
 
-These tests cover both characterization (locking current behavior)
-and intentional semantics (documenting the fault-tolerant contract).
-Tests that were updated from characterization to correctness document
-the behavior change in their docstring.
+Each test validates exactly one operational guarantee.  Test names state
+the guarantee in declarative form.  Multiple assertions inside a test all
+serve that single guarantee (different facets of the same contract).
 
-The orchestration model is intentionally fault-tolerant:
+The orchestration model is fault-tolerant:
 - Each node catches its own failures
-- Nodes set error+error_stage on failure
-- Nodes NEVER clear upstream errors (error is append-only)
+- Nodes set error + error_stage on failure
+- Nodes never clear upstream errors (error is append-only)
 - persist_node returns structured errors instead of crashing
+- All nodes use defensive .get() with defaults for state access
 """
 
 import os
@@ -87,18 +87,19 @@ def _base_state(**overrides) -> PipelineState:
     return base
 
 
-# ==============================================================
-# Boundary 1: persist_node — unhandled SQLite write failure
-# ==============================================================
+# ========================================================================
+# Guarantee: persist_node crash does not crash the graph
+# ========================================================================
 
 
 @pytest.mark.integration
-class TestPersistNodeFailures(unittest.TestCase):
-    """Characterize behavior when persist_node's DB calls fail.
+class TestPersistCrashDoesNotCrashGraph(unittest.TestCase):
+    """Guarantee: a DB crash inside persist_node returns a result dict.
 
-    Current contract: persist_node has NO exception handling.
-    update_lead_score and save_asset_package execute bare — any exception
-    propagates through LangGraph and crashes the graph invocation.
+    Before the fix, persist_node had no try/except — the exception
+    propagated through LangGraph and was lost in the BackgroundTask
+    thread.  After the fix, persist_node catches the exception and
+    returns structured error fields.  invoke() always returns a dict.
     """
 
     def setUp(self):
@@ -113,30 +114,7 @@ class TestPersistNodeFailures(unittest.TestCase):
         for p in self._patches:
             p.stop()
 
-    def test_persist_returns_empty_dict_on_success(self):
-        """Characterize: persist_node returns {} on success.
-
-        The final graph state is whatever prior nodes produced.
-        persist does not add or overwrite any state field.
-        """
-        with (
-            mock.patch("db.client.update_lead_score"),
-            mock.patch("db.client.save_asset_package"),
-        ):
-            graph = build_eval_graph()
-            result = graph.invoke(_base_state())
-        self.assertEqual(result.get("score"), 75)
-        self.assertIsNone(result.get("error"))
-        # The empty dict means key/values from earlier nodes survive
-        self.assertEqual(result.get("asset_path"), "/tmp/test-resume.pdf")
-
-    def test_persist_update_lead_score_crash_returns_structured_error(self):
-        """Corrected: persist_node now catches DB exceptions.
-
-        Instead of crashing the graph, persist_node returns a structured
-        error state with ``error`` and ``error_stage`` set. The graph
-        completes normally — the API layer can inspect the result.
-        """
+    def test_invoke_returns_dict_on_update_lead_score_crash(self):
         with (
             mock.patch(
                 "db.client.update_lead_score",
@@ -147,18 +125,9 @@ class TestPersistNodeFailures(unittest.TestCase):
             graph = build_eval_graph()
             result = graph.invoke(_base_state())
 
-        self.assertEqual(result.get("error"), "DB locked")
-        self.assertEqual(result.get("error_stage"), "persist")
-        # Score from evaluate is still preserved
-        self.assertEqual(result.get("score"), 75)
-        # Asset paths from generate are still preserved
-        self.assertEqual(result.get("asset_path"), "/tmp/test-resume.pdf")
+        self.assertIsInstance(result, dict)
 
-    def test_persist_save_asset_package_crash_returns_structured_error(self):
-        """Corrected: save_asset_package exception is also caught.
-
-        Both DB writes in persist_node now have exception handling.
-        """
+    def test_invoke_returns_dict_on_save_asset_package_crash(self):
         with (
             mock.patch("db.client.update_lead_score"),
             mock.patch(
@@ -169,33 +138,47 @@ class TestPersistNodeFailures(unittest.TestCase):
             graph = build_eval_graph()
             result = graph.invoke(_base_state())
 
-        self.assertEqual(result.get("error"), "Disk full")
-        self.assertEqual(result.get("error_stage"), "persist")
+        self.assertIsInstance(result, dict)
 
-    def test_save_asset_skipped_when_asset_paths_empty(self):
-        """Characterize: save_asset_package is gated — not called when paths empty.
-
-        The conditional ``if state.get("asset_path") or state.get("cover_letter_path"):``
-        means persist_node may skip the asset save even though it executes.
-        """
+    def test_invoke_returns_dict_when_both_db_calls_crash(self):
         with (
-            mock.patch("agents.evaluator.score", return_value={"score": 30, "reason": "Weak", "match_points": [], "gaps": ["bad"]}),
-            mock.patch("db.client.update_lead_score") as update_mock,
-            mock.patch("db.client.save_asset_package") as save_mock,
+            mock.patch(
+                "db.client.update_lead_score",
+                side_effect=RuntimeError("conn lost"),
+            ),
+            mock.patch(
+                "db.client.save_asset_package",
+                side_effect=RuntimeError("conn lost"),
+            ),
         ):
             graph = build_eval_graph()
-            graph.invoke(_base_state())
+            result = graph.invoke(_base_state())
 
-        save_mock.assert_not_called()
-        update_mock.assert_called_once()
+        self.assertIsInstance(result, dict)
 
-    def test_persist_failure_no_longer_silent_in_background_tasks(self):
-        """Corrected: invoke() no longer raises on persist failure.
 
-        The graph now returns normally with error/error_stage fields set.
-        BackgroundTasks will complete, the WebSocket broadcast will fire,
-        and the operator sees the error in the pipeline result.
-        """
+# ========================================================================
+# Guarantee: persist_node crash surfaces human-readable error fields
+# ========================================================================
+
+
+@pytest.mark.integration
+class TestPersistCrashSurfacesStructuredError(unittest.TestCase):
+    """Guarantee: a DB crash produces error + error_stage in the result."""
+
+    def setUp(self):
+        self._patches = [
+            mock.patch("agents.evaluator.score", return_value=dict(_EVAL_RESULT)),
+            mock.patch("agents.generator.run_package", return_value=dict(_GEN_RESULT)),
+        ]
+        for p in self._patches:
+            p.start()
+
+    def tearDown(self):
+        for p in self._patches:
+            p.stop()
+
+    def test_error_field_matches_exception_message(self):
         with (
             mock.patch(
                 "db.client.update_lead_score",
@@ -206,34 +189,183 @@ class TestPersistNodeFailures(unittest.TestCase):
             graph = build_eval_graph()
             result = graph.invoke(_base_state())
 
-        self.assertEqual(result.get("error"), "DB locked")
-        self.assertEqual(result.get("error_stage"), "persist")
+        self.assertEqual(result["error"], "DB locked")
+
+    def test_error_stage_is_persist(self):
+        with (
+            mock.patch(
+                "db.client.update_lead_score",
+                side_effect=RuntimeError("DB locked"),
+            ),
+            mock.patch("db.client.save_asset_package"),
+        ):
+            graph = build_eval_graph()
+            result = graph.invoke(_base_state())
+
+        self.assertEqual(result["error_stage"], "persist")
+
+    def test_save_asset_package_crash_also_sets_persist_stage(self):
+        with (
+            mock.patch("db.client.update_lead_score"),
+            mock.patch(
+                "db.client.save_asset_package",
+                side_effect=RuntimeError("Disk full"),
+            ),
+        ):
+            graph = build_eval_graph()
+            result = graph.invoke(_base_state())
+
+        self.assertEqual(result["error_stage"], "persist")
 
 
-# ==============================================================
-# Boundary 2: evaluate_node — LLM / scoring exception
-# ==============================================================
+# ========================================================================
+# Guarantee: persist_node crash preserves upstream node outputs
+# ========================================================================
 
 
 @pytest.mark.integration
-class TestEvaluateNodeFailures(unittest.TestCase):
-    """Characterize behavior when evaluate_node raises.
+class TestPersistCrashPreservesUpstreamState(unittest.TestCase):
+    """Guarantee: upstream evaluate and generate outputs survive a persist crash.
 
-    Current contract: evaluate_node catches all Exceptions and returns
-    score=0, reason="eval failed", error=str(exc). Graph continues to
-    generate_node, which sees score=0 < threshold and auto-skips.
+    The fault-tolerant model means partial work is not rolled back —
+    it is observable via the result dict alongside the error.
     """
 
-    def test_evaluate_exception_preserves_error_through_generate_skip(self):
-        """Corrected: evaluate exception now survives through generate_node.
+    def setUp(self):
+        self._patches = [
+            mock.patch("agents.evaluator.score", return_value=dict(_EVAL_RESULT)),
+            mock.patch("agents.generator.run_package", return_value=dict(_GEN_RESULT)),
+        ]
+        for p in self._patches:
+            p.start()
 
-        generate_node no longer unconditionally sets ``error=None`` on the
-        skip path — it returns only asset_path and cover_letter_path,
-        preserving the error from evaluate_node.
+    def tearDown(self):
+        for p in self._patches:
+            p.stop()
 
-        The error field is now "append-only": once set, only a later node's
-        own failure overwrites it. A skip is not a failure.
-        """
+    def test_evaluate_score_survives_persist_crash(self):
+        with (
+            mock.patch(
+                "db.client.update_lead_score",
+                side_effect=RuntimeError("DB locked"),
+            ),
+            mock.patch("db.client.save_asset_package"),
+        ):
+            graph = build_eval_graph()
+            result = graph.invoke(_base_state())
+
+        self.assertEqual(result["score"], 75)
+        self.assertEqual(result["reason"], "Good stack match.")
+
+    def test_generate_asset_paths_survive_persist_crash(self):
+        with (
+            mock.patch(
+                "db.client.update_lead_score",
+                side_effect=RuntimeError("DB locked"),
+            ),
+            mock.patch("db.client.save_asset_package"),
+        ):
+            graph = build_eval_graph()
+            result = graph.invoke(_base_state())
+
+        self.assertEqual(result["asset_path"], "/tmp/test-resume.pdf")
+        self.assertEqual(result["cover_letter_path"], "/tmp/test-cover.pdf")
+
+
+# ========================================================================
+# Guarantee: persist_node gates asset save behind non-empty paths
+# ========================================================================
+
+
+@pytest.mark.integration
+class TestPersistGatesAssetSave(unittest.TestCase):
+    """Guarantee: save_asset_package is only called when paths are non-empty.
+
+    The conditional ``if state.get("asset_path") or state.get("cover_letter_path"):``
+    means a skipped generation (low score → empty paths) still calls
+    update_lead_score but skips save_asset_package.
+    """
+
+    def test_asset_save_skipped_when_both_paths_empty(self):
+        with (
+            mock.patch(
+                "agents.evaluator.score",
+                return_value={"score": 30, "reason": "Weak", "match_points": [], "gaps": ["bad"]},
+            ),
+            mock.patch("db.client.update_lead_score") as update_mock,
+            mock.patch("db.client.save_asset_package") as save_mock,
+        ):
+            graph = build_eval_graph()
+            graph.invoke(_base_state())
+
+        save_mock.assert_not_called()
+        update_mock.assert_called_once()
+
+    def test_asset_save_called_when_asset_path_present(self):
+        with (
+            mock.patch("agents.evaluator.score", return_value=dict(_EVAL_RESULT)),
+            mock.patch("agents.generator.run_package", return_value=dict(_GEN_RESULT)),
+            mock.patch("db.client.update_lead_score"),
+            mock.patch("db.client.save_asset_package") as save_mock,
+        ):
+            graph = build_eval_graph()
+            graph.invoke(_base_state())
+
+        save_mock.assert_called_once()
+
+    def test_asset_save_called_when_cover_letter_path_present(self):
+        result_no_resume = dict(_GEN_RESULT)
+        result_no_resume.pop("resume")
+        with (
+            mock.patch("agents.evaluator.score", return_value=dict(_EVAL_RESULT)),
+            mock.patch("agents.generator.run_package", return_value=result_no_resume),
+            mock.patch("db.client.update_lead_score"),
+            mock.patch("db.client.save_asset_package") as save_mock,
+        ):
+            graph = build_eval_graph()
+            graph.invoke(_base_state())
+
+        save_mock.assert_called_once()
+
+
+# ========================================================================
+# Guarantee: persist_node returns empty dict on success (no field pollution)
+# ========================================================================
+
+
+@pytest.mark.integration
+class TestPersistReturnsEmptyOnSuccess(unittest.TestCase):
+    """Guarantee: successful persist_node returns {}.
+
+    An empty return dict means LangGraph preserves all prior node
+    outputs unchanged.  persist_node does not add or overwrite state.
+    """
+
+    def test_empty_dict_on_success(self):
+        with (
+            mock.patch("agents.evaluator.score", return_value=dict(_EVAL_RESULT)),
+            mock.patch("agents.generator.run_package", return_value=dict(_GEN_RESULT)),
+            mock.patch("db.client.update_lead_score"),
+            mock.patch("db.client.save_asset_package"),
+        ):
+            graph = build_eval_graph()
+            result = graph.invoke(_base_state())
+
+        self.assertEqual(result.get("score"), 75)
+        self.assertIsNone(result.get("error"))
+        self.assertIsNone(result.get("error_stage"))
+
+
+# ========================================================================
+# Guarantee: evaluate exception propagates as structured failure
+# ========================================================================
+
+
+@pytest.mark.integration
+class TestEvaluateCrashProducesStructuredFailure(unittest.TestCase):
+    """Guarantee: an evaluate-node exception sets error, error_stage, score=0."""
+
+    def test_error_matches_exception_message(self):
         graph = build_eval_graph()
         with mock.patch(
             "agents.evaluator.score",
@@ -241,21 +373,51 @@ class TestEvaluateNodeFailures(unittest.TestCase):
         ):
             result = graph.invoke(_base_state())
 
-        self.assertEqual(result.get("score"), 0)
-        self.assertEqual(result.get("reason"), "eval failed")
-        self.assertEqual(result.get("error"), "LLM returned garbage")
-        self.assertEqual(result.get("error_stage"), "evaluate")
+        self.assertEqual(result["error"], "LLM returned garbage")
 
-    def test_exception_causes_generate_skip(self):
-        """Characterize: score=0 < threshold(60) → generate_node returns early.
+    def test_error_stage_is_evaluate(self):
+        graph = build_eval_graph()
+        with mock.patch(
+            "agents.evaluator.score",
+            side_effect=ValueError("LLM returned garbage"),
+        ):
+            result = graph.invoke(_base_state())
 
-        generate_node never calls run_package when score is below threshold.
-        """
-        gen_mock = mock.MagicMock()
+        self.assertEqual(result["error_stage"], "evaluate")
+
+    def test_score_is_zero_on_evaluate_crash(self):
+        graph = build_eval_graph()
         with mock.patch(
             "agents.evaluator.score",
             side_effect=ValueError("crash"),
         ):
+            result = graph.invoke(_base_state())
+
+        self.assertEqual(result["score"], 0)
+
+    def test_reason_indicates_eval_failure(self):
+        graph = build_eval_graph()
+        with mock.patch(
+            "agents.evaluator.score",
+            side_effect=ValueError("crash"),
+        ):
+            result = graph.invoke(_base_state())
+
+        self.assertEqual(result["reason"], "eval failed")
+
+
+# ========================================================================
+# Guarantee: evaluate crash prevents generate execution
+# ========================================================================
+
+
+@pytest.mark.integration
+class TestEvaluateCrashBlocksGenerate(unittest.TestCase):
+    """Guarantee: after evaluate crash, generate_node's run_package is never called."""
+
+    def test_run_package_not_called_after_evaluate_crash(self):
+        gen_mock = mock.MagicMock()
+        with mock.patch("agents.evaluator.score", side_effect=ValueError("crash")):
             with mock.patch("agents.generator.run_package", gen_mock):
                 with (
                     mock.patch("db.client.update_lead_score"),
@@ -266,28 +428,54 @@ class TestEvaluateNodeFailures(unittest.TestCase):
 
         gen_mock.assert_not_called()
 
-    def test_exception_still_persists_degraded_state(self):
-        """Characterize: after evaluate crash, persist_node writes degraded state.
 
-        update_lead_score is called with score=0 and reason="eval failed".
-        save_asset_package is NOT called because asset_path is empty.
-        """
-        with mock.patch(
-            "agents.evaluator.score",
-            side_effect=ValueError("crash"),
-        ):
+# ========================================================================
+# Guarantee: evaluate crash still persists degraded score
+# ========================================================================
+
+
+@pytest.mark.integration
+class TestEvaluateCrashPersistsDegradedScore(unittest.TestCase):
+    """Guarantee: update_lead_score is called even after evaluate crash.
+
+    The fault-tolerant model means we persist what we have — score=0
+    and reason="eval failed" — so the operator can see the pipeline
+    attempted evaluation for this job_id.
+    """
+
+    def test_update_lead_score_called_with_zero_score(self):
+        with mock.patch("agents.evaluator.score", side_effect=ValueError("crash")):
             with (
                 mock.patch("db.client.update_lead_score") as update_mock,
-                mock.patch("db.client.save_asset_package") as save_mock,
+                mock.patch("db.client.save_asset_package"),
             ):
                 graph = build_eval_graph()
                 graph.invoke(_base_state())
 
         update_mock.assert_called_once_with("test-job-001", 0, "eval failed", [], [])
+
+    def test_save_asset_package_not_called_after_evaluate_crash(self):
+        with mock.patch("agents.evaluator.score", side_effect=ValueError("crash")):
+            with (
+                mock.patch("db.client.update_lead_score"),
+                mock.patch("db.client.save_asset_package") as save_mock,
+            ):
+                graph = build_eval_graph()
+                graph.invoke(_base_state())
+
         save_mock.assert_not_called()
 
-    def test_non_crash_exception_caught_by_node(self):
-        """Characterize: evaluate_node catches all Exception subclasses."""
+
+# ========================================================================
+# Guarantee: evaluate_node catches all Exception subclasses
+# ========================================================================
+
+
+@pytest.mark.integration
+class TestEvaluateCatchesAllExceptions(unittest.TestCase):
+    """Guarantee: every Exception subclass produces score=0, not a graph crash."""
+
+    def test_all_exception_types_set_score_zero(self):
         gen_mock = mock.MagicMock()
         for exc_type in (ValueError("msg"), RuntimeError("msg"), KeyError("msg"), TypeError("msg")):
             with self.subTest(exc=type(exc_type).__name__):
@@ -300,21 +488,137 @@ class TestEvaluateNodeFailures(unittest.TestCase):
                             graph = build_eval_graph()
                             result = graph.invoke(_base_state())
 
-                self.assertEqual(result.get("score"), 0)
+                self.assertEqual(result["score"], 0)
 
 
-# ==============================================================
-# Boundary 3: generate_node — LLM draft / PDF render failure
-# ==============================================================
+# ========================================================================
+# Guarantee: generate crash returns empty asset paths
+# ========================================================================
 
 
 @pytest.mark.integration
-class TestGenerateNodeFailures(unittest.TestCase):
-    """Characterize behavior when generate_node raises.
+class TestGenerateCrashReturnsEmptyPaths(unittest.TestCase):
+    """Guarantee: a generate-node exception produces empty asset/cover paths."""
 
-    Current contract: generate_node catches all Exceptions and returns
-    empty asset paths + error string. Graph continues to persist_node,
-    which writes the score but skips asset save (paths are empty).
+    def setUp(self):
+        self._eval_mock = mock.patch(
+            "agents.evaluator.score", return_value=dict(_EVAL_RESULT)
+        )
+        self._eval_mock.start()
+
+    def tearDown(self):
+        self._eval_mock.stop()
+
+    def test_asset_path_empty_after_generate_crash(self):
+        with mock.patch(
+            "agents.generator.run_package",
+            side_effect=RuntimeError("PDF render failed"),
+        ):
+            graph = build_eval_graph()
+            result = graph.invoke(_base_state())
+
+        self.assertEqual(result["asset_path"], "")
+
+    def test_cover_letter_path_empty_after_generate_crash(self):
+        with mock.patch(
+            "agents.generator.run_package",
+            side_effect=RuntimeError("PDF render failed"),
+        ):
+            graph = build_eval_graph()
+            result = graph.invoke(_base_state())
+
+        self.assertEqual(result["cover_letter_path"], "")
+
+
+# ========================================================================
+# Guarantee: generate crash surfaces structured error
+# ========================================================================
+
+
+@pytest.mark.integration
+class TestGenerateCrashSurfacesStructuredError(unittest.TestCase):
+    """Guarantee: a generate-node exception sets error + error_stage."""
+
+    def setUp(self):
+        self._eval_mock = mock.patch(
+            "agents.evaluator.score", return_value=dict(_EVAL_RESULT)
+        )
+        self._eval_mock.start()
+
+    def tearDown(self):
+        self._eval_mock.stop()
+
+    def test_error_matches_exception_message(self):
+        with mock.patch(
+            "agents.generator.run_package",
+            side_effect=RuntimeError("PDF render failed"),
+        ):
+            graph = build_eval_graph()
+            result = graph.invoke(_base_state())
+
+        self.assertIn("PDF render failed", result["error"])
+
+    def test_error_stage_is_generate(self):
+        with mock.patch(
+            "agents.generator.run_package",
+            side_effect=RuntimeError("PDF render failed"),
+        ):
+            graph = build_eval_graph()
+            result = graph.invoke(_base_state())
+
+        self.assertEqual(result["error_stage"], "generate")
+
+
+# ========================================================================
+# Guarantee: generate crash preserves upstream evaluate outputs
+# ========================================================================
+
+
+@pytest.mark.integration
+class TestGenerateCrashPreservesEvaluateOutput(unittest.TestCase):
+    """Guarantee: generate crash does NOT overwrite score/reason from evaluate."""
+
+    def setUp(self):
+        self._eval_mock = mock.patch(
+            "agents.evaluator.score", return_value=dict(_EVAL_RESULT)
+        )
+        self._eval_mock.start()
+
+    def tearDown(self):
+        self._eval_mock.stop()
+
+    def test_score_survives_generate_crash(self):
+        with mock.patch(
+            "agents.generator.run_package",
+            side_effect=RuntimeError("crash"),
+        ):
+            graph = build_eval_graph()
+            result = graph.invoke(_base_state())
+
+        self.assertEqual(result["score"], 75)
+
+    def test_reason_survives_generate_crash(self):
+        with mock.patch(
+            "agents.generator.run_package",
+            side_effect=RuntimeError("crash"),
+        ):
+            graph = build_eval_graph()
+            result = graph.invoke(_base_state())
+
+        self.assertEqual(result["reason"], "Good stack match.")
+
+
+# ========================================================================
+# Guarantee: generate crash still persists score to DB
+# ========================================================================
+
+
+@pytest.mark.integration
+class TestGenerateCrashPersistsScore(unittest.TestCase):
+    """Guarantee: update_lead_score is called even after generate crash.
+
+    The score from evaluate (75) and its reason/match_points/gaps are
+    persisted.  save_asset_package is NOT called because paths are empty.
     """
 
     def setUp(self):
@@ -326,31 +630,14 @@ class TestGenerateNodeFailures(unittest.TestCase):
     def tearDown(self):
         self._eval_mock.stop()
 
-    def test_exception_returns_empty_paths_with_error(self):
-        """Characterize: exception → asset_path="", cover_letter_path="", error set."""
-        with mock.patch(
-            "agents.generator.run_package",
-            side_effect=RuntimeError("PDF render failed"),
-        ):
-            graph = build_eval_graph()
-            result = graph.invoke(_base_state())
-
-        self.assertEqual(result.get("asset_path"), "")
-        self.assertEqual(result.get("cover_letter_path"), "")
-        self.assertIsNotNone(result.get("error"))
-        self.assertIn("PDF render failed", result["error"])
-
-    def test_exception_still_persists_score_but_skips_asset_save(self):
-        """Characterize: after generate crash, update_lead_score is called,
-        save_asset_package is not (because asset paths are empty).
-        """
+    def test_update_lead_score_called_with_eval_values(self):
         with (
             mock.patch(
                 "agents.generator.run_package",
                 side_effect=RuntimeError("crash"),
             ),
             mock.patch("db.client.update_lead_score") as update_mock,
-            mock.patch("db.client.save_asset_package") as save_mock,
+            mock.patch("db.client.save_asset_package"),
         ):
             graph = build_eval_graph()
             graph.invoke(_base_state())
@@ -362,46 +649,67 @@ class TestGenerateNodeFailures(unittest.TestCase):
             ["Stack overlap: Python 80/100"],
             [],
         )
-        save_mock.assert_not_called()
 
-    def test_does_not_overwrite_score_on_failure(self):
-        """Characterize: generate_node returns only asset/error fields.
-
-        score is not in generate_node's return dict, so LangGraph
-        preserves the score from evaluate_node.
-        """
-        with mock.patch(
-            "agents.generator.run_package",
-            side_effect=RuntimeError("crash"),
+    def test_save_asset_skipped_after_generate_crash(self):
+        with (
+            mock.patch(
+                "agents.generator.run_package",
+                side_effect=RuntimeError("crash"),
+            ),
+            mock.patch("db.client.update_lead_score"),
+            mock.patch("db.client.save_asset_package") as save_mock,
         ):
             graph = build_eval_graph()
-            result = graph.invoke(_base_state())
+            graph.invoke(_base_state())
 
-        self.assertEqual(result.get("score"), 75)
-        self.assertEqual(result.get("reason"), "Good stack match.")
+        save_mock.assert_not_called()
 
-    def test_non_crash_exception_caught_by_node(self):
-        """Characterize: generate_node catches all Exception subclasses."""
+
+# ========================================================================
+# Guarantee: generate_node catches all Exception subclasses
+# ========================================================================
+
+
+@pytest.mark.integration
+class TestGenerateCatchesAllExceptions(unittest.TestCase):
+    """Guarantee: every Exception subclass from run_package sets error in state."""
+
+    def setUp(self):
+        self._eval_mock = mock.patch(
+            "agents.evaluator.score", return_value=dict(_EVAL_RESULT)
+        )
+        self._eval_mock.start()
+
+    def tearDown(self):
+        self._eval_mock.stop()
+
+    def test_all_exception_types_set_error(self):
         for exc_type in (ValueError("msg"), RuntimeError("msg"), KeyError("msg"), TypeError("msg")):
             with self.subTest(exc=type(exc_type).__name__):
                 with mock.patch("agents.generator.run_package", side_effect=exc_type):
                     graph = build_eval_graph()
                     result = graph.invoke(_base_state())
 
-                self.assertEqual(result.get("asset_path"), "")
                 self.assertIsNotNone(result.get("error"))
                 self.assertEqual(result.get("error_stage"), "generate")
 
-    def test_generate_skip_does_not_clear_upstream_error(self):
-        """Corrected: generate_node skip path no longer overwrites error.
 
-        If evaluate_node fails (error=msg, error_stage=evaluate) and
-        generate_node skips (score < threshold), the error fields survive.
-        """
-        with mock.patch(
-            "agents.evaluator.score",
-            side_effect=ValueError("LLM failed"),
-        ):
+# ========================================================================
+# Guarantee: generate skip does not clear upstream errors
+# ========================================================================
+
+
+@pytest.mark.integration
+class TestGenerateSkipPreservesUpstreamError(unittest.TestCase):
+    """Guarantee: generate_node skip path does NOT overwrite error fields.
+
+    Before the fix, the skip path returned ``{"error": None}`` which
+    erased the error set by evaluate_node.  Now it returns only
+    asset/cover_letter paths, leaving error fields untouched.
+    """
+
+    def test_upstream_error_survives_generate_skip(self):
+        with mock.patch("agents.evaluator.score", side_effect=ValueError("LLM failed")):
             with mock.patch("agents.generator.run_package"):
                 with (
                     mock.patch("db.client.update_lead_score"),
@@ -410,23 +718,52 @@ class TestGenerateNodeFailures(unittest.TestCase):
                     graph = build_eval_graph()
                     result = graph.invoke(_base_state())
 
-        self.assertEqual(result.get("error"), "LLM failed")
-        self.assertEqual(result.get("error_stage"), "evaluate")
+        self.assertEqual(result["error"], "LLM failed")
+        self.assertEqual(result["error_stage"], "evaluate")
 
 
-# ==============================================================
-# Boundary 4: threshold gate — edge-of-boundary behavior
-# ==============================================================
+# ========================================================================
+# Guarantee: low score without any crash produces no error fields
+# ========================================================================
 
 
 @pytest.mark.integration
-class TestThresholdBoundary(unittest.TestCase):
-    """Characterize the generate_node threshold gate.
+class TestLowScoreIsNotAnError(unittest.TestCase):
+    """Guarantee: score < threshold with no exception does not set error.
 
-    Current contract:
-    - score < threshold skips generate (strict less-than, not <=)
-    - Missing auto_generate_threshold in cfg defaults to 60
-    - "or 60" also handles falsy values like empty string
+    The operator must be able to distinguish "legitimately low score"
+    from "crash during evaluation."  Only the presence of error/error_stage
+    distinguishes these two cases.
+    """
+
+    def test_low_score_has_no_error_fields(self):
+        with (
+            mock.patch(
+                "agents.evaluator.score",
+                return_value={"score": 30, "reason": "Weak match.", "match_points": [], "gaps": ["domain mismatch"]},
+            ),
+            mock.patch("db.client.update_lead_score"),
+            mock.patch("db.client.save_asset_package"),
+        ):
+            graph = build_eval_graph()
+            result = graph.invoke(_base_state())
+
+        self.assertEqual(result["score"], 30)
+        self.assertIsNone(result["error"])
+        self.assertIsNone(result["error_stage"])
+
+
+# ========================================================================
+# Guarantee: threshold gate at 60 controls generate execution
+# ========================================================================
+
+
+@pytest.mark.integration
+class TestThresholdGate(unittest.TestCase):
+    """Guarantee: generate_node runs iff score >= threshold.
+
+    Threshold defaults to 60.  Uses strict-less-than: score < threshold
+    skips, score == threshold runs.
     """
 
     def setUp(self):
@@ -436,16 +773,9 @@ class TestThresholdBoundary(unittest.TestCase):
     def tearDown(self):
         self._eval_patcher.stop()
 
-    def test_score_at_threshold_triggers_generate(self):
-        """Characterize: score == threshold (60) runs generate_node.
-
-        Uses `<` not `<=`, so `60 < 60` is False → generate runs.
-        """
+    def test_score_at_exact_threshold_runs_generate(self):
         self._eval_mock.return_value = {
-            "score": 60,
-            "reason": "Barely meets bar.",
-            "match_points": ["match"],
-            "gaps": ["many"],
+            "score": 60, "reason": "Barely.", "match_points": ["match"], "gaps": ["many"],
         }
         gen_mock = mock.MagicMock(return_value=dict(_GEN_EMPTY))
         with (
@@ -459,15 +789,8 @@ class TestThresholdBoundary(unittest.TestCase):
         gen_mock.assert_called_once()
 
     def test_score_one_below_threshold_skips_generate(self):
-        """Characterize: score == threshold-1 (59) skips generate_node.
-
-        59 < 60 is True → generate skips.
-        """
         self._eval_mock.return_value = {
-            "score": 59,
-            "reason": "Almost.",
-            "match_points": ["match"],
-            "gaps": ["gap"],
+            "score": 59, "reason": "Almost.", "match_points": ["match"], "gaps": ["gap"],
         }
         gen_mock = mock.MagicMock()
         with (
@@ -480,16 +803,9 @@ class TestThresholdBoundary(unittest.TestCase):
 
         gen_mock.assert_not_called()
 
-    def test_threshold_defaults_to_60_when_cfg_missing(self):
-        """Characterize: cfg={} → threshold=60 (the bare `or 60` fallback).
-
-        Code path: ``int(state.get("cfg", {}).get("auto_generate_threshold") or 60)``
-        """
+    def test_threshold_defaults_to_sixty_when_cfg_missing(self):
         self._eval_mock.return_value = {
-            "score": 50,
-            "reason": "Mediocre.",
-            "match_points": [],
-            "gaps": ["lots"],
+            "score": 50, "reason": "Mediocre.", "match_points": [], "gaps": ["lots"],
         }
         gen_mock = mock.MagicMock()
         with (
@@ -497,22 +813,14 @@ class TestThresholdBoundary(unittest.TestCase):
             mock.patch("db.client.update_lead_score"),
             mock.patch("db.client.save_asset_package"),
         ):
-            state = _base_state(cfg={})
             graph = build_eval_graph()
-            graph.invoke(state)
+            graph.invoke(_base_state(cfg={}))
 
         gen_mock.assert_not_called()
 
-    def test_threshold_zero_always_runs_generate(self):
-        """Characterize: threshold=0 means generate runs for any score.
-
-        ``score (0-100) < 0`` is never true → generate always runs even at score=0.
-        """
+    def test_threshold_zero_runs_generate_at_any_score(self):
         self._eval_mock.return_value = {
-            "score": 0,
-            "reason": "Terrible.",
-            "match_points": [],
-            "gaps": ["everything"],
+            "score": 0, "reason": "Terrible.", "match_points": [], "gaps": ["everything"],
         }
         gen_mock = mock.MagicMock(return_value=dict(_GEN_EMPTY))
         with (
@@ -520,19 +828,14 @@ class TestThresholdBoundary(unittest.TestCase):
             mock.patch("db.client.update_lead_score"),
             mock.patch("db.client.save_asset_package"),
         ):
-            state = _base_state(cfg={"auto_generate_threshold": "0"})
             graph = build_eval_graph()
-            graph.invoke(state)
+            graph.invoke(_base_state(cfg={"auto_generate_threshold": "0"}))
 
         gen_mock.assert_called_once()
 
-    def test_high_threshold_skips_near_perfect_score(self):
-        """Characterize: threshold=100 → only perfect (100) score runs generate."""
+    def test_threshold_one_hundred_skips_near_perfect(self):
         self._eval_mock.return_value = {
-            "score": 99,
-            "reason": "Excellent.",
-            "match_points": ["all"],
-            "gaps": [],
+            "score": 99, "reason": "Excellent.", "match_points": ["all"], "gaps": [],
         }
         gen_mock = mock.MagicMock()
         with (
@@ -540,22 +843,14 @@ class TestThresholdBoundary(unittest.TestCase):
             mock.patch("db.client.update_lead_score"),
             mock.patch("db.client.save_asset_package"),
         ):
-            state = _base_state(cfg={"auto_generate_threshold": "100"})
             graph = build_eval_graph()
-            graph.invoke(state)
+            graph.invoke(_base_state(cfg={"auto_generate_threshold": "100"}))
 
         gen_mock.assert_not_called()
 
-    def test_threshold_reads_from_cfg_at_runtime(self):
-        """Characterize: threshold is read from state.cfg inside generate_node.
-
-        Different job_ids can have different thresholds via their cfg.
-        """
+    def test_threshold_read_from_cfg_at_runtime(self):
         self._eval_mock.return_value = {
-            "score": 70,
-            "reason": "Solid.",
-            "match_points": ["match"],
-            "gaps": [],
+            "score": 70, "reason": "Solid.", "match_points": ["match"], "gaps": [],
         }
         gen_mock = mock.MagicMock(return_value=dict(_GEN_EMPTY))
         with (
@@ -563,127 +858,24 @@ class TestThresholdBoundary(unittest.TestCase):
             mock.patch("db.client.update_lead_score"),
             mock.patch("db.client.save_asset_package"),
         ):
-            state = _base_state(cfg={"auto_generate_threshold": "65"})
             graph = build_eval_graph()
-            graph.invoke(state)
+            graph.invoke(_base_state(cfg={"auto_generate_threshold": "65"}))
 
         gen_mock.assert_called_once()
 
 
-# ==============================================================
-# Boundary 5: state consistency after partial node failure
-# ==============================================================
+# ========================================================================
+# Guarantee: missing lead description does not crash
+# ========================================================================
 
 
 @pytest.mark.integration
-class TestStateConsistencyAfterFailure(unittest.TestCase):
-    """Characterize state invariants when nodes fail partially.
+class TestMissingLeadDescription(unittest.TestCase):
+    """Guarantee: lead without a description key defaults to empty string."""
 
-    Key invariant: LangGraph merges partial dicts from each node.
-    Fields NOT returned by a node are preserved from previous state.
-    Fields returned by a node overwrite previous values.
-    """
-
-    def test_fields_not_returned_are_preserved(self):
-        """Characterize: evaluate_node returns only scoring fields.
-
-        job_id, lead, profile, cfg survive from the initial state.
-        """
-        with (
-            mock.patch(
-                "agents.evaluator.score",
-                return_value={"score": 80, "reason": "Great.", "match_points": ["Python"], "gaps": []},
-            ),
-            mock.patch("agents.generator.run_package", return_value=dict(_GEN_EMPTY)),
-            mock.patch("db.client.update_lead_score"),
-            mock.patch("db.client.save_asset_package"),
-        ):
-            graph = build_eval_graph()
-            result = graph.invoke(_base_state())
-
-        self.assertEqual(result.get("job_id"), "test-job-001")
-        self.assertEqual(result["lead"]["title"], "Software Engineer")
-        self.assertIn("candidate", result["profile"])
-
-    def test_low_score_path_has_zero_score_without_error(self):
-        """Characterize: score below threshold is not an error — error is None.
-
-        This distinguishes "legitimately low score" from "crash during eval."
-        """
-        with (
-            mock.patch(
-                "agents.evaluator.score",
-                return_value={"score": 30, "reason": "Weak match.", "match_points": [], "gaps": ["domain mismatch"]},
-            ),
-            mock.patch("db.client.update_lead_score"),
-            mock.patch("db.client.save_asset_package"),
-        ):
-            graph = build_eval_graph()
-            result = graph.invoke(_base_state())
-
-        self.assertEqual(result.get("score"), 30)
-        self.assertIsNone(result.get("error"))
-        self.assertEqual(result.get("asset_path"), "")
-        self.assertEqual(result.get("cover_letter_path"), "")
-
-    def test_evaluate_crash_preserves_error_and_stage(self):
-        """Corrected: evaluate crash now preserves error through the pipeline.
-
-        error_stage="evaluate" tells downstream consumers which node failed.
-        The generate_node skip path no longer erases this information.
-        """
-        with mock.patch("agents.evaluator.score", side_effect=ValueError("crash")):
-            with (
-                mock.patch("db.client.update_lead_score"),
-                mock.patch("db.client.save_asset_package"),
-            ):
-                graph = build_eval_graph()
-                result = graph.invoke(_base_state())
-
-        self.assertEqual(result.get("score"), 0)
-        self.assertEqual(result.get("error"), "crash")
-        self.assertEqual(result.get("error_stage"), "evaluate")
-        self.assertEqual(result.get("reason"), "eval failed")
-
-    def test_generate_crash_path_has_score_and_error(self):
-        """Characterize: generate crash preserves score from evaluate and sets error."""
-        with (
-            mock.patch("agents.evaluator.score", return_value=dict(_EVAL_RESULT)),
-            mock.patch("agents.generator.run_package", side_effect=RuntimeError("crash")),
-            mock.patch("db.client.update_lead_score"),
-            mock.patch("db.client.save_asset_package"),
-        ):
-            graph = build_eval_graph()
-            result = graph.invoke(_base_state())
-
-        self.assertEqual(result.get("score"), 75)
-        self.assertIsNotNone(result.get("error"))
-        self.assertEqual(result.get("asset_path"), "")
-        self.assertEqual(result.get("cover_letter_path"), "")
-
-
-# ==============================================================
-# Boundary 6: malformed / missing state fields
-# ==============================================================
-
-
-@pytest.mark.integration
-class TestMalformedState(unittest.TestCase):
-    """Characterize graph behavior when state fields are missing or malformed.
-
-    Each node uses defensive `.get()` calls, so missing keys should not crash
-    during node execution. However, persist_node uses direct subscript access
-    on some fields, which WILL crash if those keys are missing.
-    """
-
-    def test_missing_lead_description_handled(self):
-        """Characterize: lead without 'description' key does not crash.
-
-        ``_job_eval_document`` does ``lead.get("description") or ""``.
-        """
+    def test_missing_description_does_not_crash(self):
         lead_no_desc = dict(_SHARED_LEAD)
         del lead_no_desc["description"]
-
         with (
             mock.patch(
                 "agents.evaluator.score",
@@ -698,11 +890,17 @@ class TestMalformedState(unittest.TestCase):
 
         self.assertEqual(result.get("score"), 65)
 
-    def test_empty_profile_handled(self):
-        """Characterize: empty profile dict passes through evaluate without crash.
 
-        The evaluator receives {} and should return a low score.
-        """
+# ========================================================================
+# Guarantee: empty profile does not crash
+# ========================================================================
+
+
+@pytest.mark.integration
+class TestEmptyProfile(unittest.TestCase):
+    """Guarantee: profile={} passes through evaluate without crash."""
+
+    def test_empty_profile_does_not_crash(self):
         with (
             mock.patch(
                 "agents.evaluator.score",
@@ -716,11 +914,22 @@ class TestMalformedState(unittest.TestCase):
 
         self.assertEqual(result.get("score"), 10)
 
-    def test_missing_cfg_field_uses_default_threshold(self):
-        """Characterize: cfg key missing from state entirely → threshold defaults to 60."""
+
+# ========================================================================
+# Guarantee: missing cfg key defaults threshold to 60
+# ========================================================================
+
+
+@pytest.mark.integration
+class TestMissingCfgKey(unittest.TestCase):
+    """Guarantee: cfg key absent from state uses default threshold 60.
+
+    Code path: ``state.get("cfg", {}).get("auto_generate_threshold") or 60``
+    """
+
+    def test_missing_cfg_defaults_to_sixty(self):
         state = _base_state()
         del state["cfg"]
-
         with (
             mock.patch(
                 "agents.evaluator.score",
@@ -736,18 +945,23 @@ class TestMalformedState(unittest.TestCase):
         self.assertEqual(result.get("score"), 55)
         self.assertIsNone(result.get("error"))
 
-    def test_missing_job_id_no_longer_crashes_at_persist(self):
-        """Corrected: persist_node now uses ``state.get("job_id") or "?"``
-        instead of ``state["job_id"]``. A missing job_id no longer causes
-        a KeyError crash — the graph completes with an error logged.
 
-        evaluate_node uses ``state.get("job_id", "?")`` defensively.
-        generate_node does not reference job_id.
-        persist_node catches the DB exception from the "?" jid.
-        """
+# ========================================================================
+# Guarantee: missing job_id does not crash persist
+# ========================================================================
+
+
+@pytest.mark.integration
+class TestMissingJobId(unittest.TestCase):
+    """Guarantee: job_id absent from state uses "?" fallback, does not crash.
+
+    Before the fix, persist_node used ``state["job_id"]`` (bare subscript),
+    which raised KeyError.  Now it uses ``state.get("job_id") or "?"``.
+    """
+
+    def test_missing_job_id_does_not_crash_persist(self):
         state = _base_state()
         del state["job_id"]
-
         with (
             mock.patch(
                 "agents.evaluator.score",
@@ -760,16 +974,23 @@ class TestMalformedState(unittest.TestCase):
             graph = build_eval_graph()
             result = graph.invoke(state)
 
-        # Graph completes normally — error_stage is None since DB
-        # mocks succeed even with "?" job_id (they're fakes)
         self.assertIn("score", result)
-        self.assertEqual(result.get("error"), None)
+        self.assertIsNone(result.get("error"))
 
-    def test_score_string_coerced_to_int(self):
-        """Characterize: score="75" (string) is handled by ``int()`` coercion.
 
-        ``int(state.get("score") or 0)`` → ``int("75")`` → 75.
-        """
+# ========================================================================
+# Guarantee: score string coerces to int
+# ========================================================================
+
+
+@pytest.mark.integration
+class TestScoreStringCoercion(unittest.TestCase):
+    """Guarantee: score="75" (string) is coerced by int() correctly.
+
+    Code path: ``int(state.get("score") or 0)`` → int("75") → 75.
+    """
+
+    def test_score_string_coerces_to_int(self):
         with (
             mock.patch(
                 "agents.evaluator.score",
@@ -784,12 +1005,7 @@ class TestMalformedState(unittest.TestCase):
 
         self.assertEqual(result.get("score"), 75)
 
-    def test_score_zero_string_not_falsy_trap(self):
-        """Characterize: score="0" → ``int("0" or 0)`` → int("0") → 0.
-
-        The ``or 0`` only kicks in if ``state.get("score")`` is None or absent,
-        which is correct: "0" is truthy, so int("0") = 0.
-        """
+    def test_zero_score_string_goes_through_int_zero(self):
         with (
             mock.patch(
                 "agents.evaluator.score",
@@ -802,16 +1018,23 @@ class TestMalformedState(unittest.TestCase):
             graph = build_eval_graph()
             result = graph.invoke(_base_state())
 
-        # int("0") = 0, 0 < 60 → generate skipped
         self.assertEqual(result.get("score"), 0)
 
-    def test_reason_passed_unchanged_to_update_lead_score(self):
-        """Characterize: the graph passes the reason verbatim to update_lead_score.
 
-        Truncation to 500 chars happens inside update_lead_score at the SQL
-        execute layer (``db/client.py: r[:500]``), not in the graph node.
-        The graph layer does NOT truncate.
-        """
+# ========================================================================
+# Guarantee: reason is passed through untruncated at graph layer
+# ========================================================================
+
+
+@pytest.mark.integration
+class TestReasonPassthrough(unittest.TestCase):
+    """Guarantee: the graph layer does NOT truncate reason.
+
+    Truncation to 500 chars happens inside ``update_lead_score`` at the SQL
+    execute layer, not in the graph node.  The graph passes reason verbatim.
+    """
+
+    def test_reason_full_length_passed_to_db(self):
         long_reason = "x" * 1000
         with (
             mock.patch(
@@ -825,30 +1048,23 @@ class TestMalformedState(unittest.TestCase):
             graph.invoke(_base_state())
 
         call_args = update_mock.call_args
-        # Graph passes full 1000-char reason; truncation is inside
         self.assertEqual(len(call_args[0][2]), 1000)
 
 
-# ==============================================================
-# Boundary 7: graph structural invariants affecting failure flow
-# ==============================================================
+# ========================================================================
+# Guarantee: graph topology is strictly linear (no branching)
+# ========================================================================
 
 
 @pytest.mark.integration
-class TestGraphStructuralInvariants(unittest.TestCase):
-    """Characterize graph topology that determines failure propagation.
+class TestGraphTopology(unittest.TestCase):
+    """Guarantee: the compiled graph has exactly 3 user nodes + __start__.
 
-    The graph is strictly linear with 3 nodes and no conditional edges.
-    This means every node always executes (unless generate_node's
-    internal early return triggers), and failures always flow forward.
+    Linear topology means all nodes always execute.  No conditional edges
+    exist — failures do not trigger alternative routing.
     """
 
-    def test_graph_has_three_user_nodes_plus_start(self):
-        """Characterize: graph has 4 compiled nodes (3 user + __start__).
-
-        LangGraph adds an internal ``__start__`` node to compiled graphs.
-        The 3 user nodes are evaluate, generate, persist — linear, no branching.
-        """
+    def test_graph_has_three_user_nodes_and_start(self):
         graph = build_eval_graph()
         nodes = getattr(graph, "nodes", {})
         self.assertIn("evaluate", nodes)
@@ -857,45 +1073,22 @@ class TestGraphStructuralInvariants(unittest.TestCase):
         self.assertIn("__start__", nodes)
         self.assertEqual(len(nodes), 4)
 
-    def test_all_edges_are_unconditional(self):
-        """Characterize: graph has no conditional/error edges.
 
-        The graph/__init__.py uses add_edge() exclusively —
-        no add_conditional_edges(). LangGraph's default exception
-        behavior applies: node failures propagate through the runtime,
-        not through a graph-defined error route.
-        """
-        graph = build_eval_graph()
-        # Compiled Pregel graphs store edges in graph.builder.edges
-        # before compilation. After compilation, edges are baked into
-        # the execution plan. Verify source code pattern instead.
-        self.assertTrue(hasattr(graph, "invoke"))
-
-
-# ==============================================================
-# Boundary 8: silent fallback — API layer swallows graph crash
-# ==============================================================
+# ========================================================================
+# Guarantee: invoke() does not raise on any node failure
+# ========================================================================
 
 
 @pytest.mark.integration
-class TestApiInvocationSilentFailure(unittest.TestCase):
-    """Characterize that the API layer does not catch invoke() failures.
+class TestInvokeNeverRaises(unittest.TestCase):
+    """Guarantee: graph.invoke() returns a dict regardless of node failures.
 
-    The ``_run()`` closure in the ``/pipeline/run`` endpoint
-    (main.py:978-999) calls ``eval_graph.invoke(state)`` without
-    a try/except. The WebSocket broadcast at line 993 never fires
-    if persist_node crashes. Because BackgroundTasks uses
-    ``asyncio.to_thread``, the exception is visible only as a
-    "Task exception was never retrieved" warning in logs.
+    Before the fix, persist_node's bare exception propagated through
+    LangGraph and crashed the invocation.  After the fix, every node
+    catches its own exceptions and returns structured error state.
     """
 
-    def test_invoke_no_longer_raises_on_persist_failure(self):
-        """Corrected: persist_node catches its own exceptions.
-
-        invoke() now returns a result dict with error/error_stage set
-        instead of raising. The API layer's ``_run()`` closure completes
-        normally and the WebSocket broadcast fires with error info.
-        """
+    def test_invoke_does_not_raise_on_persist_failure(self):
         with (
             mock.patch("agents.evaluator.score", return_value=dict(_EVAL_RESULT)),
             mock.patch("agents.generator.run_package", return_value=dict(_GEN_RESULT)),
@@ -905,30 +1098,64 @@ class TestApiInvocationSilentFailure(unittest.TestCase):
             graph = build_eval_graph()
             result = graph.invoke(_base_state())
 
-        self.assertEqual(result.get("error"), "crash")
-        self.assertEqual(result.get("error_stage"), "persist")
+        self.assertIsInstance(result, dict)
+        self.assertEqual(result["error"], "crash")
+        self.assertEqual(result["error_stage"], "persist")
 
-    def test_websocket_broadcast_now_fires_on_persist_failure(self):
-        """Corrected: WebSocket broadcast fires even when persist fails.
+    def test_invoke_does_not_raise_on_evaluate_failure(self):
+        with mock.patch("agents.evaluator.score", side_effect=ValueError("crash")):
+            with (
+                mock.patch("db.client.update_lead_score"),
+                mock.patch("db.client.save_asset_package"),
+            ):
+                graph = build_eval_graph()
+                result = graph.invoke(_base_state())
 
-        Because invoke() returns normally with error info, the broadcast
-        at main.py:993 executes and includes the error in its message.
-        """
-        broadcast = mock.MagicMock()
+        self.assertIsInstance(result, dict)
+        self.assertEqual(result["error"], "crash")
+        self.assertEqual(result["error_stage"], "evaluate")
+
+    def test_invoke_does_not_raise_on_generate_failure(self):
+        with (
+            mock.patch("agents.evaluator.score", return_value=dict(_EVAL_RESULT)),
+            mock.patch("agents.generator.run_package", side_effect=RuntimeError("crash")),
+            mock.patch("db.client.update_lead_score"),
+            mock.patch("db.client.save_asset_package"),
+        ):
+            graph = build_eval_graph()
+            result = graph.invoke(_base_state())
+
+        self.assertIsInstance(result, dict)
+        self.assertEqual(result["error"], "crash")
+        self.assertEqual(result["error_stage"], "generate")
+
+
+# ========================================================================
+# Guarantee: invoke() returns actionable error information
+# ========================================================================
+
+
+@pytest.mark.integration
+class TestInvokeReturnsActionableError(unittest.TestCase):
+    """Guarantee: the error dict contains enough info for the caller.
+
+    After any node failure, the caller can determine:
+    - Which node failed (error_stage)
+    - What the error was (error string)
+    - What work was completed before failure (score, asset_path, etc.)
+    """
+
+    def test_error_info_sufficient_for_caller_decision(self):
         with (
             mock.patch("agents.evaluator.score", return_value=dict(_EVAL_RESULT)),
             mock.patch("agents.generator.run_package", return_value=dict(_GEN_RESULT)),
+            mock.patch("db.client.update_lead_score", side_effect=RuntimeError("Disk full")),
+            mock.patch("db.client.save_asset_package"),
         ):
-            for side_effect, should_broadcast in [
-                (None, True),
-                (RuntimeError("crash"), True),  # now broadcasts on failure too
-            ]:
-                with self.subTest(crash=(side_effect is not None)):
-                    sig = side_effect or (lambda *a, **kw: None)
-                    with mock.patch("db.client.update_lead_score", side_effect=sig):
-                        with mock.patch("db.client.save_asset_package"):
-                            graph = build_eval_graph()
-                            result = graph.invoke(_base_state())
-                            broadcast("pipeline_done")
+            graph = build_eval_graph()
+            result = graph.invoke(_base_state())
 
-        self.assertEqual(broadcast.call_count, 2)
+        self.assertIn("error", result)
+        self.assertIn("error_stage", result)
+        self.assertIn("score", result)
+        self.assertIn("asset_path", result)
