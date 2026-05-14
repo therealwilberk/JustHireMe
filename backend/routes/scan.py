@@ -1,6 +1,6 @@
 import asyncio
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter
 
 import services.scanner as scanner
 from core.ws_manager import cm
@@ -11,46 +11,22 @@ router = APIRouter(prefix="/api/v1", tags=["scan"])
 
 @router.post("/scan")
 async def scan():
-    if scanner._ghost_lock.locked():
-        raise HTTPException(status_code=409, detail="Scan already in progress (ghost mode active)")
-    if scanner._scan_task and not scanner._scan_task.done():
-        raise HTTPException(status_code=409, detail="Scan already running")
-    if scanner._reevaluate_task and not scanner._reevaluate_task.done():
-        raise HTTPException(status_code=409, detail="Re-evaluation already running")
-    scanner._scan_stop.clear()
-    scanner._scan_task = asyncio.create_task(scanner._run_scan_task())
-    return {"status": "scanning"}
+    return await scanner.scan_manager.start_scan()
 
 
 @router.post("/scan/stop")
 async def stop_scan():
-    if not scanner._scan_task or scanner._scan_task.done():
-        return {"status": "idle"}
-    scanner._scan_stop.set()
-    await cm.broadcast({"type": "agent", "event": "eval_done", "msg": "Scan stopped by user."})
-    return {"status": "stopping"}
+    return await scanner.scan_manager.stop_scan()
 
 
 @router.post("/leads/reevaluate")
 async def reevaluate_jobs():
-    if scanner._ghost_lock.locked():
-        raise HTTPException(status_code=409, detail="Re-evaluation already in progress (ghost mode active)")
-    if scanner._reevaluate_task and not scanner._reevaluate_task.done():
-        raise HTTPException(status_code=409, detail="Re-evaluation already running")
-    if scanner._scan_task and not scanner._scan_task.done():
-        raise HTTPException(status_code=409, detail="Scan already running")
-    scanner._reevaluate_stop.clear()
-    scanner._reevaluate_task = asyncio.create_task(scanner._run_reevaluate_jobs_task())
-    return {"status": "reevaluating"}
+    return await scanner.scan_manager.start_reevaluate()
 
 
 @router.post("/leads/reevaluate/stop")
 async def stop_reevaluate_jobs():
-    if not scanner._reevaluate_task or scanner._reevaluate_task.done():
-        return {"status": "idle"}
-    scanner._reevaluate_stop.set()
-    await cm.broadcast({"type": "agent", "event": "reeval_done", "msg": "Re-evaluation stopped by user."})
-    return {"status": "stopping"}
+    return await scanner.scan_manager.stop_reevaluate()
 
 
 @router.post("/leads/cleanup")

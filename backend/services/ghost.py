@@ -4,7 +4,7 @@ from core.ws_manager import cm
 from core.config_constants import _log
 from config import settings
 from services.job_targets import _job_targets, _profile_for_discovery, _has_x_token, _free_sources_enabled
-from services.scanner import _ghost_lock, _job_eval_document
+from services.scanner import scan_manager, _job_eval_document
 from services.scout import _run_x_signal_scan, _run_free_source_scan
 from log_context import new_context, set_context, reset_context
 
@@ -12,14 +12,14 @@ from log_context import new_context, set_context, reset_context
 async def _ghost_tick():
     """Run one ghost cycle. Skips if another scan/reevaluate is active."""
     try:
-        await asyncio.wait_for(_ghost_lock.acquire(), timeout=0)
+        await asyncio.wait_for(scan_manager._ghost_lock.acquire(), timeout=0)
     except asyncio.TimeoutError:
         _log.info("ghost tick skipped — another scan or re-evaluation is running")
         return
     try:
         await _ghost_tick_impl()
     finally:
-        _ghost_lock.release()
+        scan_manager._ghost_lock.release()
 
 
 async def _ghost_tick_impl():
