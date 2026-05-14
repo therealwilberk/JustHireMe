@@ -1,13 +1,20 @@
 """
-Live Fire End-to-End Test
-Usage: uv run python test_live_fire.py [JOB_URL] [--submit]
+Live Fire End-to-End Verification Script
+
+WARNING: This is NOT a deterministic test. It requires live services:
+  - LLM API keys (Anthropic, OpenAI, etc.)
+  - Headed Chromium browser (Playwright)
+  - SQLite database writes
+  - Real network calls to job boards
+
+Usage: uv run python e2e/manval/run_live_fire.py [JOB_URL] [--submit]
 
 JOB_URL  : Target application form (default: Lever public demo)
 --submit : Actually click Submit (omit for dry-run)
 
 Examples:
-  uv run python test_live_fire.py
-  uv run python test_live_fire.py https://jobs.lever.co/leverdemo/abc123 --submit
+  uv run python e2e/manval/run_live_fire.py
+  uv run python e2e/manval/run_live_fire.py https://jobs.lever.co/leverdemo/abc123 --submit
 """
 
 import hashlib

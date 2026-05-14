@@ -1,3 +1,14 @@
+"""
+Ingestion Pipeline Verification Script
+
+WARNING: This is NOT a deterministic test. It requires:
+  - LLM API key (calls Claude via agents.ingestor.ingest)
+  - SQLite database writes (via db.client.save_settings)
+  - Active LLM service
+
+Usage: PYTHONPATH=backend python scripts/run_ingestion_pipeline.py
+"""
+
 import sys
 import os
 
