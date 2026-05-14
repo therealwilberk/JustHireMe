@@ -9,8 +9,16 @@ WARNING: This is NOT a deterministic test. It requires:
 Usage: PYTHONPATH=backend python scripts/run_ingestion_pipeline.py
 """
 
-import sys
+import logging
 import os
+import sys
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(message)s",
+    datefmt="%H:%M:%S",
+)
+log = logging.getLogger("ingestion")
 
 # Add backend to path
 sys.path.append(os.path.join(os.getcwd(), "backend"))
@@ -27,10 +35,10 @@ Experience: Built JustHireMe, an autonomous job seeker.
 """
 
 try:
-    print("Attempting ingestion...")
+    log.info("Attempting ingestion…")
     result = ingest(raw=test_text)
-    print(f"Ingestion successful! Found {len(result.skills)} skills.")
+    log.info("Ingestion result: skills=%d exp=%d projects=%d",
+             len(result.skills), len(result.exp), len(result.projects))
 except Exception as e:
-    import traceback
-    print(f"Ingestion failed with error: {e}")
-    traceback.print_exc()
+    log.error("Ingestion failed: %s", e, exc_info=True)
+    sys.exit(1)

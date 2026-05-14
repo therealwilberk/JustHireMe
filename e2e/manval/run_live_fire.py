@@ -18,10 +18,18 @@ Examples:
 """
 
 import hashlib
+import logging
 import os
 import sqlite3
 import sys
 import time
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(message)s",
+    datefmt="%H:%M:%S",
+)
+log = logging.getLogger("live_fire")
 
 _DEFAULT_URL = (
     "https://boards.greenhouse.io/embed/job_app"
@@ -51,13 +59,13 @@ Software Engineer — Beta Systems (2020–2022)
 Projects
 JustHireMe — Autonomous job-seeking engine
   Tauri 2.0 + React/TS shell wrapping Python FastAPI sidecar. LangGraph orchestration,
-  Kùzu graph DB, LanceDB vector store, Playwright browser automation.
+  Kuzu graph DB, LanceDB vector store, Playwright browser automation.
   Stack: Python, Rust, TypeScript, React, FastAPI, LangGraph, Playwright.
   Impact: Fully autonomous pipeline from scouting to submission.
 
 Skills
 Python, TypeScript, React, FastAPI, LangGraph, Playwright, Docker, PostgreSQL,
-SQLite, REST APIs, WebSockets, Anthropic Claude, LLM integrations, Kùzu, LanceDB,
+SQLite, REST APIs, WebSockets, Anthropic Claude, LLM integrations, Kuzu, LanceDB,
 Tauri, Rust (basic), Git, CI/CD.
 """
 
@@ -77,15 +85,9 @@ def _h(u: str) -> str:
     return hashlib.md5(u.encode()).hexdigest()[:16]
 
 
-def _log(msg: str):
-    ts = time.strftime("%H:%M:%S")
-    print(f"[{ts}] {msg}", flush=True)
-
-
 def step(n: int, label: str):
-    print(f"\n{'─'*60}", flush=True)
-    print(f"  STEP {n}: {label}", flush=True)
-    print(f"{'─'*60}", flush=True)
+    border = "=" * 60
+    log.info("\n%s\n  STEP %d: %s\n%s", border, n, label, border)
 
 
 def _audit_trail(jid: str):
@@ -98,15 +100,14 @@ def _audit_trail(jid: str):
         "SELECT title, company, status FROM leads WHERE job_id=?", (jid,)
     ).fetchone()
     c.close()
-    print(f"\n{'═'*60}", flush=True)
-    print("  AUDIT TRAIL", flush=True)
-    print(f"{'═'*60}", flush=True)
+    line = "\u2550" * 60
+    log.info("\n%s\n  AUDIT TRAIL\n%s", line, line)
     if lead:
-        print(f"  Lead   : {lead[0]} @ {lead[1]}", flush=True)
-        print(f"  Status : {lead[2]}", flush=True)
+        log.info("  Lead   : %s @ %s", lead[0], lead[1])
+        log.info("  Status : %s", lead[2])
     for ts, action in rows:
-        print(f"  {ts}  {action}", flush=True)
-    print(f"{'═'*60}\n", flush=True)
+        log.info("  %s  %s", ts, action)
+    log.info("%s\n", line)
 
 
 def main():
@@ -118,45 +119,44 @@ def main():
         elif arg.startswith("http"):
             url = arg
 
-    mode = "DRY RUN (submit button highlighted but NOT clicked)" if dry_run else "LIVE — WILL SUBMIT"
-    print(f"\n{'═'*60}", flush=True)
-    print(f"  JustHireMe Live Fire Test", flush=True)
-    print(f"  URL  : {url}", flush=True)
-    print(f"  Mode : {mode}", flush=True)
-    print(f"{'═'*60}", flush=True)
+    mode = "dry-run" if dry_run else "LIVE (will submit)"
+    border = "=" * 60
+    log.info("\n%s\n  JustHireMe Live Fire Test\n  URL  : %s\n  Mode : %s\n%s",
+             border, url, mode, border)
 
     jid = _h(url)
 
     step(1, "Ingest candidate profile into graph DB")
     from agents.ingestor import run as ingest
-    _log("Calling Claude to extract profile from resume text…")
+    log.info("Calling Claude to extract profile from resume text\u2026")
     profile = ingest(raw=_RESUME)
-    _log(f"Ingested: {profile.n} | skills={len(profile.skills)} exp={len(profile.exp)} projects={len(profile.projects)}")
+    log.info("Ingested: %s | skills=%s exp=%s projects=%s",
+             profile.n, len(profile.skills), len(profile.exp), len(profile.projects))
 
     step(2, "Insert sandbox lead into SQLite")
     from db.client import sql, save_lead, url_exists
     if url_exists(jid):
-        _log(f"Lead {jid} already exists — reusing")
+        log.info("Lead %s already exists \u2014 reusing", jid)
     else:
         save_lead(jid, "Software Engineer (Live Fire Demo)", "Demo Corp", url, "greenhouse")
-        _log(f"Inserted lead {jid}")
+        log.info("Inserted lead %s", jid)
 
     step(3, "Evaluate lead (GraphRAG scoring)")
     from agents.evaluator import score as ev_score
     from db.client import update_lead_score
     skills = [sk.n for sk in profile.skills]
-    _log(f"Scoring against {len(skills)} skills…")
+    log.info("Scoring against %d skills\u2026", len(skills))
     result = ev_score(
-        f"Software Engineer at Demo Corp — {url}",
+        f"Software Engineer at Demo Corp \u2014 {url}",
         skills,
     )
-    _log(f"Score: {result['score']}/100")
-    _log(f"Reason: {result['reason'][:120]}…")
+    log.info("Score: %s/100", result["score"])
+    log.info("Reason: %s\u2026", result["reason"][:120])
     for mp in result["match_points"]:
-        _log(f"  ✓ {mp}")
+        log.info("  \u2713 %s", mp)
 
     if result["score"] < 85:
-        _log("Score < 85: forcing status to 'tailoring' for test continuity")
+        log.info("Score < 85: forcing status to 'tailoring' for test continuity")
     update_lead_score(jid, max(result["score"], 85), result["reason"])
 
     step(4, "Generate tailored PDF asset")
@@ -171,43 +171,43 @@ def main():
         "match_points": result["match_points"],
         **_IDENTITY,
     }
-    _log("Calling Claude to draft tailored resume + cover letter…")
+    log.info("Calling Claude to draft tailored resume + cover letter\u2026")
     asset_path = gen(lead_data)
-    _log(f"PDF saved: {asset_path}")
+    log.info("PDF saved: %s", asset_path)
 
     from db.client import save_asset_path
     save_asset_path(jid, asset_path)
 
-    step(5, f"Actuator — {'DRY RUN' if dry_run else 'LIVE SUBMIT'}")
-    _log("Launching headed Chromium (500ms delay between fields)…")
+    step(5, f"Actuator \u2014 {'dry-run' if dry_run else 'LIVE SUBMIT'}")
+    log.info("Launching headed Chromium (500ms delay between fields)\u2026")
     from agents.actuator import run as act
     job_data = {**lead_data, **_IDENTITY}
     ok = act(job_data, asset_path, dry_run=dry_run)
 
     if dry_run:
-        _log("Dry run complete — submit button highlighted in red, browser held open 4s")
-        _log(f"Fields filled successfully: {ok}")
+        log.info("Dry run complete \u2014 submit button highlighted in red, browser held open 4s")
+        log.info("Fields filled: %s", ok)
     else:
         if ok:
             from db.client import mark_applied
             mark_applied(jid)
-            _log("Application SUBMITTED")
+            log.info("Application SUBMITTED")
         else:
-            _log("Submit button not found — application NOT submitted")
+            log.warning("Submit button not found \u2014 application NOT submitted")
 
     step(6, "Audit trail")
     _audit_trail(jid)
 
     assert os.path.exists(asset_path), f"PDF not found at {asset_path}"
-    _log("✓ PDF exists on disk")
+    log.info("PDF exists on disk")
 
     c = sqlite3.connect(sql)
     ev = c.execute("SELECT COUNT(*) FROM events WHERE job_id=?", (jid,)).fetchone()[0]
     c.close()
-    assert ev >= 2, f"Expected ≥2 events, got {ev}"
-    _log(f"✓ {ev} events in audit log")
+    assert ev >= 2, f"Expected >=2 events, got {ev}"
+    log.info("%d events in audit log", ev)
 
-    _log("✓ Live Fire test PASSED")
+    log.info("Live Fire verification PASSED")
 
 
 if __name__ == "__main__":
