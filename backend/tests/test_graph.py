@@ -5,6 +5,8 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
+import pytest
+
 # ── Must run before any backend module is imported ───────────────────────────
 os.environ["LOCALAPPDATA"] = str(Path(__file__).resolve().parent)
 
@@ -32,6 +34,7 @@ _GEN_RESULT = {
 }
 
 
+@pytest.mark.integration
 class TestGraphStructure(unittest.TestCase):
     def test_graph_compiles(self):
         graph = build_eval_graph()
@@ -44,6 +47,7 @@ class TestGraphStructure(unittest.TestCase):
         self.assertIn("evaluate", nodes)
 
 
+@pytest.mark.integration
 class TestGraphInvoke(unittest.TestCase):
     def setUp(self):
         self.patches = []

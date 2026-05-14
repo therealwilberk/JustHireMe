@@ -35,4 +35,9 @@ dev = [
 ]
 
 [tool.pytest.ini_options]
-addopts = "-p no:cacheprovider"
+addopts = "-p no:cacheprovider -m 'not external'"
+markers = [
+    "integration: tests that cross component boundaries (routing, graph orchestration)",
+    "external: tests that write to filesystem or rely on external services",
+    "requires_browser: tests that require browser automation (Playwright/Chromium)",
+]

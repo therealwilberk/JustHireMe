@@ -5,6 +5,8 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
+import pytest
+
 # ── Must run before any backend module is imported ───────────────────────────
 os.environ["LOCALAPPDATA"] = str(Path(__file__).resolve().parent)
 
@@ -50,6 +52,7 @@ def delete(path, *, auth=True, **kwargs):
 
 # ── Test classes ─────────────────────────────────────────────────────────────
 
+@pytest.mark.integration
 class TestAuthGate(unittest.TestCase):
     def test_health_no_token_is_200(self):
         resp = get("/health", auth=False)
@@ -81,6 +84,7 @@ class TestAuthGate(unittest.TestCase):
                 pass
 
 
+@pytest.mark.integration
 class TestHealthEndpoint(unittest.TestCase):
     def test_health_status_code(self):
         resp = get("/health")
@@ -95,6 +99,7 @@ class TestHealthEndpoint(unittest.TestCase):
         self.assertIn("log_level", resp.json())
 
 
+@pytest.mark.integration
 class TestLeadsEndpoints(unittest.TestCase):
     def test_get_leads_returns_list(self):
         resp = get("/api/v1/leads")
@@ -140,6 +145,7 @@ class TestLeadsEndpoints(unittest.TestCase):
         self.assertEqual(resp.status_code, 422)
 
 
+@pytest.mark.integration
 class TestExportEndpoint(unittest.TestCase):
     def test_export_csv_status(self):
         resp = get("/api/v1/leads/export.csv")
@@ -155,6 +161,7 @@ class TestExportEndpoint(unittest.TestCase):
         self.assertIn("job_id", first_line)
 
 
+@pytest.mark.integration
 class TestSettingsEndpoints(unittest.TestCase):
     def test_get_template_returns_dict(self):
         resp = get("/api/v1/template")
@@ -193,6 +200,7 @@ class TestSettingsEndpoints(unittest.TestCase):
                 self.assertNotIn("written to SQLite", str(call))
 
 
+@pytest.mark.integration
 class TestFollowupsEndpoint(unittest.TestCase):
     def test_due_followups_returns_list(self):
         resp = get("/api/v1/followups/due")
@@ -200,6 +208,7 @@ class TestFollowupsEndpoint(unittest.TestCase):
         self.assertIsInstance(resp.json(), list)
 
 
+@pytest.mark.integration
 class TestFormReaderEndpoints(unittest.TestCase):
     def test_form_read_not_found(self):
         resp = post(
@@ -239,6 +248,7 @@ class TestFormReaderEndpoints(unittest.TestCase):
         self.assertIsInstance(data["platforms"], list)
 
 
+@pytest.mark.integration
 class TestPipelineRunEndpoint(unittest.TestCase):
     def test_pipeline_run_not_found(self):
         # With fake db, get_lead_by_id returns {} → route raises 404
@@ -267,6 +277,7 @@ class TestPipelineRunEndpoint(unittest.TestCase):
         self.assertEqual(resp.json().get("status"), "started")
 
 
+@pytest.mark.integration
 class TestGenerateEndpoint(unittest.TestCase):
     def test_generate_waits_for_ready_package(self):
         ready_lead = {
@@ -283,6 +294,7 @@ class TestGenerateEndpoint(unittest.TestCase):
         self.assertEqual(data["lead"], ready_lead)
 
 
+@pytest.mark.integration
 class TestIngestionEndpoints(unittest.TestCase):
     def test_linkedin_ingest_rejects_non_zip(self):
         resp = CLIENT.post(

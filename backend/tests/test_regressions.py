@@ -6,6 +6,8 @@ import types
 import unittest
 from unittest import mock
 
+import pytest
+
 
 os.environ["LOCALAPPDATA"] = str(Path(__file__).resolve().parent)
 
@@ -328,6 +330,7 @@ class RegressionTests(unittest.TestCase):
         self.assertNotIn("Dear Acme", normalized.resume_markdown)
         self.assertIn("Dear Acme AI team", normalized.cover_letter_markdown)
 
+    @pytest.mark.external
     def test_generator_render_keeps_pdf_to_one_page(self):
         from pypdf import PdfReader
         import agents.generator as generator
@@ -352,6 +355,7 @@ class RegressionTests(unittest.TestCase):
             except FileNotFoundError:
                 pass
 
+    @pytest.mark.external
     def test_generator_uses_local_fallback_when_llm_is_unavailable(self):
         import agents.generator as generator
 
