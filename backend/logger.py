@@ -66,9 +66,10 @@ def get_logger(name: str) -> logging.Logger:
     sh.addFilter(CorrelationFilter())
     logger.addHandler(sh)
 
-    if settings.logging.log_file:
+    log_file = os.environ.get("JHM_LOG_FILE") or settings.logging.log_file
+    if log_file:
         fh = RotatingFileHandler(
-            settings.logging.log_file,
+            log_file,
             maxBytes=settings.logging.log_file_max_bytes,
             backupCount=settings.logging.log_file_backup_count,
         )

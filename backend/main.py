@@ -5,14 +5,18 @@ import sys
 from core.config_constants import _API_TOKEN
 
 
-def _free_port() -> int:
-    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-        s.bind(("127.0.0.1", 0))
-        return s.getsockname()[1]
+def _bind_port() -> int:
+    """Bind a port and return (socket, port). The socket stays open to prevent
+    TOCTOU races where another process grabs the port between discovery and use."""
+    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    s.bind(("127.0.0.1", 0))
+    return s
 
 
 if __name__ == "__main__":
-    _port = _free_port()
+    _sock = _bind_port()
+    _port = _sock.getsockname()[1]
     sys.stdout.write(f"JHM_TOKEN={_API_TOKEN}\n")
     sys.stdout.write(f"PORT:{_port}\n")
     sys.stdout.flush()

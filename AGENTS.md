@@ -52,6 +52,24 @@ cd backend && uv run python -m pytest tests/
 cd backend && uv run python -m pytest tests/test_regressions.py -v
 ```
 
+## Backend Logging
+
+The Python backend logs structured lines with correlation IDs to **stderr**.
+When running via `npm run tauri dev`, Tauri forwards these to the terminal
+with a `[sidecar]` prefix.
+
+| Env var | Purpose | Example |
+|---------|---------|---------|
+| `JHM_LOG_LEVEL` | Override log level (default: INFO) | `JHM_LOG_LEVEL=DEBUG` |
+| `JHM_LOG_FILE` | Enable file logging to path | `JHM_LOG_FILE=/tmp/jhm.log` |
+
+Example to see full structured logs:
+```bash
+JHM_LOG_LEVEL=DEBUG JHM_LOG_FILE=/tmp/jhm.log npm run tauri dev
+# In another terminal:
+tail -f /tmp/jhm.log
+```
+
 ## Current Phase
 
 Phase C (Reliability, Observability & Concurrency) — active.
