@@ -6,7 +6,7 @@ This directory contains the deterministic test suite for the JustHireMe backend.
 All tests in this directory are designed to run in CI, produce consistent results,
 and avoid external service dependencies.
 
-**Test count:** 315  
+**Test count:** 324  
 **Framework:** pytest (via `unittest.TestCase` and `IsolatedAsyncioTestCase`)  
 **Runner:** `uv run python -m pytest tests/`
 
@@ -104,8 +104,8 @@ and avoid external service dependencies.
 
 | Status | Strong |
 |--------|--------|
-| **What it tests** | Scoring engine caps, quality gate, seniority filters, HN parsing, feedback ranker, job targets (settings-driven override, blocked markers, empty fallback), query generation, X/twitter scout, browser runtime |
-| **Key behaviours** | Zero-experience senior cap, wrong-field penalty, stale lead rejection, HN job post filtering, feedback learning boost/penalty, job target resolution reads from settings when `job_boards` is empty, blocked markers filter freelance platforms from settings |
+| **What it tests** | Scoring engine caps, quality gate, seniority filters, HN parsing, feedback ranker, job targets (settings-driven override, blocked markers, empty fallback), target validation (rejects fake domains, no-dot site: entries, wrong prefixes), target splitting (preserves embedded commas, handles trailing commas, skips comments), query generation, X/twitter scout, browser runtime |
+| **Key behaviours** | Zero-experience senior cap, wrong-field penalty, stale lead rejection, HN job post filtering, feedback learning boost/penalty, job target resolution reads from settings when `job_boards` is empty, blocked markers filter freelance platforms from settings, `validate_job_targets()` rejects entries without domain dots, `_split_configured_targets()` splits by newline not comma (preserves search queries with `OR` clauses) |
 | **Sub-classes** | `TestScoringEngineCaps`, `TestLeadQualityGate`, `TestBrowserRuntimePackaging` |
 | **Dependencies** | Mocks external agents, uses `_install_storage_fakes()` |
 
@@ -321,21 +321,22 @@ This is intentionally NOT strict transactional (no rollback, no abort on partial
 
 ## Phase C Coverage (Reliability, Observability & Concurrency)
 
-Phase C adds 111 backend + 20 frontend tests. Current coverage:
+Phase C adds 120 backend + 20 frontend tests. Current coverage:
 
 | Area | Tests | File |
 |------|-------|------|
-| WebSocket `_CM` concurrency | 24 (basic + concurrent + event-controlled blocking, delayed disconnect, three-way races, dead cleanup under contention) | `test_websocket.py` |
-| SQLite pragmas | 10 (WAL persist, FK enforcement, busy timeout, combined, importable) | `test_sqlite.py` |
-| SQLite operational config & contention | 19 (get_sql_connection pragmas, WAL snapshot isolation, writer busy_timeout, rollback, FK enforcement under concurrent writes, connection consistency AST check) | `test_sqlite_reliability.py` |
-| Failure observability | 23 (budget parse, date parse, profile snapshot, vector ops, cache parse, graph relations, upsert, vector delete) | `test_observability.py` |
-| Frontend error handling (SettingsModal) | 9 vitest tests verifying error visibility, success states, loading indicators, retry behavior, stale state clearing, network errors | `src/SettingsModal.test.tsx` |
-| Frontend error handling (ProfileView) | 11 vitest tests verifying delete/saveEdit/saveCandidate error visibility, server detail parsing, retry clearing, fallback messages | `src/views/ProfileView.test.tsx` |
-| Correlation context & structured logging | 18 (context isolation, enrich, formatter, filter, file handler, middleware header propagation) | `test_log_context.py` |
-| Startup smoke tests | 2 (token/port emission, port-binding race prevented) | `test_startup.py` |
-| ScanManager state machine | 7 (lifecycle transitions, concurrency guards, ghost lock, idle safety) | `test_scan_manager.py` |
-| GhostService phase contracts | 2+ (preflight skip, preflight returns, orchestration sequencing) | `test_ghost_service.py` |
-| Response model completeness | 5+ (every route's response_model superset check) | `test_response_contracts.py` |
+| WebSocket `_CM` concurrency | 24 | `test_websocket.py` |
+| SQLite pragmas | 10 | `test_sqlite.py` |
+| SQLite operational config & contention | 19 | `test_sqlite_reliability.py` |
+| Failure observability | 23 | `test_observability.py` |
+| Frontend error handling (SettingsModal) | 9 | `src/SettingsModal.test.tsx` |
+| Frontend error handling (ProfileView) | 11 | `src/views/ProfileView.test.tsx` |
+| Correlation context & structured logging | 18 | `test_log_context.py` |
+| Startup smoke tests | 2 | `test_startup.py` |
+| ScanManager state machine | 7 | `test_scan_manager.py` |
+| GhostService phase contracts | 2 | `test_ghost_service.py` |
+| Response model completeness | 5 | `test_response_contracts.py` |
+| Job target settings override + validation + splitting | 22 | `test_regressions.py` |
 
 ---
 
