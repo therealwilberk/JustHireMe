@@ -1,0 +1,205 @@
+{
+  "slug": "backend-generators",
+  "name": "Generators",
+  "group": "BACKEND",
+  "summary": "This unit covers the two production agent files that sit between the application layer and the LLM/graph/vector stores. `generator.py` owns the document-assembly pipeline: given a lead (job) and the local profile, it produces a tailored resume PDF, cover letter PDF, outreach messages, and ATS keyword-coverage metrics. `ingestor.py` owns the profile-ingestion pipeline: given raw text (hand-typed or PDF-extracted), it parses it into structured candidate data (`C` schema), writes it into the Kuzu knowledge graph, and indexes skill/project embeddings in LanceDB. Both files depend on `agents/scoring_engine.py` (keyword taxonomy), `db/client.py` (SQLite, Kuzu, LanceDB connections), `llm.py` (LLM calls), and `models/schema.py`. Consumers include `services/ghost.py`, `services/generator.py`, `graph/__init__.py`, `routes/ingest.py`, and `agents/semantic.py`.\n\n---",
+  "fileCount": 2,
+  "files": [
+    {
+      "#": "1",
+      "File": "`backend/agents/generator.py`",
+      "Lines": "1,215",
+      "Purpose": "Document assembly: resume/cover letter PDF generation, outreach messages, ATS keyword coverage",
+      "Overall flag": "\ud83d\udfe0 STALE \u2014 `_draft()` dead code; hardcoded prompt values and PDF parameters should be config-driven"
+    },
+    {
+      "#": "2",
+      "File": "`backend/agents/ingestor.py`",
+      "Lines": "564",
+      "Purpose": "Profile ingestion: text parsing (LLM + local fallback), Kuzu graph write, LanceDB vector embed",
+      "Overall flag": "\ud83d\udfe1 SUSPECT \u2014 model name hardcoded, thread-safety race on `_st`, hash embedder degrades silently"
+    }
+  ],
+  "flags": [
+    {
+      "type": "dead",
+      "item": "`_draft()`",
+      "location": "`generator.py:661`",
+      "reason": "Never called anywhere; superseded by `_draft_package()`",
+      "priority": "P0"
+    },
+    {
+      "type": "suspect",
+      "item": "Path traversal risk in `job_id` usage",
+      "location": "`generator.py:1184`",
+      "reason": "`job_id` from lead dict used directly in PDF filename \u2014 `f\"{job_id}_v{new_version}.pdf\"` could allow traversal with `../`",
+      "priority": "P0"
+    },
+    {
+      "type": "hardcoded",
+      "item": "Placeholder phone `+1-555-555-0100`",
+      "location": "`generator.py:535`",
+      "reason": "Baked into LLM system prompt as example contact line",
+      "priority": "P1"
+    },
+    {
+      "type": "hardcoded",
+      "item": "Resume word budget \"460-620 words\"",
+      "location": "`generator.py:601`",
+      "reason": "Hardcoded in system prompt; may not fit all roles",
+      "priority": "P1"
+    },
+    {
+      "type": "hardcoded",
+      "item": "Cover letter word range \"150-220 words\"",
+      "location": "`generator.py:610`",
+      "reason": "Hardcoded in system prompt",
+      "priority": "P1"
+    },
+    {
+      "type": "hardcoded",
+      "item": "Outreach char limits (280/300/600)",
+      "location": "`generator.py:614-619`",
+      "reason": "Hardcoded in system prompt",
+      "priority": "P1"
+    },
+    {
+      "type": "hardcoded",
+      "item": "PDF rendering scale lists",
+      "location": "`generator.py:942, 1148`",
+      "reason": "Trial scale arrays (8-10 values) hardcoded for fit-to-page",
+      "priority": "P1"
+    },
+    {
+      "type": "hardcoded",
+      "item": "PDF accent/ink/muted/rule colors",
+      "location": "`generator.py:794-797`",
+      "reason": "RGB tuples hardcoded in inner function",
+      "priority": "P1"
+    },
+    {
+      "type": "hardcoded",
+      "item": "Font min sizes (6.2pt, 3.0mm line height)",
+      "location": "`generator.py:800-801`",
+      "reason": "Baked into PDF render inner functions",
+      "priority": "P1"
+    },
+    {
+      "type": "hardcoded",
+      "item": "SentenceTransformer model `\"all-MiniLM-L6-v2\"`",
+      "location": "`ingestor.py:32`",
+      "reason": "Model name hardcoded; should be configurable",
+      "priority": "P1"
+    },
+    {
+      "type": "suspect",
+      "item": "Thread-safety race on `_st` in `_emb`",
+      "location": "`ingestor.py:23-45`",
+      "reason": "Module-level mutable `_st` accessed without lock; concurrent calls can both launch loading threads",
+      "priority": "P2"
+    },
+    {
+      "type": "suspect",
+      "item": "`sql` imported but unused",
+      "location": "`generator.py:4`",
+      "reason": "`sql` imported from `db.client` but never referenced",
+      "priority": "P2"
+    },
+    {
+      "type": "suspect",
+      "item": "`_extract_jd_keywords` accepts unused `profile` param",
+      "location": "`generator.py:397`",
+      "reason": "`profile` parameter is never used; function only processes JD text",
+      "priority": "P2"
+    },
+    {
+      "type": "suspect",
+      "item": "`extra_terms` duplicates `TECH_TAXONOMY`",
+      "location": "`generator.py:467-473`",
+      "reason": "Extra term dict in `_job_keyword_terms` overlaps with `scoring_engine.TECH_TAXONOMY`",
+      "priority": "P2"
+    },
+    {
+      "type": "suspect",
+      "item": "Kuzu connections not explicitly closed",
+      "location": "`ingestor.py:66-67`",
+      "reason": "`_conn()` returns new connections; `_put_node`/`_put_rel` never close them",
+      "priority": "P2"
+    },
+    {
+      "type": "suspect",
+      "item": "LanceDB `delete` uses string interpolation",
+      "location": "`ingestor.py:104-105`",
+      "reason": "SQL-like predicate string built via f-string and `\",\"` join; manually escaped but fragile",
+      "priority": "P2"
+    },
+    {
+      "type": "clean",
+      "item": "`_normalize_package`",
+      "location": "`generator.py:173`",
+      "reason": "Thorough defensive post-processing, clear logic",
+      "priority": "P3"
+    },
+    {
+      "type": "clean",
+      "item": "`_clean()`",
+      "location": "`generator.py:699`",
+      "reason": "Comprehensive unicode sanitization",
+      "priority": "P3"
+    },
+    {
+      "type": "clean",
+      "item": "`_render_resume_template`",
+      "location": "`generator.py:744`",
+      "reason": "Complex but well-structured PDF layout engine",
+      "priority": "P3"
+    },
+    {
+      "type": "clean",
+      "item": "`ingest()`",
+      "location": "`ingestor.py:549`",
+      "reason": "Clean orchestration of extraction, graph, and vector writes",
+      "priority": "P3"
+    },
+    {
+      "type": "clean",
+      "item": "`_graph()`",
+      "location": "`ingestor.py:113`",
+      "reason": "Well-structured Kuzu graph writer with clear schema",
+      "priority": "P3"
+    }
+  ],
+  "flagCounts": {
+    "dead": 1,
+    "hardcoded": 8,
+    "coupled": 0,
+    "incomplete": 0,
+    "stale": 0,
+    "suspect": 7,
+    "clean": 5
+  },
+  "deps": {
+    "inbound": [
+      "`services/generator.py` \u2014 `generator.run_package`",
+      "`services/ghost.py` \u2014 `generator.run_package`",
+      "`graph/__init__.py` \u2014 `generator.run_package`",
+      "`e2e/manval/run_live_fire.py` \u2014 `generator.run`, `ingestor.run`",
+      "`routes/ingest.py` \u2014 `ingestor.ingest`",
+      "`db/client.py` \u2014 `ingestor._emb`",
+      "`agents/semantic.py` \u2014 `ingestor._emb`",
+      "`tests/test_regressions.py` \u2014 `generator._DocPackage`, `generator._normalize_package`, `ingestor._parse_local`",
+      "`tests/test_observability.py` \u2014 `ingestor._h`, `ingestor._put_rel`, `ingestor._put_node`, `ingestor._put_vec`",
+      "`tests/test_graph.py`, `tests/test_graph_failures.py` \u2014 `generator.run_package` (mocked)"
+    ],
+    "outbound": [
+      "`db.client.data_base`, `get_profile`, `get_sql_connection` \u2014 `backend-db`",
+      "`db.client.vec` \u2014 `backend-db`",
+      "`db.client.db` \u2014 `backend-db`",
+      "`models.schema.C`, `S`, `E`, `P` \u2014 `backend-models`",
+      "`agents.scoring_engine.TECH_TAXONOMY` \u2014 `backend-scoring-engine`",
+      "`llm.call_llm`, `call_raw`, `resolve_config` \u2014 `backend-llm`",
+      "`logger.get_logger` \u2014 `backend-logger`"
+    ]
+  },
+  "assessment": "### `backend/agents/generator.py`\n\n1. **Does this file need to exist?** Yes \u2014 core document generation logic that's separate from both the LLM abstraction layer and the app services.\n2. **Does it do what it claims?** Yes \u2014 generates package documents from leads + profile, matching the filename.\n3. **Is it the right place for this logic?** Yes \u2014 the PDF rendering and LLM prompting are agent concerns; the fallback logic makes sense co-located.\n4. **What would break if deleted?** `graph/__init__.py` generate_nodes, `services/ghost.py`, `services/generator.py`, and `e2e/manval/run_live_fire.py` would all fail.\n\n### `backend/agents/ingestor.py`\n\n1. **Does this file need to exist?** Yes \u2014 ingestion pipeline (graph + vectors + parsing) is a distinct concern.\n2. **Does it do what it claims?** Yes \u2014 ingests profile text into structured data, graph, and vectors.\n3. **Is it the right place for this logic?** Partially \u2014 the embedding function `_emb` is imported by `db/client.py` and `agents/semantic.py`, creating a reverse dependency. Embedding could arguably live in a shared utility rather than the ingestor.\n4. **What would break if deleted?** `routes/ingest.py` /ingest endpoint, `db/client.py` skill/project vector search (via `_emb`), `agents/semantic.py` semantic search (via `_emb`), `e2e/manval/run_live_fire.py` ingestion."
+}

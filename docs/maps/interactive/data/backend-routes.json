@@ -1,0 +1,236 @@
+{
+  "slug": "backend-routes",
+  "name": "Routes",
+  "group": "BACKEND",
+  "summary": "`backend/routes/` is the HTTP API layer of JustHireMe. It owns all REST endpoints and one WebSocket endpoint, organized into 8 router modules (plus an empty `__init__.py`). Each module maps to a logical domain: actions (fire/read/preview), ingest (profile import from 6 sources), leads (CRUD + pipeline), misc (health/events/template/chat), profile (CRUD for candidate sub-entities), scan (lifecycle + reevaluation + free-sources), settings (CRUD + key validation + job-targets), and ws (real-time event streaming). All routers are registered in `backend/main.py:173-180`. Every endpoint except `/health` and `/ws` is guarded by a bearer token middleware (`main.py:162-170`). The unit depends on `db.client` (persistence), `agents.*` (LLM-driven logic), `services.*` (business logic), `core.config_constants` (startup state), and `config` (typed settings).\n\n---",
+  "fileCount": 9,
+  "files": [
+    {
+      "#": "1",
+      "File": "`routes/__init__.py`",
+      "Lines": "0",
+      "Purpose": "Package marker, empty",
+      "Overall flag": "\ud83d\udfe2 \u2014 standard Python package init"
+    },
+    {
+      "#": "2",
+      "File": "`routes/actions.py`",
+      "Lines": "210",
+      "Purpose": "Fire, PDF, form read, identity, selectors refresh, preview",
+      "Overall flag": "\ud83d\udfe2 \u2014 well-scoped, coherent"
+    },
+    {
+      "#": "3",
+      "File": "`routes/ingest.py`",
+      "Lines": "356",
+      "Purpose": "Profile ingestion from 6 sources (paste, PDF, LinkedIn, GitHub, JSON, portfolio)",
+      "Overall flag": "\ud83d\udfe1 SUSPECT \u2014 file is 2.4\u00d7 the mean; domain boundary with `profile.py` is blurry"
+    },
+    {
+      "#": "4",
+      "File": "`routes/leads.py`",
+      "Lines": "404",
+      "Purpose": "Lead CRUD, pipeline, CSV export, follow-ups",
+      "Overall flag": "\ud83d\udfe1 SUSPECT \u2014 largest file at 404 lines; `_annotate_job_lead` is helper that could live in `services.scout`"
+    },
+    {
+      "#": "5",
+      "File": "`routes/misc.py`",
+      "Lines": "145",
+      "Purpose": "Health, events, graph stats, template, help chat",
+      "Overall flag": "\ud83d\udfe3 COUPLED \u2014 `/api/v1/help/chat` collides with `scan.py`'s identical path"
+    },
+    {
+      "#": "6",
+      "File": "`routes/profile.py`",
+      "Lines": "203",
+      "Purpose": "Candidate info, skills, experience, projects CRUD",
+      "Overall flag": "\ud83d\udfe2 \u2014 clean CRUD, consistent validation"
+    },
+    {
+      "#": "7",
+      "File": "`routes/scan.py`",
+      "Lines": "125",
+      "Purpose": "Scan start/stop, reevaluate, cleanup, free-sources, help chat",
+      "Overall flag": "\ud83d\udfe3 COUPLED \u2014 duplicate `POST /api/v1/help/chat` shadows `misc.py`; imports `_run_free_source_scan` as a private name"
+    },
+    {
+      "#": "8",
+      "File": "`routes/settings.py`",
+      "Lines": "160",
+      "Purpose": "Settings CRUD, API key validation, job-targets",
+      "Overall flag": "\ud83d\udfe1 SUSPECT \u2014 settings save has implicit ghost-mode schedule side effect; imports `_ghost_tick` private name"
+    },
+    {
+      "#": "9",
+      "File": "`routes/ws.py`",
+      "Lines": "59",
+      "Purpose": "WebSocket endpoint for real-time streaming + heartbeat",
+      "Overall flag": "\ud83d\udfe2 \u2014 lean, focused, self-contained"
+    }
+  ],
+  "flags": [
+    {
+      "type": "coupled",
+      "item": "`help_chat` duplicate route",
+      "location": "`misc.py:132` + `scan.py:112`",
+      "reason": "Both register `POST /api/v1/help/chat`; scan's handler shadows misc's due to registration order",
+      "priority": "P0"
+    },
+    {
+      "type": "dead",
+      "item": "`HTTPException` import",
+      "location": "`misc.py:9`",
+      "reason": "Imported but never used in this file",
+      "priority": "P1"
+    },
+    {
+      "type": "dead",
+      "item": "`JSONResponse` import",
+      "location": "`misc.py:10`",
+      "reason": "Imported but never used in this file",
+      "priority": "P1"
+    },
+    {
+      "type": "coupled",
+      "item": "`_profile_for_discovery` import",
+      "location": "`scan.py:12`",
+      "reason": "Imports private name from `services.job_targets`",
+      "priority": "P1"
+    },
+    {
+      "type": "coupled",
+      "item": "`_run_free_source_scan` import",
+      "location": "`scan.py:13`",
+      "reason": "Imports private name from `services.scout`",
+      "priority": "P1"
+    },
+    {
+      "type": "coupled",
+      "item": "`_ghost_tick` import",
+      "location": "`settings.py:12`",
+      "reason": "Imports private name from `services.ghost`",
+      "priority": "P1"
+    },
+    {
+      "type": "coupled",
+      "item": "`_sensitive` import",
+      "location": "`settings.py:14`",
+      "reason": "Imports private name from `services.provider_probe`",
+      "priority": "P1"
+    },
+    {
+      "type": "coupled",
+      "item": "`_probe_provider_key` import",
+      "location": "`settings.py:14`",
+      "reason": "Imports private name from `services.provider_probe`",
+      "priority": "P1"
+    },
+    {
+      "type": "coupled",
+      "item": "`_log_sensitive_deprecation` import",
+      "location": "`settings.py:14`",
+      "reason": "Imports private name from `services.provider_probe`",
+      "priority": "P1"
+    },
+    {
+      "type": "hardcoded",
+      "item": "`50 * 1024 * 1024`",
+      "location": "`ingest.py:95`",
+      "reason": "File size limit should be in settings",
+      "priority": "P1"
+    },
+    {
+      "type": "hardcoded",
+      "item": "`\"selectors_fetched_at\": \"0\"`",
+      "location": "`actions.py:182`",
+      "reason": "Magic reset value should be a constant",
+      "priority": "P1"
+    },
+    {
+      "type": "hardcoded",
+      "item": "`\"fresher\"`, `\"junior\"` etc strings",
+      "location": "`leads.py:38,91-94`",
+      "reason": "Seniority level strings duplicated in two places",
+      "priority": "P1"
+    },
+    {
+      "type": "hardcoded",
+      "item": "Provider list inline",
+      "location": "`settings.py:50`",
+      "reason": "Provider names duplicated from llm module",
+      "priority": "P1"
+    },
+    {
+      "type": "hardcoded",
+      "item": "`\"job\"` kind filter",
+      "location": "`leads.py:285`",
+      "reason": "Lead kind is baked in as a string literal",
+      "priority": "P2"
+    },
+    {
+      "type": "hardcoded",
+      "item": "100 items WS broadcast cap",
+      "location": "`scan.py:81`",
+      "reason": "Batch limit should be configurable",
+      "priority": "P2"
+    },
+    {
+      "type": "hardcoded",
+      "item": "Heartbeat 2.0s timeout",
+      "location": "`ws.py:49`",
+      "reason": "Should be configurable",
+      "priority": "P2"
+    },
+    {
+      "type": "incomplete",
+      "item": "Ghost mode interval",
+      "location": "`settings.py:95`",
+      "reason": "`hours=6` should read from `config.app.ghost_mode.interval_hours`",
+      "priority": "P2"
+    },
+    {
+      "type": "suspect",
+      "item": "`save_lead` call with 20+ kwargs",
+      "location": "`leads.py:288-314`",
+      "reason": "Brittle; should accept a lead dict",
+      "priority": "P2"
+    },
+    {
+      "type": "clean",
+      "item": "Most route functions",
+      "location": "various",
+      "reason": "Well-documented, correctly lazy-imported, consistent error handling",
+      "priority": "P3"
+    }
+  ],
+  "flagCounts": {
+    "dead": 2,
+    "hardcoded": 7,
+    "coupled": 7,
+    "incomplete": 1,
+    "stale": 0,
+    "suspect": 1,
+    "clean": 1
+  },
+  "deps": {
+    "inbound": [
+      "`backend/main.py` \u2014 imports all 8 routers via `app.include_router`",
+      "`backend/main.py:184-189` \u2014 backward-compatible re-exports for tests"
+    ],
+    "outbound": [
+      "`db.client` \u2014 import",
+      "`agents.*` \u2014 import",
+      "`services.*` \u2014 import",
+      "`core.config_constants` \u2014 import",
+      "`core.ws_manager` \u2014 import",
+      "`config` \u2014 import",
+      "`config.secrets` \u2014 import",
+      "`schemas.*` \u2014 import",
+      "`log_context` \u2014 import",
+      "`graph` \u2014 import",
+      "`llm` \u2014 import"
+    ]
+  },
+  "assessment": "### `routes/__init__.py`\n\n1. **Does this file need to exist?** Yes \u2014 Python package init for `from routes import ...` pattern used by `main.py`.\n2. **Does it do what it claims?** Yes \u2014 it's an empty init.\n3. **Is it the right place for this logic?** N/A \u2014 no logic.\n4. **What would break if deleted?** All router imports in `main.py` would fail.\n\n### `routes/actions.py`\n\n1. **Does this file need to exist?** Yes \u2014 clear domain for lead actions (fire, preview, form read).\n2. **Does it do what it claims?** Yes \u2014 all endpoints are action-oriented.\n3. **Is it the right place for this logic?** Yes \u2014 action coordination belongs in the route layer.\n4. **What would break if deleted?** Fire, form read, PDF download, identity, selectors refresh, and preview endpoints \u2014 all clients.\n\n### `routes/ingest.py`\n\n1. **Does this file need to exist?** Yes \u2014 ingestion from multiple sources is a coherent domain. But at 356 lines it's the second largest file.\n2. **Does it do what it claims?** Yes \u2014 all endpoints ingest profile data.\n3. **Is it the right place for this logic?** Partially \u2014 the file is large but each endpoint delegates to an agent. Boundary with `profile.py` is blurry (both do profile writes). Consider splitting portfolio ingestion to its own file.\n4. **What would break if deleted?** All 6 ingestion endpoints + profile template endpoint.\n\n### `routes/leads.py`\n\n1. **Does this file need to exist?** Yes \u2014 lead CRUD and pipeline is the core domain.\n2. **Does it do what it claims?** Yes \u2014 handles leads and pipeline, CSV export, follow-ups.\n3. **Is it the right place for this logic?** Partially \u2014 at 404 lines, it's the largest file. `_annotate_job_lead` and `_versioned_assets` are helpers that belong in `services.scout` and `services.generator` respectively. The `run_pipeline` function embeds a nested async function which is appropriate but makes the function harder to test.\n4. **What would break if deleted?** All lead CRUD, pipeline, CSV export, follow-up, and generation endpoints.\n\n### `routes/misc.py`\n\n1. **Does this file need to exist?** Partially \u2014 health, events, graph stats, template, and help chat are genuinely orthogonal. The name \"misc\" signals this. Consider splitting help chat into its own module or removing the duplicate in `scan.py`.\n2. **Does it do what it claims?** Mostly \u2014 but `/api/v1/help/chat` is silently shadowed by `scan.py`'s duplicate.\n3. **Is it the right place for this logic?** Partially \u2014 dead imports suggest this file was refactored; `HTTPException` and `JSONResponse` are unused.\n4. **What would break if deleted?** Health check, events, graph stats, template CRUD, help chat.\n\n### `routes/profile.py`\n\n1. **Does this file need to exist?** Yes \u2014 clean CRUD boundary for profile sub-entities.\n2. **Does it do what it claims?** Yes.\n3. **Is it the right place for this logic?** Yes \u2014 validation on each endpoint is appropriate.\n4. **What would break if deleted?** All profile CRUD endpoints (candidate, skills, experience, projects).\n\n### `routes/scan.py`\n\n1. **Does this file need to exist?** Yes \u2014 scan lifecycle is a coherent domain.\n2. **Does it do what it claims?** Mostly \u2014 but the duplicate `help_chat` is concerning; likely a copy-paste leftover.\n3. **Is it the right place for this logic?** Partially \u2014 imports private names (`_profile_for_discovery`, `_run_free_source_scan`) from services modules, bypassing the public API.\n4. **What would break if deleted?** Scan start/stop, reevaluate, cleanup, free-sources scan. Help chat would still work via `misc.py`.\n\n### `routes/settings.py`\n\n1. **Does this file need to exist?** Yes \u2014 settings CRUD and job-targets are coherent.\n2. **Does it do what it claims?** Yes.\n3. **Is it the right place for this logic?** Partially \u2014 the ghost mode scheduler side effect in `save_cfg` mixes concerns. The provider probe in `validate_settings` could live in `services.provider_probe`.\n4. **What would break if deleted?** Settings CRUD, key validation, job-targets CRUD.\n\n### `routes/ws.py`\n\n1. **Does this file need to exist?** Yes \u2014 single WebSocket endpoint with dedicated auth and heartbeat.\n2. **Does it do what it claims?** Yes.\n3. **Is it the right place for this logic?** Yes \u2014 clean, self-contained.\n4. **What would break if deleted?** All real-time WebSocket event streaming. Tauri sidecar would lose heartbeat and event push."
+}

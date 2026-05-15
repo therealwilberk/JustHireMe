@@ -1,0 +1,138 @@
+{
+  "slug": "build-ci",
+  "name": "Build & CI",
+  "group": "INFRA",
+  "summary": "The build-ci unit owns the project's CI/CD pipeline, dependency management automation, build configuration, and sidecar packaging scripts. It defines the CI gates (dependency audit, frontend/backend/Rust checks), the full cross-platform release pipeline (PyInstaller sidecar \u2192 Tauri installer \u2192 GitHub release with signed updater metadata), Dependabot schedules for all four ecosystems (npm, cargo, pip, GitHub Actions), Python project metadata with test markers, and shell/PowerShell scripts for local sidecar builds. The website CI job was recently removed alongside deletion of the `website/` directory. All Python dependency pins use `>=` (minimum-version only, no upper bounds). The pytest config in pyproject.toml auto-excludes tests marked `external` (2 of 330 backend tests).\n\n---",
+  "fileCount": 7,
+  "files": [
+    {
+      "#": "1",
+      "File": "`.github/workflows/ci.yml`",
+      "Lines": "111",
+      "Purpose": "PR/push CI: dep audit, frontend build+test, backend pytest, Rust cargo check",
+      "Overall flag": "\ud83d\udfe2"
+    },
+    {
+      "#": "2",
+      "File": "`.github/workflows/release.yml`",
+      "Lines": "521",
+      "Purpose": "Tag-pushed release: matrix build (Win/Lin/Mac) of PyInstaller sidecar + Tauri installer + GitHub release with updater metadata",
+      "Overall flag": "\ud83d\udfe2"
+    },
+    {
+      "#": "3",
+      "File": "`.github/dependabot.yml`",
+      "Lines": "25",
+      "Purpose": "Weekly Dependabot for npm, cargo, pip, GitHub Actions \u2014 3 open PRs each",
+      "Overall flag": "\ud83d\udfe2"
+    },
+    {
+      "#": "4",
+      "File": "`backend/pyproject.toml`",
+      "Lines": "43",
+      "Purpose": "Python project metadata, dependencies, dev deps, pytest config with markers",
+      "Overall flag": "\ud83d\udfe0"
+    },
+    {
+      "#": "5",
+      "File": "`package.json`",
+      "Lines": "59",
+      "Purpose": "Frontend npm project, scripts, deps, devDeps, Tauri build scripts",
+      "Overall flag": "\ud83d\udfe2"
+    },
+    {
+      "#": "6",
+      "File": "`scripts/build-sidecar.sh`",
+      "Lines": "34",
+      "Purpose": "Unix shell script for local PyInstaller sidecar build",
+      "Overall flag": "\ud83d\udfe2"
+    },
+    {
+      "#": "7",
+      "File": "`scripts/build-sidecar.ps1`",
+      "Lines": "29",
+      "Purpose": "Windows PowerShell script for local PyInstaller sidecar build",
+      "Overall flag": "\ud83d\udfe2"
+    }
+  ],
+  "flags": [
+    {
+      "type": "hardcoded",
+      "item": "All Python dep pins use `>=` only",
+      "location": "`backend/pyproject.toml:9-28`",
+      "reason": "No upper bounds on any of 20 runtime deps \u2014 risk of unexpected breakage",
+      "priority": "P1"
+    },
+    {
+      "type": "hardcoded",
+      "item": "Dev dep pins `>=` only",
+      "location": "`backend/pyproject.toml:33-34`",
+      "reason": "pyinstaller and pytest also loose-pinned",
+      "priority": "P1"
+    },
+    {
+      "type": "suspect",
+      "item": "`requires_browser` marker defined but unused",
+      "location": "`backend/pyproject.toml:42`",
+      "reason": "0 tests carry this marker; dead config",
+      "priority": "P2"
+    },
+    {
+      "type": "suspect",
+      "item": "Sidecar build scripts inconsistent rename",
+      "location": "`scripts/build-sidecar.ps1:28` vs `scripts/build-sidecar.sh:30`",
+      "reason": ".ps1 uses Copy-Item (leaves original), .sh uses mv (removes original)",
+      "priority": "P2"
+    },
+    {
+      "type": "stale",
+      "item": "`.deb` removed from release pipeline",
+      "location": "`.github/workflows/release.yml:371-374`",
+      "reason": "Linux release now AppImage-only; release notes updated accordingly",
+      "priority": "P3"
+    },
+    {
+      "type": "clean",
+      "item": "CI runs 99.4% of backend tests (328/330)",
+      "location": "`.github/workflows/ci.yml:74`",
+      "reason": "Only 2 `external`-marked tests excluded via pyproject.toml addopts",
+      "priority": "P3"
+    },
+    {
+      "type": "clean",
+      "item": "Website job and directory removed",
+      "location": "`.github/workflows/ci.yml:62-78` (deleted) + `website/` dir gone",
+      "reason": "Confirmed removal in commit `dc6e571`",
+      "priority": "P3"
+    },
+    {
+      "type": "clean",
+      "item": "Dependabot covers all 4 ecosystems",
+      "location": "`.github/dependabot.yml:3-25`",
+      "reason": "npm, cargo, pip, github-actions \u2014 all weekly, limit 3 each",
+      "priority": "P3"
+    }
+  ],
+  "flagCounts": {
+    "dead": 0,
+    "hardcoded": 2,
+    "coupled": 0,
+    "incomplete": 0,
+    "stale": 1,
+    "suspect": 2,
+    "clean": 3
+  },
+  "deps": {
+    "inbound": [
+      "Tauri build process (`src-tauri/tauri.conf.json`) references sidecar binary naming convention",
+      "Backend unit: `backend/pyproject.toml` is the source of truth for Python deps and pytest config",
+      "Frontend unit: `package.json` scripts (`package:linux`, `package:windows`, `package:macos`) are invoked by release workflow"
+    ],
+    "outbound": [
+      "Backend unit \u2014 CI runs backend tests; release workflow builds backend via PyInstaller",
+      "Frontend unit \u2014 CI runs frontend tests and build; release workflow uses Tauri packaging",
+      "Rust unit (`src-tauri/`) \u2014 CI runs cargo check; release workflow compiles Tauri installer"
+    ]
+  },
+  "assessment": "### `.github/workflows/ci.yml`\n1. **Needs to exist?** Yes \u2014 defines CI gates.\n2. **Does what it claims?** Yes \u2014 audits dependencies, runs tests, checks Rust compilation.\n3. **Right place?** Yes \u2014 standard GitHub Actions location.\n4. **What would break if deleted?** No CI enforcement on PRs/pushes.\n\n### `.github/workflows/release.yml`\n1. **Needs to exist?** Yes \u2014 automates cross-platform release.\n2. **Does what it claims?** Yes \u2014 builds sidecar, Tauri installer, publishes GitHub release with updater metadata.\n3. **Right place?** Yes.\n4. **What would break if deleted?** No automated releases; must build manually.\n\n### `.github/dependabot.yml`\n1. **Needs to exist?** Yes \u2014 automates dependency updates.\n2. **Does what it claims?** Yes \u2014 covers all 4 ecosystems.\n3. **Right place?** Yes.\n4. **What would break if deleted?** Dependencies go stale until manually updated.\n\n### `backend/pyproject.toml`\n1. **Needs to exist?** Yes \u2014 Python project metadata and build config.\n2. **Does what it claims?** Yes \u2014 defines project, deps, test config.\n3. **Right place?** Yes \u2014 standard Python location.\n4. **What would break if deleted?** Cannot install or test the backend.\n\n### `package.json`\n1. **Needs to exist?** Yes \u2014 frontend project metadata.\n2. **Does what it claims?** Yes \u2014 defines scripts, deps, Tauri build commands.\n3. **Right place?** Yes \u2014 standard.\n4. **What would break if deleted?** Cannot build or develop frontend.\n\n### `scripts/build-sidecar.sh`\n1. **Needs to exist?** Partially \u2014 release workflow has equivalent inline steps; this is a convenience for local development.\n2. **Does what it claims?** Yes \u2014 builds sidecar locally.\n3. **Right place?** Yes \u2014 scripts/ directory.\n4. **What would break if deleted?** Developers lose a convenience script but CI/release workflows still work.\n\n### `scripts/build-sidecar.ps1`\n1. **Needs to exist?** Partially \u2014 same reasoning as shell variant.\n2. **Does what it claims?** Yes.\n3. **Right place?** Yes.\n4. **What would break if deleted?** Windows developers lose local build convenience script."
+}

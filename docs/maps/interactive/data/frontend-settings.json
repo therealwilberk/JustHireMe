@@ -1,0 +1,177 @@
+{
+  "slug": "frontend-settings",
+  "name": "Settings",
+  "group": "FRONTEND",
+  "summary": "The `src/settings/` directory is the frontend settings layer \u2014 the UI counterpart to `backend/config/`. It owns the `Cfg` interface (77 keys, all strings \u2014 no typed value constraints), the `EMPTY` default configuration, the `PROVIDERS`/`MODEL_HINTS`/`STEPS` static data tables, and four React component files that render the settings modal sections. It depends on `src/components/Icon` and `src/types` (for `ApiFetch`). It is consumed exclusively by `src/SettingsModal.tsx`. The unit is structurally clean but has significant hardcoding, validation gaps, and India-market embedded references that the `docs/deferred/india-references-cleanup.md` tracks as deferred.\n\n---",
+  "fileCount": 5,
+  "files": [
+    {
+      "#": "1",
+      "File": "`shared.tsx`",
+      "Lines": "364",
+      "Purpose": "`Cfg` interface + `EMPTY` defaults + `PROVIDERS`/`MODEL_HINTS`/`STEPS` static data + UI helper components",
+      "Overall flag": "\ud83d\udfe0 HARDCODED \u2014 provider lists, source presets, model hints all baked in"
+    },
+    {
+      "#": "2",
+      "File": "`DiscoverySettings.tsx`",
+      "Lines": "329",
+      "Purpose": "Job discovery UI: Apify, LinkedIn, X signals, free sources, custom connectors, job board management with market focus toggle",
+      "Overall flag": "\ud83d\udfe0 STALE \u2014 India market hardcoding, duplicated preset definitions"
+    },
+    {
+      "#": "3",
+      "File": "`GlobalSettings.tsx`",
+      "Lines": "102",
+      "Purpose": "Global LLM provider selection, API key input, model selection, key validation UI",
+      "Overall flag": "\ud83d\udfe2 CLEAN"
+    },
+    {
+      "#": "4",
+      "File": "`StepSettings.tsx`",
+      "Lines": "16",
+      "Purpose": "Thin wrapper rendering `StepCard` for each `STEPS` entry",
+      "Overall flag": "\ud83d\udfe2 CLEAN"
+    },
+    {
+      "#": "5",
+      "File": "`AutomationSettings.tsx`",
+      "Lines": "24",
+      "Purpose": "Three experimental automation toggles (ghost mode, auto apply, headed browser)",
+      "Overall flag": "\ud83d\udfe2 CLEAN"
+    }
+  ],
+  "flags": [
+    {
+      "type": "hardcoded",
+      "item": "`PROVIDERS` array",
+      "location": "`shared.tsx:54`",
+      "reason": "17 LLM provider definitions baked into source \u2014 no plugin/config mechanism",
+      "priority": "P1"
+    },
+    {
+      "type": "hardcoded",
+      "item": "`MODEL_HINTS` record",
+      "location": "`shared.tsx:74`",
+      "reason": "Per-provider model lists baked in \u2014 will go stale",
+      "priority": "P1"
+    },
+    {
+      "type": "hardcoded",
+      "item": "`GLOBAL_SOURCE_PRESET`",
+      "location": "`shared.tsx:107`",
+      "reason": "18 job source lines embedded \u2014 tracked by `chore/externalize-job-targets`",
+      "priority": "P1"
+    },
+    {
+      "type": "hardcoded",
+      "item": "`INDIA_SOURCE_PRESET`",
+      "location": "`shared.tsx:129`",
+      "reason": "13 India-specific job source lines \u2014 tracked by `docs/deferred/india-references-cleanup.md`",
+      "priority": "P1"
+    },
+    {
+      "type": "hardcoded",
+      "item": "India market quick-add buttons",
+      "location": "`DiscoverySettings.tsx:259-279`",
+      "reason": "\"Naukri\", \"Instahyre\", \"Cutshort\", \"Foundit\", \"Internshala\" buttons embedded",
+      "priority": "P1"
+    },
+    {
+      "type": "hardcoded",
+      "item": "Market focus buttons",
+      "location": "`DiscoverySettings.tsx:214-231`",
+      "reason": "\"Global market\" vs \"India market\" hardcoded as the only two options",
+      "priority": "P1"
+    },
+    {
+      "type": "hardcoded",
+      "item": "`sourceTargetFromSite` India clause",
+      "location": "`DiscoverySettings.tsx:19`",
+      "reason": "Appends `India OR global` unconditionally to plain-domain queries",
+      "priority": "P1"
+    },
+    {
+      "type": "stale",
+      "item": "`Cfg` all-string typing",
+      "location": "`shared.tsx:4`",
+      "reason": "77 keys all typed `string` \u2014 numeric fields (`x_max_requests_per_scan`, score thresholds) and booleans (`ghost_mode`, `auto_apply`) should use `number`/`boolean` with proper parsing in the backend boundary",
+      "priority": "P2"
+    },
+    {
+      "type": "stale",
+      "item": "No frontend validation",
+      "location": "`shared.tsx:4`",
+      "reason": "`Cfg` allows any string in any field \u2014 no min/max enforcement for numeric fields, no required-key checks, no provider/key consistency validation on the frontend",
+      "priority": "P2"
+    },
+    {
+      "type": "suspect",
+      "item": "`EMPTY` default model values",
+      "location": "`shared.tsx:30-38`",
+      "reason": "Several defaults look like copy-paste artifacts: `nvidia_model` default `\"z-ai/glm-5.1\"` (NVIDIA doesn't serve GLM?), `huggingface_model` default `\"openai/gpt-oss-120b\"` (not a HuggingFace endpoint), `together_model` default `\"openai/gpt-oss-120b\"` (not Together's naming)",
+      "priority": "P2"
+    },
+    {
+      "type": "suspect",
+      "item": "`ApiKeyInput` placeholder map duplication",
+      "location": "`shared.tsx:250-255`",
+      "reason": "Per-provider key format placeholders duplicate knowledge that could live in `PROVIDERS` metadata",
+      "priority": "P2"
+    },
+    {
+      "type": "clean",
+      "item": "`GlobalSettings.tsx`",
+      "location": "all",
+      "reason": "Well-structured, clear responsibilities, proper separation",
+      "priority": "P3"
+    },
+    {
+      "type": "clean",
+      "item": "`StepSettings.tsx`",
+      "location": "all",
+      "reason": "Minimal, clear delegation",
+      "priority": "P3"
+    },
+    {
+      "type": "clean",
+      "item": "`AutomationSettings.tsx`",
+      "location": "all",
+      "reason": "Simple toggles with clear UI labels",
+      "priority": "P3"
+    },
+    {
+      "type": "clean",
+      "item": "`KEY_FIELD` / `GLOBAL_MODEL_FIELD`",
+      "location": "`shared.tsx:145,154`",
+      "reason": "Clean mapping pattern matching provider IDs to `Cfg` keys",
+      "priority": "P3"
+    },
+    {
+      "type": "clean",
+      "item": "`StepCard` component",
+      "location": "`shared.tsx:265`",
+      "reason": "Well-structured compound component with clear global/custom toggle pattern",
+      "priority": "P3"
+    }
+  ],
+  "flagCounts": {
+    "dead": 0,
+    "hardcoded": 7,
+    "coupled": 0,
+    "incomplete": 0,
+    "stale": 2,
+    "suspect": 2,
+    "clean": 5
+  },
+  "deps": {
+    "inbound": [
+      "`src/SettingsModal.tsx` \u2014 imports all 5 files; uses `EMPTY`, `Cfg`, and all four settings components"
+    ],
+    "outbound": [
+      "`src/components/Icon` \u2014 used by `StepCard`, `BigToggle` in `shared.tsx`",
+      "`src/types` (specifically `ApiFetch`) \u2014 used by `GlobalSettings.tsx`"
+    ]
+  },
+  "assessment": "### `shared.tsx`\n1. **Does this file need to exist?** Yes \u2014 central config schema + shared UI primitives.\n2. **Does it do what it claims?** Partially \u2014 name suggests \"shared\" which is accurate, but it also contains non-trivial static data (`GLOBAL_SOURCE_PRESET`, `INDIA_SOURCE_PRESET`) that is domain-specific rather than shared.\n3. **Is it the right place for this logic?** Partially \u2014 source presets would better live in a config data file; provider/model definitions are reasonable here but the hardcoding is a concern.\n4. **What would break if deleted?** Everything \u2014 `Cfg` + `EMPTY` are the foundation; all 4 settings components + `SettingsModal` would fail.\n\n### `DiscoverySettings.tsx`\n1. **Does this file need to exist?** Yes \u2014 job discovery is a distinct settings domain.\n2. **Does it do what it claims?** Yes \u2014 handles discovery configuration.\n3. **Is it the right place for this logic?** Partially \u2014 India market references violate separation of concerns; market-specific logic should be externalized.\n4. **What would break if deleted?** Settings modal would lack the entire scraping/discovery section.\n\n### `GlobalSettings.tsx`\n1. **Does this file need to exist?** Yes \u2014 global LLM config is a distinct concern.\n2. **Does it do what it claims?** Yes.\n3. **Is it the right place for this logic?** Yes \u2014 clean separation.\n4. **What would break if deleted?** Users couldn't configure their default LLM provider.\n\n### `StepSettings.tsx`\n1. **Does this file need to exist?** Borderline \u2014 at 16 lines it could be inlined into `SettingsModal` or `shared.tsx`. But the semantic separation is defensible.\n2. **Does it do what it claims?** Yes.\n3. **Is it the right place for this logic?** Yes \u2014 but could be merged upward for brevity.\n4. **What would break if deleted?** Per-step configuration would disappear; could be trivially inlined.\n\n### `AutomationSettings.tsx`\n1. **Does this file need to exist?** Yes \u2014 experimental automation is a distinct settings domain.\n2. **Does it do what it claims?** Yes.\n3. **Is it the right place for this logic?** Yes \u2014 clearly scoped and self-contained.\n4. **What would break if deleted?** Three toggles would disappear from the settings modal."
+}

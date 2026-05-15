@@ -1,0 +1,415 @@
+{
+  "nodes": [
+    {
+      "id": "backend-config",
+      "name": "Config",
+      "group": "BACKEND",
+      "fileCount": 10,
+      "flagCounts": {
+        "dead": 0,
+        "hardcoded": 0,
+        "coupled": 1,
+        "incomplete": 0,
+        "stale": 0,
+        "suspect": 7,
+        "clean": 1
+      },
+      "summary": "The `backend/config/` package is the typed configuration layer for the JustHireMe backend. It owns all hardcoded constan"
+    },
+    {
+      "id": "backend-db",
+      "name": "DB",
+      "group": "BACKEND",
+      "fileCount": 2,
+      "flagCounts": {
+        "dead": 5,
+        "hardcoded": 6,
+        "coupled": 3,
+        "incomplete": 3,
+        "stale": 0,
+        "suspect": 7,
+        "clean": 7
+      },
+      "summary": "The `backend/db/` unit is the data access layer for the entire JustHireMe application. It owns all persistent state acro"
+    },
+    {
+      "id": "backend-evaluators",
+      "name": "Evaluators",
+      "group": "BACKEND",
+      "fileCount": 5,
+      "flagCounts": {
+        "dead": 2,
+        "hardcoded": 17,
+        "coupled": 5,
+        "incomplete": 0,
+        "stale": 0,
+        "suspect": 4,
+        "clean": 5
+      },
+      "summary": "The evaluators unit owns job-lead scoring, candidate profiling, and lead intelligence for JustHireMe. It spans five modu"
+    },
+    {
+      "id": "backend-foundations",
+      "name": "Foundations",
+      "group": "BACKEND",
+      "fileCount": 8,
+      "flagCounts": {
+        "dead": 0,
+        "hardcoded": 0,
+        "coupled": 1,
+        "incomplete": 0,
+        "stale": 0,
+        "suspect": 5,
+        "clean": 1
+      },
+      "summary": "The backend-foundations unit provides the foundational layer for the entire Python backend: configuration constants/sing"
+    },
+    {
+      "id": "backend-generators",
+      "name": "Generators",
+      "group": "BACKEND",
+      "fileCount": 2,
+      "flagCounts": {
+        "dead": 1,
+        "hardcoded": 8,
+        "coupled": 0,
+        "incomplete": 0,
+        "stale": 0,
+        "suspect": 7,
+        "clean": 5
+      },
+      "summary": "This unit covers the two production agent files that sit between the application layer and the LLM/graph/vector stores. "
+    },
+    {
+      "id": "backend-integrations",
+      "name": "Integrations",
+      "group": "BACKEND",
+      "fileCount": 9,
+      "flagCounts": {
+        "dead": 1,
+        "hardcoded": 15,
+        "coupled": 2,
+        "incomplete": 0,
+        "stale": 3,
+        "suspect": 6,
+        "clean": 5
+      },
+      "summary": "The backend-integrations unit owns all third-party integration agents in the justHireMe sidecar backend: browser automat"
+    },
+    {
+      "id": "backend-main",
+      "name": "Main",
+      "group": "BACKEND",
+      "fileCount": 5,
+      "flagCounts": {
+        "dead": 1,
+        "hardcoded": 10,
+        "coupled": 2,
+        "incomplete": 0,
+        "stale": 1,
+        "suspect": 4,
+        "clean": 5
+      },
+      "summary": "The **backend-main** unit owns the FastAPI application lifecycle (startup config validation, auth, CORS, scheduler, rout"
+    },
+    {
+      "id": "backend-routes",
+      "name": "Routes",
+      "group": "BACKEND",
+      "fileCount": 9,
+      "flagCounts": {
+        "dead": 2,
+        "hardcoded": 7,
+        "coupled": 7,
+        "incomplete": 1,
+        "stale": 0,
+        "suspect": 1,
+        "clean": 1
+      },
+      "summary": "`backend/routes/` is the HTTP API layer of JustHireMe. It owns all REST endpoints and one WebSocket endpoint, organized "
+    },
+    {
+      "id": "backend-scrapers",
+      "name": "Scrapers",
+      "group": "BACKEND",
+      "fileCount": 5,
+      "flagCounts": {
+        "dead": 4,
+        "hardcoded": 16,
+        "coupled": 3,
+        "incomplete": 0,
+        "stale": 0,
+        "suspect": 9,
+        "clean": 4
+      },
+      "summary": "This unit owns the \"scouting\" layer \u2014 every code path that discovers job leads from external sources. It contains five m"
+    },
+    {
+      "id": "backend-services",
+      "name": "Services",
+      "group": "BACKEND",
+      "fileCount": 7,
+      "flagCounts": {
+        "dead": 0,
+        "hardcoded": 4,
+        "coupled": 2,
+        "incomplete": 0,
+        "stale": 0,
+        "suspect": 5,
+        "clean": 1
+      },
+      "summary": "The `backend/services/` package is the orchestration layer between API routes (HTTP/WS) and agents (LLM-powered work). I"
+    },
+    {
+      "id": "backend-tests",
+      "name": "Tests",
+      "group": "BACKEND",
+      "fileCount": 20,
+      "flagCounts": {
+        "dead": 0,
+        "hardcoded": 0,
+        "coupled": 0,
+        "incomplete": 0,
+        "stale": 1,
+        "suspect": 2,
+        "clean": 6
+      },
+      "summary": "The backend test suite lives entirely in `backend/tests/` and contains 328 deterministic tests designed to run in CI wit"
+    },
+    {
+      "id": "frontend-components",
+      "name": "Components",
+      "group": "FRONTEND",
+      "fileCount": 11,
+      "flagCounts": {
+        "dead": 2,
+        "hardcoded": 1,
+        "coupled": 0,
+        "incomplete": 0,
+        "stale": 1,
+        "suspect": 2,
+        "clean": 5
+      },
+      "summary": "Collection of 11 React TSX components forming the top-level UI building blocks of the Tauri desktop app. Owns the sideba"
+    },
+    {
+      "id": "frontend-core",
+      "name": "Core",
+      "group": "FRONTEND",
+      "fileCount": 5,
+      "flagCounts": {
+        "dead": 0,
+        "hardcoded": 0,
+        "coupled": 0,
+        "incomplete": 0,
+        "stale": 0,
+        "suspect": 3,
+        "clean": 3
+      },
+      "summary": "The frontend-core unit is the application shell. It owns the React entry point (`main.tsx`), the root `App` component th"
+    },
+    {
+      "id": "frontend-hooks",
+      "name": "Hooks",
+      "group": "FRONTEND",
+      "fileCount": 5,
+      "flagCounts": {
+        "dead": 0,
+        "hardcoded": 8,
+        "coupled": 0,
+        "incomplete": 0,
+        "stale": 0,
+        "suspect": 5,
+        "clean": 3
+      },
+      "summary": "The frontend hooks layer provides React state management and side-effect orchestration for the JustHireMe desktop app. `"
+    },
+    {
+      "id": "frontend-settings",
+      "name": "Settings",
+      "group": "FRONTEND",
+      "fileCount": 5,
+      "flagCounts": {
+        "dead": 0,
+        "hardcoded": 7,
+        "coupled": 0,
+        "incomplete": 0,
+        "stale": 2,
+        "suspect": 2,
+        "clean": 5
+      },
+      "summary": "The `src/settings/` directory is the frontend settings layer \u2014 the UI counterpart to `backend/config/`. It owns the `Cfg"
+    },
+    {
+      "id": "frontend-views",
+      "name": "Views",
+      "group": "FRONTEND",
+      "fileCount": 9,
+      "flagCounts": {
+        "dead": 1,
+        "hardcoded": 3,
+        "coupled": 0,
+        "incomplete": 0,
+        "stale": 0,
+        "suspect": 6,
+        "clean": 2
+      },
+      "summary": "The `src/views/` unit contains all top-level page components consumed by `App.tsx` via a view-router pattern (`view` sta"
+    },
+    {
+      "id": "build-ci",
+      "name": "Build & CI",
+      "group": "INFRA",
+      "fileCount": 7,
+      "flagCounts": {
+        "dead": 0,
+        "hardcoded": 2,
+        "coupled": 0,
+        "incomplete": 0,
+        "stale": 1,
+        "suspect": 2,
+        "clean": 3
+      },
+      "summary": "The build-ci unit owns the project's CI/CD pipeline, dependency management automation, build configuration, and sidecar "
+    },
+    {
+      "id": "tauri",
+      "name": "Tauri",
+      "group": "INFRA",
+      "fileCount": 5,
+      "flagCounts": {
+        "dead": 1,
+        "hardcoded": 3,
+        "coupled": 0,
+        "incomplete": 0,
+        "stale": 3,
+        "suspect": 5,
+        "clean": 1
+      },
+      "summary": "The Tauri unit is the desktop shell. It owns the Tauri application lifecycle (build, window, run loop), Python sidecar p"
+    }
+  ],
+  "edges": [
+    {
+      "source": "backend-config",
+      "target": "backend-db",
+      "label": "imports get_setting"
+    },
+    {
+      "source": "backend-db",
+      "target": "backend-config",
+      "label": "imports settings"
+    },
+    {
+      "source": "backend-main",
+      "target": "backend-config",
+      "label": "validate_all, settings"
+    },
+    {
+      "source": "backend-main",
+      "target": "backend-foundations",
+      "label": "core.constants"
+    },
+    {
+      "source": "backend-routes",
+      "target": "backend-db",
+      "label": "all routes import db.client"
+    },
+    {
+      "source": "backend-routes",
+      "target": "backend-foundations",
+      "label": "schemas, ws_manager"
+    },
+    {
+      "source": "backend-scrapers",
+      "target": "backend-evaluators",
+      "label": "lead_intel, quality_gate"
+    },
+    {
+      "source": "backend-scrapers",
+      "target": "backend-main",
+      "label": "llm.call_llm"
+    },
+    {
+      "source": "backend-services",
+      "target": "backend-scrapers",
+      "label": "orchestrates scouts"
+    },
+    {
+      "source": "backend-services",
+      "target": "backend-evaluators",
+      "label": "evaluator.score"
+    },
+    {
+      "source": "backend-evaluators",
+      "target": "backend-foundations",
+      "label": "logger"
+    },
+    {
+      "source": "backend-generators",
+      "target": "backend-db",
+      "label": "data_base, get_profile"
+    },
+    {
+      "source": "backend-generators",
+      "target": "backend-evaluators",
+      "label": "TECH_TAXONOMY"
+    },
+    {
+      "source": "backend-integrations",
+      "target": "backend-main",
+      "label": "llm, config"
+    },
+    {
+      "source": "backend-tests",
+      "target": "backend-db",
+      "label": "test db.client"
+    },
+    {
+      "source": "frontend-core",
+      "target": "frontend-hooks",
+      "label": "useWS, useLeads"
+    },
+    {
+      "source": "frontend-core",
+      "target": "frontend-components",
+      "label": "Sidebar, Topbar, etc"
+    },
+    {
+      "source": "frontend-core",
+      "target": "frontend-views",
+      "label": "all views"
+    },
+    {
+      "source": "frontend-core",
+      "target": "frontend-settings",
+      "label": "SettingsModal"
+    },
+    {
+      "source": "build-ci",
+      "target": "backend-tests",
+      "label": "runs pytest"
+    },
+    {
+      "source": "build-ci",
+      "target": "frontend-core",
+      "label": "builds frontend"
+    },
+    {
+      "source": "tauri",
+      "target": "build-ci",
+      "label": "bundles via CI"
+    }
+  ],
+  "flagCounts": {
+    "dead": 20,
+    "hardcoded": 107,
+    "coupled": 26,
+    "incomplete": 4,
+    "stale": 12,
+    "suspect": 82,
+    "clean": 63
+  },
+  "totalFlags": 314,
+  "totalFiles": 129
+}

@@ -1,0 +1,1034 @@
+[
+  {
+    "file": "`config/__init__.py`",
+    "unit": "Config",
+    "unitSlug": "backend-config",
+    "lines": "51",
+    "purpose": "Package init: exports `settings`, `validate_all()`, `init_config_dir()`, `get_config_dir()`",
+    "flag": "\ud83d\udfe2 CLEAN"
+  },
+  {
+    "file": "`config/app.py`",
+    "unit": "Config",
+    "unitSlug": "backend-config",
+    "lines": "227",
+    "purpose": "Application-domain settings (ports, CORS, tokens, scan limits, env key names, ghost mode, etc.)",
+    "flag": "\ud83d\udfe2 CLEAN"
+  },
+  {
+    "file": "`config/contact.py`",
+    "unit": "Config",
+    "unitSlug": "backend-config",
+    "lines": "93",
+    "purpose": "Hunter.io / Proxycurl API settings, ATS host list, contact priority roles, manager name regexes",
+    "flag": "\ud83d\udfe2 CLEAN"
+  },
+  {
+    "file": "`config/generator.py`",
+    "unit": "Config",
+    "unitSlug": "backend-config",
+    "lines": "102",
+    "purpose": "PDF generator defaults (colors, sizing, word limits, font sizes, scale values)",
+    "flag": "\ud83d\udfe2 CLEAN"
+  },
+  {
+    "file": "`config/llm.py`",
+    "unit": "Config",
+    "unitSlug": "backend-config",
+    "lines": "114",
+    "purpose": "LLM provider models, endpoints, key names, timeouts, probe URLs",
+    "flag": "\ud83d\udfe2 CLEAN"
+  },
+  {
+    "file": "`config/logging.py`",
+    "unit": "Config",
+    "unitSlug": "backend-config",
+    "lines": "25",
+    "purpose": "Log level, format string, output stream, file rotation",
+    "flag": "\ud83d\udfe2 CLEAN"
+  },
+  {
+    "file": "`config/resolver.py`",
+    "unit": "Config",
+    "unitSlug": "backend-config",
+    "lines": "61",
+    "purpose": "Config directory resolution (CLI \u2192 env \u2192 XDG \u2192 local fallback)",
+    "flag": "\ud83d\udfe2 CLEAN"
+  },
+  {
+    "file": "`config/scoring.py`",
+    "unit": "Config",
+    "unitSlug": "backend-config",
+    "lines": "294",
+    "purpose": "Rubric weights, quality-gate thresholds, seniority config, full tech taxonomy & categories",
+    "flag": "\ud83d\udfe2 CLEAN"
+  },
+  {
+    "file": "`config/scraping.py`",
+    "unit": "Config",
+    "unitSlug": "backend-config",
+    "lines": "156",
+    "purpose": "Scraper timeouts, retry config, per-source caps, API URLs, ATS endpoints, user agents",
+    "flag": "\ud83d\udfe2 CLEAN"
+  },
+  {
+    "file": "`config/secrets.py`",
+    "unit": "Config",
+    "unitSlug": "backend-config",
+    "lines": "53",
+    "purpose": "`resolve_secret()` \u2014 env var with SQLite deprecation fallback",
+    "flag": "\ud83d\udfe2 CLEAN"
+  },
+  {
+    "file": "`backend/db/__init__.py`",
+    "unit": "DB",
+    "unitSlug": "backend-db",
+    "lines": "0",
+    "purpose": "Empty \u2014 exists only for package resolution",
+    "flag": "\ud83d\udfe2"
+  },
+  {
+    "file": "`backend/db/client.py`",
+    "unit": "DB",
+    "unitSlug": "backend-db",
+    "lines": "1641",
+    "purpose": "Multi-engine data access: SQLite, Kuzu, LanceDB",
+    "flag": "\ud83d\udfe3 COUPLED \u2014 three DBs in one file, module-level side effects, circular dep with config"
+  },
+  {
+    "file": "`agents/evaluator.py`",
+    "unit": "Evaluators",
+    "unitSlug": "backend-evaluators",
+    "lines": "321",
+    "purpose": "LLM-led scoring with deterministic fallback",
+    "flag": "\ud83d\udfe2 mostly clean, minor dead code"
+  },
+  {
+    "file": "`agents/scoring_engine.py`",
+    "unit": "Evaluators",
+    "unitSlug": "backend-evaluators",
+    "lines": "1,097",
+    "purpose": "Deterministic rubric scoring engine",
+    "flag": "\ud83d\udfe2 well-factored, many hardcoded values"
+  },
+  {
+    "file": "`agents/feedback_ranker.py`",
+    "unit": "Evaluators",
+    "unitSlug": "backend-evaluators",
+    "lines": "176",
+    "purpose": "User-feedback-driven signal adjustment",
+    "flag": "\ud83d\udfe2 focused and clean"
+  },
+  {
+    "file": "`agents/semantic.py`",
+    "unit": "Evaluators",
+    "unitSlug": "backend-evaluators",
+    "lines": "278",
+    "purpose": "Embedding-based semantic similarity",
+    "flag": "\ud83d\udfe2 graceful degradation, hardcoded stretch params"
+  },
+  {
+    "file": "`agents/lead_intel.py`",
+    "unit": "Evaluators",
+    "unitSlug": "backend-evaluators",
+    "lines": "314",
+    "purpose": "Raw text to structured lead conversion",
+    "flag": "\ud83d\udfe0 has a bug, several unused params"
+  },
+  {
+    "file": "`backend/core/__init__.py`",
+    "unit": "Foundations",
+    "unitSlug": "backend-foundations",
+    "lines": "0",
+    "purpose": "Package marker for `core`",
+    "flag": "\ud83d\udfe2 CLEAN \u2014 standard namespace package"
+  },
+  {
+    "file": "`backend/core/config_constants.py`",
+    "unit": "Foundations",
+    "unitSlug": "backend-foundations",
+    "lines": "21",
+    "purpose": "Module-level constants and shared singletons (scheduler, auth token, CORS regex, logger)",
+    "flag": "\ud83d\udfe2 CLEAN \u2014 well-scoped, actively consumed"
+  },
+  {
+    "file": "`backend/core/ws_manager.py`",
+    "unit": "Foundations",
+    "unitSlug": "backend-foundations",
+    "lines": "92",
+    "purpose": "Thread-safe WebSocket connection manager with broadcast and dead-connection cleanup",
+    "flag": "\ud83d\udfe2 CLEAN \u2014 well-structured, widely used"
+  },
+  {
+    "file": "`backend/schemas/__init__.py`",
+    "unit": "Foundations",
+    "unitSlug": "backend-foundations",
+    "lines": "0",
+    "purpose": "Package marker for `schemas`",
+    "flag": "\ud83d\udfe2 CLEAN \u2014 standard namespace package"
+  },
+  {
+    "file": "`backend/schemas/requests.py`",
+    "unit": "Foundations",
+    "unitSlug": "backend-foundations",
+    "lines": "214",
+    "purpose": "Pydantic request body models for all API endpoints",
+    "flag": "\ud83d\udfe2 CLEAN \u2014 comprehensive, well-typed"
+  },
+  {
+    "file": "`backend/schemas/responses.py`",
+    "unit": "Foundations",
+    "unitSlug": "backend-foundations",
+    "lines": "117",
+    "purpose": "Pydantic response models for all API endpoints",
+    "flag": "\ud83d\udfe2 CLEAN \u2014 complete coverage"
+  },
+  {
+    "file": "`backend/models/__init__.py`",
+    "unit": "Foundations",
+    "unitSlug": "backend-foundations",
+    "lines": "0",
+    "purpose": "Package marker for `models`",
+    "flag": "\ud83d\udfe2 CLEAN \u2014 standard namespace package"
+  },
+  {
+    "file": "`backend/models/schema.py`",
+    "unit": "Foundations",
+    "unitSlug": "backend-foundations",
+    "lines": "34",
+    "purpose": "Compact Pydantic models for ingestor agent internal representation",
+    "flag": "\ud83d\udfe1 SUSPECT \u2014 cryptic single-letter class names, field `s` used ambiguously"
+  },
+  {
+    "file": "`backend/agents/generator.py`",
+    "unit": "Generators",
+    "unitSlug": "backend-generators",
+    "lines": "1,215",
+    "purpose": "Document assembly: resume/cover letter PDF generation, outreach messages, ATS keyword coverage",
+    "flag": "\ud83d\udfe0 STALE \u2014 `_draft()` dead code; hardcoded prompt values and PDF parameters should be config-driven"
+  },
+  {
+    "file": "`backend/agents/ingestor.py`",
+    "unit": "Generators",
+    "unitSlug": "backend-generators",
+    "lines": "564",
+    "purpose": "Profile ingestion: text parsing (LLM + local fallback), Kuzu graph write, LanceDB vector embed",
+    "flag": "\ud83d\udfe1 SUSPECT \u2014 model name hardcoded, thread-safety race on `_st`, hash embedder degrades silently"
+  },
+  {
+    "file": "`agents/__init__.py`",
+    "unit": "Integrations",
+    "unitSlug": "backend-integrations",
+    "lines": "0",
+    "purpose": "empty package marker",
+    "flag": "\ud83d\udfe2 CLEAN"
+  },
+  {
+    "file": "`agents/actuator.py`",
+    "unit": "Integrations",
+    "unitSlug": "backend-integrations",
+    "lines": "455",
+    "purpose": "experimental auto-apply browser automation with vision fallback",
+    "flag": "\ud83d\udfe0 STALE \u2014 experimental, gated, heavily hardcoded"
+  },
+  {
+    "file": "`agents/contact_lookup.py`",
+    "unit": "Integrations",
+    "unitSlug": "backend-integrations",
+    "lines": "218",
+    "purpose": "Hunter.io + Proxycurl company contact enrichment",
+    "flag": "\ud83d\udfe2 CLEAN \u2014 well-structured, config-driven"
+  },
+  {
+    "file": "`agents/help_agent.py`",
+    "unit": "Integrations",
+    "unitSlug": "backend-integrations",
+    "lines": "466",
+    "purpose": "in-app help system with LLM + deterministic fallback",
+    "flag": "\ud83d\udfe0 STALE \u2014 300+ lines hardcoded guide text, model lists will stale"
+  },
+  {
+    "file": "`agents/selectors.py`",
+    "unit": "Integrations",
+    "unitSlug": "backend-integrations",
+    "lines": "84",
+    "purpose": "OTA form selectors with remote\u2192cache\u2192bundled fallback",
+    "flag": "\ud83d\udfe2 CLEAN \u2014 well-layered fallback, reasonable TTL"
+  },
+  {
+    "file": "`agents/browser_runtime.py`",
+    "unit": "Integrations",
+    "unitSlug": "backend-integrations",
+    "lines": "164",
+    "purpose": "cross-platform Chromium discovery + download",
+    "flag": "\ud83d\udfe2 CLEAN \u2014 well-structured, tested"
+  },
+  {
+    "file": "`agents/github_ingestor.py`",
+    "unit": "Integrations",
+    "unitSlug": "backend-integrations",
+    "lines": "189",
+    "purpose": "GitHub profile/project ingestion via API + LLM",
+    "flag": "\ud83d\udfe2 CLEAN \u2014 well-scoped, typed extraction"
+  },
+  {
+    "file": "`agents/linkedin_parser.py`",
+    "unit": "Integrations",
+    "unitSlug": "backend-integrations",
+    "lines": "131",
+    "purpose": "LinkedIn data export ZIP parser",
+    "flag": "\ud83d\udfe2 CLEAN \u2014 focused, deterministic CSV parsing"
+  },
+  {
+    "file": "`agents/portfolio_ingestor.py`",
+    "unit": "Integrations",
+    "unitSlug": "backend-integrations",
+    "lines": "165",
+    "purpose": "personal portfolio ingestion via Playwright\u2192HTTP\u2192raw",
+    "flag": "\ud83d\udfe1 SUSPECT \u2014 nested imports, regex HTML stripping, brittle"
+  },
+  {
+    "file": "`backend/main.py`",
+    "unit": "Main",
+    "unitSlug": "backend-main",
+    "lines": "193",
+    "purpose": "FastAPI entrypoint: lifespan, middleware, CORS, auth, router registration, backward-compat re-exports",
+    "flag": "\ud83d\udfe2 CLEAN \u2014 well-structured, but has stale re-exports"
+  },
+  {
+    "file": "`backend/llm.py`",
+    "unit": "Main",
+    "unitSlug": "backend-main",
+    "lines": "355",
+    "purpose": "LLM provider abstraction: 17 providers, per-step config resolution, structured + raw calling",
+    "flag": "\ud83d\udfe0 STALE \u2014 duplicate hardcoded URLs alongside config values; monolithic provider chain"
+  },
+  {
+    "file": "`backend/mcp_server.py`",
+    "unit": "Main",
+    "unitSlug": "backend-main",
+    "lines": "191",
+    "purpose": "Minimal MCP stdio server (no SDK): 3 tools, JSON-RPC 2.0",
+    "flag": "\ud83d\udfe2 CLEAN \u2014 focused, minimal, no SDK debt"
+  },
+  {
+    "file": "`backend/logger.py`",
+    "unit": "Main",
+    "unitSlug": "backend-main",
+    "lines": "132",
+    "purpose": "Logging setup: CorrelationFilter, ContextFormatter (dead), get_logger factory",
+    "flag": "\ud83d\udfe0 STALE \u2014 ContextFormatter defined but never wired"
+  },
+  {
+    "file": "`backend/log_context.py`",
+    "unit": "Main",
+    "unitSlug": "backend-main",
+    "lines": "103",
+    "purpose": "contextvar-based correlation context propagation",
+    "flag": "\ud83d\udfe2 CLEAN \u2014 single responsibility, well-typed"
+  },
+  {
+    "file": "`routes/__init__.py`",
+    "unit": "Routes",
+    "unitSlug": "backend-routes",
+    "lines": "0",
+    "purpose": "Package marker, empty",
+    "flag": "\ud83d\udfe2 \u2014 standard Python package init"
+  },
+  {
+    "file": "`routes/actions.py`",
+    "unit": "Routes",
+    "unitSlug": "backend-routes",
+    "lines": "210",
+    "purpose": "Fire, PDF, form read, identity, selectors refresh, preview",
+    "flag": "\ud83d\udfe2 \u2014 well-scoped, coherent"
+  },
+  {
+    "file": "`routes/ingest.py`",
+    "unit": "Routes",
+    "unitSlug": "backend-routes",
+    "lines": "356",
+    "purpose": "Profile ingestion from 6 sources (paste, PDF, LinkedIn, GitHub, JSON, portfolio)",
+    "flag": "\ud83d\udfe1 SUSPECT \u2014 file is 2.4\u00d7 the mean; domain boundary with `profile.py` is blurry"
+  },
+  {
+    "file": "`routes/leads.py`",
+    "unit": "Routes",
+    "unitSlug": "backend-routes",
+    "lines": "404",
+    "purpose": "Lead CRUD, pipeline, CSV export, follow-ups",
+    "flag": "\ud83d\udfe1 SUSPECT \u2014 largest file at 404 lines; `_annotate_job_lead` is helper that could live in `services.scout`"
+  },
+  {
+    "file": "`routes/misc.py`",
+    "unit": "Routes",
+    "unitSlug": "backend-routes",
+    "lines": "145",
+    "purpose": "Health, events, graph stats, template, help chat",
+    "flag": "\ud83d\udfe3 COUPLED \u2014 `/api/v1/help/chat` collides with `scan.py`'s identical path"
+  },
+  {
+    "file": "`routes/profile.py`",
+    "unit": "Routes",
+    "unitSlug": "backend-routes",
+    "lines": "203",
+    "purpose": "Candidate info, skills, experience, projects CRUD",
+    "flag": "\ud83d\udfe2 \u2014 clean CRUD, consistent validation"
+  },
+  {
+    "file": "`routes/scan.py`",
+    "unit": "Routes",
+    "unitSlug": "backend-routes",
+    "lines": "125",
+    "purpose": "Scan start/stop, reevaluate, cleanup, free-sources, help chat",
+    "flag": "\ud83d\udfe3 COUPLED \u2014 duplicate `POST /api/v1/help/chat` shadows `misc.py`; imports `_run_free_source_scan` as a private name"
+  },
+  {
+    "file": "`routes/settings.py`",
+    "unit": "Routes",
+    "unitSlug": "backend-routes",
+    "lines": "160",
+    "purpose": "Settings CRUD, API key validation, job-targets",
+    "flag": "\ud83d\udfe1 SUSPECT \u2014 settings save has implicit ghost-mode schedule side effect; imports `_ghost_tick` private name"
+  },
+  {
+    "file": "`routes/ws.py`",
+    "unit": "Routes",
+    "unitSlug": "backend-routes",
+    "lines": "59",
+    "purpose": "WebSocket endpoint for real-time streaming + heartbeat",
+    "flag": "\ud83d\udfe2 \u2014 lean, focused, self-contained"
+  },
+  {
+    "file": "`agents/scout.py`",
+    "unit": "Scrapers",
+    "unitSlug": "backend-scrapers",
+    "lines": "1,027",
+    "purpose": "Primary job-lead scraper: crawl, extract, save",
+    "flag": "\ud83d\udfe0 STALE \u2014 duplicates exist across `free_scout.py` and `quality_gate.py`; `_ensure_scheme` is defined twice"
+  },
+  {
+    "file": "`agents/free_scout.py`",
+    "unit": "Scrapers",
+    "unitSlug": "backend-scrapers",
+    "lines": "718",
+    "purpose": "Free-source signal scraper: ATS, GitHub, HN, Reddit, custom connectors",
+    "flag": "\ud83d\udfe1 SUSPECT \u2014 imports and re-uses private (`_`) functions from `scout.py`; large code duplication with `scout.py` run loop"
+  },
+  {
+    "file": "`agents/x_scout.py`",
+    "unit": "Scrapers",
+    "unitSlug": "backend-scrapers",
+    "lines": "478",
+    "purpose": "X/Twitter API v2 hiring-signal scanner",
+    "flag": "\ud83d\udfe2 CLEAN \u2014 well-structured single-responsibility module; minor hardcoded query/default issues"
+  },
+  {
+    "file": "`agents/quality_gate.py`",
+    "unit": "Scrapers",
+    "unitSlug": "backend-scrapers",
+    "lines": "203",
+    "purpose": "Deterministic lead quality evaluation",
+    "flag": "\ud83d\udfe1 SUSPECT \u2014 `_parse_date` duplicates `scout.py:_parse_date` with different implementation; not exported from a shared location"
+  },
+  {
+    "file": "`agents/query_gen.py`",
+    "unit": "Scrapers",
+    "unitSlug": "backend-scrapers",
+    "lines": "239",
+    "purpose": "Profile-tailored Google site: query generation",
+    "flag": "\ud83d\udfe1 SUSPECT \u2014 `_india_clause` is India-specific logic that may not belong in general query gen; fallback path may produce unusably broad queries"
+  },
+  {
+    "file": "`services/__init__.py`",
+    "unit": "Services",
+    "unitSlug": "backend-services",
+    "lines": "0",
+    "purpose": "Empty package init",
+    "flag": "\ud83d\udfe2 CLEAN \u2014 empty, intentional"
+  },
+  {
+    "file": "`services/generator.py`",
+    "unit": "Services",
+    "unitSlug": "backend-services",
+    "lines": "170",
+    "purpose": "Resume/CL generation and application submission pipeline",
+    "flag": "\ud83d\udfe3 COUPLED \u2014 imports `_fire_blocker` from `main` (circular-dodge import)"
+  },
+  {
+    "file": "`services/ghost.py`",
+    "unit": "Services",
+    "unitSlug": "backend-services",
+    "lines": "275",
+    "purpose": "Ghost mode automated lifecycle (7 phases)",
+    "flag": "\ud83d\udfe3 COUPLED \u2014 imports `_fire_blocker` from `main`; accesses private `scan_manager._ghost_lock`"
+  },
+  {
+    "file": "`services/job_targets.py`",
+    "unit": "Services",
+    "unitSlug": "backend-services",
+    "lines": "388",
+    "purpose": "Job target CRUD, validation, profile enrichment, settings helpers",
+    "flag": "\ud83d\udfe2 CLEAN \u2014 well-scoped, tested"
+  },
+  {
+    "file": "`services/provider_probe.py`",
+    "unit": "Services",
+    "unitSlug": "backend-services",
+    "lines": "115",
+    "purpose": "LLM provider API key health checking",
+    "flag": "\ud83d\udfe2 CLEAN \u2014 single-purpose, tested"
+  },
+  {
+    "file": "`services/scanner.py`",
+    "unit": "Services",
+    "unitSlug": "backend-services",
+    "lines": "358",
+    "purpose": "Scan lifecycle state machine + scan/reevaluate pipelines",
+    "flag": "\ud83d\udfe3 COUPLED \u2014 singleton `scan_manager` imported by ghost/scan routes; private attrs accessed externally"
+  },
+  {
+    "file": "`services/scout.py`",
+    "unit": "Services",
+    "unitSlug": "backend-services",
+    "lines": "137",
+    "purpose": "X/Twitter and free-source signal scanning dispatch",
+    "flag": "\ud83d\udfe2 CLEAN \u2014 well-scoped, tested"
+  },
+  {
+    "file": "`TEST_DOCS.md`",
+    "unit": "Tests",
+    "unitSlug": "backend-tests",
+    "lines": "358",
+    "purpose": "Test suite documentation \u2014 overview, pyramid, markers, contracts philosophy",
+    "flag": "\ud83d\udfe2 Comprehensive docs"
+  },
+  {
+    "file": "`conftest.py`",
+    "unit": "Tests",
+    "unitSlug": "backend-tests",
+    "lines": "273",
+    "purpose": "Shared assertion helpers (API + MCP contracts), path setup, ignore glob",
+    "flag": "\ud83d\udfe2 Clean, well-organized"
+  },
+  {
+    "file": "`api_contracts.py`",
+    "unit": "Tests",
+    "unitSlug": "backend-tests",
+    "lines": "214",
+    "purpose": "Per-endpoint response contract schemas (TypedDict-style classes)",
+    "flag": "\ud83d\udfe2 Single source of truth"
+  },
+  {
+    "file": "`fakes.py`",
+    "unit": "Tests",
+    "unitSlug": "backend-tests",
+    "lines": "128",
+    "purpose": "In-memory fakes for Kuzu, SQLite, LanceDB; `_install_storage_fakes()`",
+    "flag": "\ud83d\udfe2 Clean, well-factored"
+  },
+  {
+    "file": "`test_api.py`",
+    "unit": "Tests",
+    "unitSlug": "backend-tests",
+    "lines": "551",
+    "purpose": "FastAPI route behavior: auth, health, leads CRUD, settings, ingest",
+    "flag": "\ud83d\udfe2 Strong coverage"
+  },
+  {
+    "file": "`test_graph.py`",
+    "unit": "Tests",
+    "unitSlug": "backend-tests",
+    "lines": "142",
+    "purpose": "LangGraph happy path: compiles, invokes, score range, skip logic",
+    "flag": "\ud83d\udfe2 Adequate"
+  },
+  {
+    "file": "`test_graph_failures.py`",
+    "unit": "Tests",
+    "unitSlug": "backend-tests",
+    "lines": "1290",
+    "purpose": "Graph fault-tolerant failure modes: 16 guarantee-classes",
+    "flag": "\ud83d\udfe2 Excellent coverage"
+  },
+  {
+    "file": "`test_mcp_server.py`",
+    "unit": "Tests",
+    "unitSlug": "backend-tests",
+    "lines": "166",
+    "purpose": "JSON-RPC MCP protocol: initialize, tools/list, tools/call, errors",
+    "flag": "\ud83d\udfe2 Clean coverage"
+  },
+  {
+    "file": "`test_paths.py`",
+    "unit": "Tests",
+    "unitSlug": "backend-tests",
+    "lines": "135",
+    "purpose": "Cross-platform path resolution, browser binary detection",
+    "flag": "\ud83d\udfe2 Good edge case coverage"
+  },
+  {
+    "file": "`test_regressions.py`",
+    "unit": "Tests",
+    "unitSlug": "backend-tests",
+    "lines": "1205",
+    "purpose": "Domain logic regression prevention \u2014 scoring, quality, HN, targets",
+    "flag": "\ud83d\udfe0 Largest file, mixes concerns"
+  },
+  {
+    "file": "`test_secrets.py`",
+    "unit": "Tests",
+    "unitSlug": "backend-tests",
+    "lines": "80",
+    "purpose": "Secret resolution priority chain, warning deduplication",
+    "flag": "\ud83d\udfe2 Focused"
+  },
+  {
+    "file": "`test_websocket.py`",
+    "unit": "Tests",
+    "unitSlug": "backend-tests",
+    "lines": "515",
+    "purpose": "_CM concurrency: async-safety, controlled/deterministic tests",
+    "flag": "\ud83d\udfe2 Excellent"
+  },
+  {
+    "file": "`test_sqlite.py`",
+    "unit": "Tests",
+    "unitSlug": "backend-tests",
+    "lines": "123",
+    "purpose": "SQLite pragma verification (WAL, FK, busy_timeout)",
+    "flag": "\ud83d\udfe2 Focused"
+  },
+  {
+    "file": "`test_sqlite_reliability.py`",
+    "unit": "Tests",
+    "unitSlug": "backend-tests",
+    "lines": "539",
+    "purpose": "SQLite contention, WAL isolation, FK enforcement, AST audit",
+    "flag": "\ud83d\udfe2 Thorough"
+  },
+  {
+    "file": "`test_observability.py`",
+    "unit": "Tests",
+    "unitSlug": "backend-tests",
+    "lines": "429",
+    "purpose": "except:pass replacement verification \u2014 severity, context",
+    "flag": "\ud83d\udfe2 Strong"
+  },
+  {
+    "file": "`test_log_context.py`",
+    "unit": "Tests",
+    "unitSlug": "backend-tests",
+    "lines": "287",
+    "purpose": "Correlation context API, filter, formatter, middleware",
+    "flag": "\ud83d\udfe2 Clean"
+  },
+  {
+    "file": "`test_startup.py`",
+    "unit": "Tests",
+    "unitSlug": "backend-tests",
+    "lines": "55",
+    "purpose": "Smoke tests: token/port emission, port binding",
+    "flag": "\ud83d\udfe2 Minimal but adequate"
+  },
+  {
+    "file": "`test_scan_manager.py`",
+    "unit": "Tests",
+    "unitSlug": "backend-tests",
+    "lines": "43",
+    "purpose": "ScanManager lifecycle: start/stop/idle, ghost lock guard",
+    "flag": "\ud83d\udfe2 Concise"
+  },
+  {
+    "file": "`test_ghost_service.py`",
+    "unit": "Tests",
+    "unitSlug": "backend-tests",
+    "lines": "30",
+    "purpose": "GhostService phase contract: preflight skip/return",
+    "flag": "\ud83d\udfe2 Concise"
+  },
+  {
+    "file": "`test_response_contracts.py`",
+    "unit": "Tests",
+    "unitSlug": "backend-tests",
+    "lines": "113",
+    "purpose": "response_model= completeness + job target CRUD",
+    "flag": "\ud83d\udfe2 Important cross-check"
+  },
+  {
+    "file": "`ApprovalDrawer.tsx`",
+    "unit": "Components",
+    "unitSlug": "frontend-components",
+    "lines": "642",
+    "purpose": "Full lead detail modal: PDF preview, versioning, feedback, outreach drafts, score display, auto-apply trigger",
+    "flag": ""
+  },
+  {
+    "file": "`ErrorBoundary.tsx`",
+    "unit": "Components",
+    "unitSlug": "frontend-components",
+    "lines": "38",
+    "purpose": "Class-based React error boundary with retry button",
+    "flag": ""
+  },
+  {
+    "file": "`FormReader.tsx`",
+    "unit": "Components",
+    "unitSlug": "frontend-components",
+    "lines": "279",
+    "purpose": "Reads ATS form fields from a job URL, shows extracted fields with confidence dots",
+    "flag": ""
+  },
+  {
+    "file": "`HelpChat.tsx`",
+    "unit": "Components",
+    "unitSlug": "frontend-components",
+    "lines": "90",
+    "purpose": "In-app chat panel that POSTs questions to `/api/v1/help/chat`",
+    "flag": ""
+  },
+  {
+    "file": "`Icon.tsx`",
+    "unit": "Components",
+    "unitSlug": "frontend-components",
+    "lines": "249",
+    "purpose": "SVG icon library: 30 icons rendered via a `switch` on `name` prop",
+    "flag": ""
+  },
+  {
+    "file": "`JobCard.tsx`",
+    "unit": "Components",
+    "unitSlug": "frontend-components",
+    "lines": "256",
+    "purpose": "Three exports: `JobCard` (unused), `PipelineJobCard`, `PipelineSkeleton`",
+    "flag": ""
+  },
+  {
+    "file": "`LeadFilterBar.tsx`",
+    "unit": "Components",
+    "unitSlug": "frontend-components",
+    "lines": "105",
+    "purpose": "Filter bar for pipeline view: search, platform, seniority, sort, signal/match thresholds",
+    "flag": ""
+  },
+  {
+    "file": "`OnboardingWizard.tsx`",
+    "unit": "Components",
+    "unitSlug": "frontend-components",
+    "lines": "345",
+    "purpose": "Multi-step first-run wizard: resume import, AI setup, tour, demo job",
+    "flag": ""
+  },
+  {
+    "file": "`Sidebar.tsx`",
+    "unit": "Components",
+    "unitSlug": "frontend-components",
+    "lines": "109",
+    "purpose": "Left nav with workspace links, lead count snapshot, online status",
+    "flag": ""
+  },
+  {
+    "file": "`Topbar.tsx`",
+    "unit": "Components",
+    "unitSlug": "frontend-components",
+    "lines": "65",
+    "purpose": "View title/subtitle header, plus `StatCard` (unused)",
+    "flag": ""
+  },
+  {
+    "file": "`UpdatePrompt.tsx`",
+    "unit": "Components",
+    "unitSlug": "frontend-components",
+    "lines": "110",
+    "purpose": "Tauri updater toast: checks, downloads, installs, dismisses",
+    "flag": ""
+  },
+  {
+    "file": "`src/App.tsx`",
+    "unit": "Core",
+    "unitSlug": "frontend-core",
+    "lines": "320",
+    "purpose": "Root component \u2014 state orchestration, conditional view rendering, modals, keyboard shortcuts",
+    "flag": "\ud83d\udfe2"
+  },
+  {
+    "file": "`src/main.tsx`",
+    "unit": "Core",
+    "unitSlug": "frontend-core",
+    "lines": "34",
+    "purpose": "React entry point \u2014 mounts `<App />` into DOM with fatal-error fallback",
+    "flag": "\ud83d\udfe2"
+  },
+  {
+    "file": "`src/types.ts`",
+    "unit": "Core",
+    "unitSlug": "frontend-core",
+    "lines": "84",
+    "purpose": "Shared TypeScript type definitions used across all frontend modules",
+    "flag": "\ud83d\udfe2"
+  },
+  {
+    "file": "`src/SettingsModal.tsx`",
+    "unit": "Core",
+    "unitSlug": "frontend-core",
+    "lines": "85",
+    "purpose": "Settings modal dialog \u2014 fetch/save config, sub-panel composition",
+    "flag": "\ud83d\udfe2"
+  },
+  {
+    "file": "`src/index.css`",
+    "unit": "Core",
+    "unitSlug": "frontend-core",
+    "lines": "2790",
+    "purpose": "Global styles \u2014 Tailwind import, design tokens, component classes, responsive breakpoints",
+    "flag": "\ud83d\udfe2"
+  },
+  {
+    "file": "`src/hooks/useWS.ts`",
+    "unit": "Hooks",
+    "unitSlug": "frontend-hooks",
+    "lines": "133",
+    "purpose": "WebSocket lifecycle, sidecar bridge, event dispatch, log accumulator",
+    "flag": "\ud83d\udfe0 \u2014 complex state machine with hardcoded retry/reconnect values"
+  },
+  {
+    "file": "`src/hooks/useLeads.ts`",
+    "unit": "Hooks",
+    "unitSlug": "frontend-hooks",
+    "lines": "95",
+    "purpose": "Lead CRUD via polling + WS custom events, desktop notifications",
+    "flag": "\ud83d\udfe0 \u2014 dual-path state management, several hardcoded thresholds"
+  },
+  {
+    "file": "`src/hooks/useDueFollowups.ts`",
+    "unit": "Hooks",
+    "unitSlug": "frontend-hooks",
+    "lines": "17",
+    "purpose": "60s polling for due followups",
+    "flag": "\ud83d\udfe1 \u2014 trivially simple, hardcoded interval and limit"
+  },
+  {
+    "file": "`src/hooks/useGraphStats.ts`",
+    "unit": "Hooks",
+    "unitSlug": "frontend-hooks",
+    "lines": "12",
+    "purpose": "10s polling for graph statistics",
+    "flag": "\ud83d\udfe1 \u2014 trivially simple, hardcoded interval"
+  },
+  {
+    "file": "`src/hooks/useKeyboardShortcuts.ts`",
+    "unit": "Hooks",
+    "unitSlug": "frontend-hooks",
+    "lines": "28",
+    "purpose": "Global keyboard shortcut registration",
+    "flag": "\ud83d\udfe2 \u2014 clean, well-contained, configurable via params"
+  },
+  {
+    "file": "`shared.tsx`",
+    "unit": "Settings",
+    "unitSlug": "frontend-settings",
+    "lines": "364",
+    "purpose": "`Cfg` interface + `EMPTY` defaults + `PROVIDERS`/`MODEL_HINTS`/`STEPS` static data + UI helper components",
+    "flag": "\ud83d\udfe0 HARDCODED \u2014 provider lists, source presets, model hints all baked in"
+  },
+  {
+    "file": "`DiscoverySettings.tsx`",
+    "unit": "Settings",
+    "unitSlug": "frontend-settings",
+    "lines": "329",
+    "purpose": "Job discovery UI: Apify, LinkedIn, X signals, free sources, custom connectors, job board management with market focus toggle",
+    "flag": "\ud83d\udfe0 STALE \u2014 India market hardcoding, duplicated preset definitions"
+  },
+  {
+    "file": "`GlobalSettings.tsx`",
+    "unit": "Settings",
+    "unitSlug": "frontend-settings",
+    "lines": "102",
+    "purpose": "Global LLM provider selection, API key input, model selection, key validation UI",
+    "flag": "\ud83d\udfe2 CLEAN"
+  },
+  {
+    "file": "`StepSettings.tsx`",
+    "unit": "Settings",
+    "unitSlug": "frontend-settings",
+    "lines": "16",
+    "purpose": "Thin wrapper rendering `StepCard` for each `STEPS` entry",
+    "flag": "\ud83d\udfe2 CLEAN"
+  },
+  {
+    "file": "`AutomationSettings.tsx`",
+    "unit": "Settings",
+    "unitSlug": "frontend-settings",
+    "lines": "24",
+    "purpose": "Three experimental automation toggles (ghost mode, auto apply, headed browser)",
+    "flag": "\ud83d\udfe2 CLEAN"
+  },
+  {
+    "file": "`ActivityView.tsx`",
+    "unit": "Views",
+    "unitSlug": "frontend-views",
+    "lines": "66",
+    "purpose": "Live agent log stream with category filtering",
+    "flag": "\ud83d\udfe2 CLEAN"
+  },
+  {
+    "file": "`ApplyJobView.tsx`",
+    "unit": "Views",
+    "unitSlug": "frontend-views",
+    "lines": "346",
+    "purpose": "Job URL paste \u2192 analyze \u2192 generate resume/cover + polling for completion",
+    "flag": "\ud83d\udfe0 STALE (poll interval + leftover comment)"
+  },
+  {
+    "file": "`DashboardView.tsx`",
+    "unit": "Views",
+    "unitSlug": "frontend-views",
+    "lines": "297",
+    "purpose": "Home screen: stats, top leads, scan/maintenance actions",
+    "flag": "\ud83d\udfe2 CLEAN"
+  },
+  {
+    "file": "`GraphView.tsx`",
+    "unit": "Views",
+    "unitSlug": "frontend-views",
+    "lines": "137",
+    "purpose": "Pentagon visualization of Kuzu node types",
+    "flag": "\ud83d\udfe2 CLEAN"
+  },
+  {
+    "file": "`IngestionView.tsx`",
+    "unit": "Views",
+    "unitSlug": "frontend-views",
+    "lines": "553",
+    "purpose": "Multi-tab import (resume, manual, raw, LinkedIn, GitHub, portfolio, JSON, template)",
+    "flag": "\ud83d\udfe0 STALE (try/catch swallowing)"
+  },
+  {
+    "file": "`LeadInboxView.tsx`",
+    "unit": "Views",
+    "unitSlug": "frontend-views",
+    "lines": "106",
+    "purpose": "Manual lead creation + free-source scan trigger",
+    "flag": "\ud83d\udfe2 CLEAN"
+  },
+  {
+    "file": "`PipelineView.tsx`",
+    "unit": "Views",
+    "unitSlug": "frontend-views",
+    "lines": "269",
+    "purpose": "Lead table with tabs, filters, sort, bulk delete, CSV export",
+    "flag": "\ud83d\udfe2 CLEAN"
+  },
+  {
+    "file": "`ProfileView.tsx`",
+    "unit": "Views",
+    "unitSlug": "frontend-views",
+    "lines": "384",
+    "purpose": "Candidate evidence map: skills/experience/projects with CRUD",
+    "flag": "\ud83d\udfe2 CLEAN"
+  },
+  {
+    "file": "`ProfileView.test.tsx`",
+    "unit": "Views",
+    "unitSlug": "frontend-views",
+    "lines": "193",
+    "purpose": "Test suite for ProfileView error states",
+    "flag": "\ud83d\udfe2 CLEAN"
+  },
+  {
+    "file": "`.github/workflows/ci.yml`",
+    "unit": "Build & CI",
+    "unitSlug": "build-ci",
+    "lines": "111",
+    "purpose": "PR/push CI: dep audit, frontend build+test, backend pytest, Rust cargo check",
+    "flag": "\ud83d\udfe2"
+  },
+  {
+    "file": "`.github/workflows/release.yml`",
+    "unit": "Build & CI",
+    "unitSlug": "build-ci",
+    "lines": "521",
+    "purpose": "Tag-pushed release: matrix build (Win/Lin/Mac) of PyInstaller sidecar + Tauri installer + GitHub release with updater metadata",
+    "flag": "\ud83d\udfe2"
+  },
+  {
+    "file": "`.github/dependabot.yml`",
+    "unit": "Build & CI",
+    "unitSlug": "build-ci",
+    "lines": "25",
+    "purpose": "Weekly Dependabot for npm, cargo, pip, GitHub Actions \u2014 3 open PRs each",
+    "flag": "\ud83d\udfe2"
+  },
+  {
+    "file": "`backend/pyproject.toml`",
+    "unit": "Build & CI",
+    "unitSlug": "build-ci",
+    "lines": "43",
+    "purpose": "Python project metadata, dependencies, dev deps, pytest config with markers",
+    "flag": "\ud83d\udfe0"
+  },
+  {
+    "file": "`package.json`",
+    "unit": "Build & CI",
+    "unitSlug": "build-ci",
+    "lines": "59",
+    "purpose": "Frontend npm project, scripts, deps, devDeps, Tauri build scripts",
+    "flag": "\ud83d\udfe2"
+  },
+  {
+    "file": "`scripts/build-sidecar.sh`",
+    "unit": "Build & CI",
+    "unitSlug": "build-ci",
+    "lines": "34",
+    "purpose": "Unix shell script for local PyInstaller sidecar build",
+    "flag": "\ud83d\udfe2"
+  },
+  {
+    "file": "`scripts/build-sidecar.ps1`",
+    "unit": "Build & CI",
+    "unitSlug": "build-ci",
+    "lines": "29",
+    "purpose": "Windows PowerShell script for local PyInstaller sidecar build",
+    "flag": "\ud83d\udfe2"
+  },
+  {
+    "file": "`src-tauri/src/lib.rs`",
+    "unit": "Tauri",
+    "unitSlug": "tauri",
+    "lines": "393",
+    "purpose": "Core Tauri app: builder, sidecar lifecycle, IPC commands, event loop",
+    "flag": "\ud83d\udfe0 Sidecar stdout protocol and error handling need attention"
+  },
+  {
+    "file": "`src-tauri/src/main.rs`",
+    "unit": "Tauri",
+    "unitSlug": "tauri",
+    "lines": "6",
+    "purpose": "Binary entry point",
+    "flag": "\ud83d\udfe2 Minimal and correct"
+  },
+  {
+    "file": "`src-tauri/tauri.conf.json`",
+    "unit": "Tauri",
+    "unitSlug": "tauri",
+    "lines": "78",
+    "purpose": "App config: window, bundle, updater, CSP, plugins",
+    "flag": "\ud83d\udfe1 macOS signing, limited Linux targets, CSP reviewed"
+  },
+  {
+    "file": "`src-tauri/capabilities/default.json`",
+    "unit": "Tauri",
+    "unitSlug": "tauri",
+    "lines": "11",
+    "purpose": "IPC permission set for main window",
+    "flag": "\ud83d\udfe1 Missing `shell:default` and `process:default`"
+  },
+  {
+    "file": "`src-tauri/capabilities/desktop.json`",
+    "unit": "Tauri",
+    "unitSlug": "tauri",
+    "lines": "16",
+    "purpose": "Desktop-platform IPC permissions",
+    "flag": "\ud83d\udfe1 Overlaps with default.json"
+  }
+]

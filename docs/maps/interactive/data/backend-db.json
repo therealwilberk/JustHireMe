@@ -1,0 +1,270 @@
+{
+  "slug": "backend-db",
+  "name": "DB",
+  "group": "BACKEND",
+  "summary": "The `backend/db/` unit is the data access layer for the entire JustHireMe application. It owns all persistent state across three storage engines: SQLite (leads CRM, events, settings, profile snapshots), Kuzu (graph database for candidate profile entities and relationships), and LanceDB (vector store for skill and project embeddings). Every other backend unit \u2014 routes, services, agents, config (`secrets.py`), and the graph workflow \u2014 imports from `db.client`. The unit has a circular-ish dependency on `backend/config/` (it imports `settings` for the data directory at module level). The `__init__.py` is empty, making `client.py` a 1641-line monolith.\n\n---",
+  "fileCount": 2,
+  "files": [
+    {
+      "#": "1",
+      "File": "`backend/db/__init__.py`",
+      "Lines": "0",
+      "Purpose": "Empty \u2014 exists only for package resolution",
+      "Overall flag": "\ud83d\udfe2"
+    },
+    {
+      "#": "2",
+      "File": "`backend/db/client.py`",
+      "Lines": "1641",
+      "Purpose": "Multi-engine data access: SQLite, Kuzu, LanceDB",
+      "Overall flag": "\ud83d\udfe3 COUPLED \u2014 three DBs in one file, module-level side effects, circular dep with config"
+    }
+  ],
+  "flags": [
+    {
+      "type": "dead",
+      "item": "`graph_available()`",
+      "location": "`client.py:134`",
+      "reason": "Defined but never imported or called \u2014 confirmed by grep",
+      "priority": "P0"
+    },
+    {
+      "type": "dead",
+      "item": "`graph_error()`",
+      "location": "`client.py:138`",
+      "reason": "Defined but never imported or called \u2014 confirmed by grep",
+      "priority": "P0"
+    },
+    {
+      "type": "dead",
+      "item": "`get_all_freelance_leads()`",
+      "location": "`client.py:523`",
+      "reason": "Defined but never imported or called \u2014 confirmed by grep",
+      "priority": "P0"
+    },
+    {
+      "type": "dead",
+      "item": "`get_discovered_freelance_leads()`",
+      "location": "`client.py:1114`",
+      "reason": "Defined but never imported or called \u2014 confirmed by grep",
+      "priority": "P0"
+    },
+    {
+      "type": "dead",
+      "item": "`_b` first assignment",
+      "location": "`client.py:41`",
+      "reason": "Immediately overwritten on line 84, never read",
+      "priority": "P0"
+    },
+    {
+      "type": "coupled",
+      "item": "Module-level import chain",
+      "location": "`client.py:28+131+242`",
+      "reason": "`from config import settings` creates circular dep (config \u2192 db.client \u2192 config via secrets.py); `_init()` and `_init_sql()` run at module level",
+      "priority": "P1"
+    },
+    {
+      "type": "coupled",
+      "item": "Kuzu CRUD functions",
+      "location": "`client.py:1307-1595`",
+      "reason": "Create new `Connection(db)` 2-3 times per call, no connection reuse; mixed with SQLite and LanceDB in same functions",
+      "priority": "P1"
+    },
+    {
+      "type": "coupled",
+      "item": "`save_settings`/`get_settings`/`get_setting`",
+      "location": "`client.py:936-955`",
+      "reason": "SQLite-based key-value store duplicates the Pydantic config layer (`config/*.py`)",
+      "priority": "P1"
+    },
+    {
+      "type": "incomplete",
+      "item": "Duplicate `resume_version` migration",
+      "location": "`client.py:228,234-238`",
+      "reason": "Lines 228 and 234-238 both attempt to add `resume_version` column \u2014 second block is redundant",
+      "priority": "P1"
+    },
+    {
+      "type": "incomplete",
+      "item": "`refresh_profile_snapshot` called twice",
+      "location": "`client.py:1574,1594`",
+      "reason": "`update_candidate` calls `refresh_profile_snapshot` twice (before and after Kuzu operation) \u2014 likely bug",
+      "priority": "P1"
+    },
+    {
+      "type": "incomplete",
+      "item": "`refresh_profile_snapshot` called twice",
+      "location": "`client.py:1410,1413`",
+      "reason": "`delete_experience` calls `refresh_profile_snapshot` twice",
+      "priority": "P1"
+    },
+    {
+      "type": "hardcoded",
+      "item": "Score thresholds (76)",
+      "location": "`client.py:378,380`",
+      "reason": "Magic number `76` for \"matched\"/\"tailoring\" threshold should be configurable",
+      "priority": "P2"
+    },
+    {
+      "type": "hardcoded",
+      "item": "Status string set",
+      "location": "`client.py:988-992`",
+      "reason": "Allowed lead status values are baked into `update_lead_status`",
+      "priority": "P2"
+    },
+    {
+      "type": "hardcoded",
+      "item": "Feedback-to-status mappings",
+      "location": "`client.py:1029-1037`",
+      "reason": "Hardcoded in `save_lead_feedback` \u2014 should be a configurable policy",
+      "priority": "P2"
+    },
+    {
+      "type": "hardcoded",
+      "item": "`_LEAD_SELECT_COLUMNS`",
+      "location": "`client.py:245-252`",
+      "reason": "38-column list must be kept in sync with schema by hand",
+      "priority": "P2"
+    },
+    {
+      "type": "hardcoded",
+      "item": "All Kuzu table names/schemas",
+      "location": "`client.py:112-128`",
+      "reason": "All node/rel table names, property names, and types are baked in",
+      "priority": "P2"
+    },
+    {
+      "type": "hardcoded",
+      "item": "All SQLite table names/schemas",
+      "location": "`client.py:173-194`",
+      "reason": "All table names, column names, and types are baked in",
+      "priority": "P2"
+    },
+    {
+      "type": "suspect",
+      "item": "`save_asset_path()`",
+      "location": "`client.py:402`",
+      "reason": "Partially superseded by `save_asset_package()` \u2014 only used by `run_live_fire.py`",
+      "priority": "P2"
+    },
+    {
+      "type": "suspect",
+      "item": "`update_skill()`",
+      "location": "`client.py:1333`",
+      "reason": "Not imported by any production code \u2014 only `tests/test_observability.py`",
+      "priority": "P2"
+    },
+    {
+      "type": "suspect",
+      "item": "`update_experience()`",
+      "location": "`client.py:1393`",
+      "reason": "Not imported by any production code",
+      "priority": "P2"
+    },
+    {
+      "type": "suspect",
+      "item": "`delete_skill()`",
+      "location": "`client.py:1347`",
+      "reason": "Not imported by any production code",
+      "priority": "P2"
+    },
+    {
+      "type": "suspect",
+      "item": "`delete_experience()`",
+      "location": "`client.py:1408`",
+      "reason": "Not imported by any production code",
+      "priority": "P2"
+    },
+    {
+      "type": "suspect",
+      "item": "`update_project()`",
+      "location": "`client.py:1459`",
+      "reason": "Not imported by any production code",
+      "priority": "P2"
+    },
+    {
+      "type": "suspect",
+      "item": "`delete_project()`",
+      "location": "`client.py:1478`",
+      "reason": "Not imported by any production code",
+      "priority": "P2"
+    },
+    {
+      "type": "clean",
+      "item": "`_utc_timestamp()`",
+      "location": "`client.py:46`",
+      "reason": "Well-scoped helper, no issues",
+      "priority": "P3"
+    },
+    {
+      "type": "clean",
+      "item": "`url_exists()`",
+      "location": "`client.py:265`",
+      "reason": "Simple, correct, well-used",
+      "priority": "P3"
+    },
+    {
+      "type": "clean",
+      "item": "`get_sql_connection()`",
+      "location": "`client.py:155`",
+      "reason": "Correct pragma usage (WAL, foreign_keys, busy_timeout)",
+      "priority": "P3"
+    },
+    {
+      "type": "clean",
+      "item": "`_NullVectorStore`",
+      "location": "`client.py:53`",
+      "reason": "Sensible no-op fallback pattern",
+      "priority": "P3"
+    },
+    {
+      "type": "clean",
+      "item": "`_json_list`/`_json_dumps_list`/`_json_dict`",
+      "location": "`client.py:546-582`",
+      "reason": "Consistent JSON serialization helpers",
+      "priority": "P3"
+    },
+    {
+      "type": "clean",
+      "item": "`get_profile()` fallback chain",
+      "location": "`client.py:1282`",
+      "reason": "Good: graph \u2192 snapshot \u2192 empty",
+      "priority": "P3"
+    },
+    {
+      "type": "clean",
+      "item": "`_ensure_dir()`",
+      "location": "`client.py:69`",
+      "reason": "Sensible path fallback on failure",
+      "priority": "P3"
+    }
+  ],
+  "flagCounts": {
+    "dead": 5,
+    "hardcoded": 6,
+    "coupled": 3,
+    "incomplete": 3,
+    "stale": 0,
+    "suspect": 7,
+    "clean": 7
+  },
+  "deps": {
+    "inbound": [
+      "`backend/routes/` \u2014 all route modules import from `db.client`",
+      "`backend/services/` \u2014 all service modules import from `db.client`",
+      "`backend/agents/` \u2014 ingestor, scout, x_scout, free_scout, contact_lookup, semantic, selector, actuator, evaluator, generator all import from `db.client`",
+      "`backend/config/secrets.py` \u2014 imports `get_setting` (\ud83d\udd34 circular dep)",
+      "`backend/llm.py` \u2014 imports `get_setting`",
+      "`backend/graph/__init__.py` \u2014 imports `save_asset_package`, `update_lead_score`",
+      "`backend/core/ws_manager.py` \u2014 imports `record_event`",
+      "`backend/tests/` \u2014 6 test files import from `db.client`",
+      "`e2e/manval/run_live_fire.py` \u2014 imports from `db.client`"
+    ],
+    "outbound": [
+      "`backend/config/` \u2014 imports `settings` from `config` (`client.py:28`)",
+      "`backend/agents/` \u2014 imports `apply_feedback_learning` from `agents.feedback_ranker` and `_emb` from `agents.ingestor`",
+      "`backend/logger.py` \u2014 imports `get_logger`"
+    ]
+  },
+  "assessment": "1. **Does this file need to exist?** Partially \u2014 the data access logic is essential, but a single 1641-line file managing three different databases is too large. It should be split into at least `sqlite.py`, `graph.py`, and `vector.py`.\n\n2. **Does it do what it claims?** No \u2014 the filename `client.py` suggests a client abstraction, but it's actually a flat collection of procedural functions with module-level side effects. The name is misleading.\n\n3. **Is it the right place for this logic?** No \u2014 settings CRUD (`get_settings`/`save_settings`/`get_setting`) duplicates the Pydantic config layer and creates a circular dependency. The feedback-ranking integration (`rank_lead_by_feedback`, `recompute_learning_scores`) couples DB logic with ML agent logic. The vector store helpers (`_add_skill_vec`, `_add_project_vec`) import from `agents.ingestor`, inverting the dependency direction.\n\n4. **What would break if deleted?** Everything \u2014 this is the most-imported file in the entire backend. All routes, services, agents, and graph workflows depend on it. The application would not start without it."
+}

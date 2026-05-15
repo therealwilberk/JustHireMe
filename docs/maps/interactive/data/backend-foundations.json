@@ -1,0 +1,141 @@
+{
+  "slug": "backend-foundations",
+  "name": "Foundations",
+  "group": "BACKEND",
+  "summary": "The backend-foundations unit provides the foundational layer for the entire Python backend: configuration constants/singletons (`core/config_constants.py`), the WebSocket connection manager (`core/ws_manager.py`), Pydantic request/response schema contracts (`schemas/requests.py`, `schemas/responses.py`), and compact internal data models for the ingestor agent (`models/schema.py`). Three of the eight files are empty `__init__.py` package markers. The non-empty files are actively imported by routes, services, agents, and tests across the backend, making this a high-traffic, low-ownership unit \u2014 many modules depend on it, but no single team owns all of it.\n\n---",
+  "fileCount": 8,
+  "files": [
+    {
+      "#": "1",
+      "File": "`backend/core/__init__.py`",
+      "Lines": "0",
+      "Purpose": "Package marker for `core`",
+      "Overall flag": "\ud83d\udfe2 CLEAN \u2014 standard namespace package"
+    },
+    {
+      "#": "2",
+      "File": "`backend/core/config_constants.py`",
+      "Lines": "21",
+      "Purpose": "Module-level constants and shared singletons (scheduler, auth token, CORS regex, logger)",
+      "Overall flag": "\ud83d\udfe2 CLEAN \u2014 well-scoped, actively consumed"
+    },
+    {
+      "#": "3",
+      "File": "`backend/core/ws_manager.py`",
+      "Lines": "92",
+      "Purpose": "Thread-safe WebSocket connection manager with broadcast and dead-connection cleanup",
+      "Overall flag": "\ud83d\udfe2 CLEAN \u2014 well-structured, widely used"
+    },
+    {
+      "#": "4",
+      "File": "`backend/schemas/__init__.py`",
+      "Lines": "0",
+      "Purpose": "Package marker for `schemas`",
+      "Overall flag": "\ud83d\udfe2 CLEAN \u2014 standard namespace package"
+    },
+    {
+      "#": "5",
+      "File": "`backend/schemas/requests.py`",
+      "Lines": "214",
+      "Purpose": "Pydantic request body models for all API endpoints",
+      "Overall flag": "\ud83d\udfe2 CLEAN \u2014 comprehensive, well-typed"
+    },
+    {
+      "#": "6",
+      "File": "`backend/schemas/responses.py`",
+      "Lines": "117",
+      "Purpose": "Pydantic response models for all API endpoints",
+      "Overall flag": "\ud83d\udfe2 CLEAN \u2014 complete coverage"
+    },
+    {
+      "#": "7",
+      "File": "`backend/models/__init__.py`",
+      "Lines": "0",
+      "Purpose": "Package marker for `models`",
+      "Overall flag": "\ud83d\udfe2 CLEAN \u2014 standard namespace package"
+    },
+    {
+      "#": "8",
+      "File": "`backend/models/schema.py`",
+      "Lines": "34",
+      "Purpose": "Compact Pydantic models for ingestor agent internal representation",
+      "Overall flag": "\ud83d\udfe1 SUSPECT \u2014 cryptic single-letter class names, field `s` used ambiguously"
+    }
+  ],
+  "flags": [
+    {
+      "type": "coupled",
+      "item": "`_CM.broadcast` lazy-imports `db.client.record_event`",
+      "location": "`core/ws_manager.py:72`",
+      "reason": "Runtime dependency on db module; silent failure on error",
+      "priority": "P2"
+    },
+    {
+      "type": "suspect",
+      "item": "`SettingsBody._validate_extra_settings`",
+      "location": "`schemas/requests.py:115`",
+      "reason": "Manual validation reinvention; Pydantic can enforce types",
+      "priority": "P2"
+    },
+    {
+      "type": "suspect",
+      "item": "`FormReadBody`",
+      "location": "`schemas/requests.py:204`",
+      "reason": "No confirmed endpoint consumer; purpose vague",
+      "priority": "P2"
+    },
+    {
+      "type": "suspect",
+      "item": "Model names `S`, `E`, `P`, `C`",
+      "location": "`models/schema.py:5-27`",
+      "reason": "Single-letter class names harm readability",
+      "priority": "P3"
+    },
+    {
+      "type": "suspect",
+      "item": "Field `s` in `E` and `P`",
+      "location": "`models/schema.py:14,23`",
+      "reason": "Ambiguous field name; no docstring clarifying \"skills\"",
+      "priority": "P3"
+    },
+    {
+      "type": "suspect",
+      "item": "`C.education`, `C.certifications`, `C.achievements` as `list[str]`",
+      "location": "`models/schema.py:32-34`",
+      "reason": "Inconsistent with structured models for skills/experience/projects",
+      "priority": "P3"
+    },
+    {
+      "type": "clean",
+      "item": "All other items",
+      "location": "\u2014",
+      "reason": "Well-scoped, typed, and actively consumed",
+      "priority": "P3"
+    }
+  ],
+  "flagCounts": {
+    "dead": 0,
+    "hardcoded": 0,
+    "coupled": 1,
+    "incomplete": 0,
+    "stale": 0,
+    "suspect": 5,
+    "clean": 1
+  },
+  "deps": {
+    "inbound": [
+      "**`backend-foundations` \u2192 routes** (all route modules import schemas or core constants)",
+      "**`backend-foundations` \u2192 services** (scout, scanner, ghost, generator, job_targets import `cm` and/or `_log`)",
+      "**`backend-foundations` \u2192 agents** (`agents/ingestor.py` imports models/schema)",
+      "**`backend-foundations` \u2192 tests** (`tests/test_websocket.py` imports `_CM`)",
+      "**`backend-foundations` \u2192 main.py** (imports from both core modules)"
+    ],
+    "outbound": [
+      "**config_constants.py \u2192 logger** (`from logger import get_logger`)",
+      "**ws_manager.py \u2192 logger** (`from logger import get_logger`)",
+      "**ws_manager.py \u2192 db.client** (lazy import `record_event` \u2014 one-direction runtime dep)",
+      "**models/schema.py \u2192 (none besides pydantic)**"
+    ]
+  },
+  "assessment": "### `backend/core/__init__.py`\n1. **Does this file need to exist?** Yes \u2014 makes `core` a package.\n2. **Does it do what it claims?** Yes \u2014 it's an empty init.\n3. **Is it the right place for this logic?** N/A.\n4. **What would break if deleted?** All `from core.xxx import` statements would fail.\n\n### `backend/core/config_constants.py`\n1. **Does this file need to exist?** Yes \u2014 centralizes import-time constants and singletons that don't belong in the config system.\n2. **Does it do what it claims?** Yes \u2014 docstring accurately describes the purpose.\n3. **Is it the right place for this logic?** Yes \u2014 keeps singletons (scheduler, bearer auth) out of `main.py` and avoids circular imports.\n4. **What would break if deleted?** `main.py`, 4 services, 3 route modules \u2014 all fail to boot.\n\n### `backend/core/ws_manager.py`\n1. **Does this file need to exist?** Yes \u2014 encapsulates WebSocket connection management cleanly.\n2. **Does it do what it claims?** Yes \u2014 docstring accurately describes thread-safe broadcast with cleanup.\n3. **Is it the right place for this logic?** Yes \u2014 single-responsibility connection manager.\n4. **What would break if deleted?** 9 modules across services, routes, and tests \u2014 real-time event broadcasting would stop.\n\n### `backend/schemas/__init__.py`\n1. **Does this file need to exist?** Yes \u2014 makes `schemas` a package.\n2. **Does it do what it claims?** Yes \u2014 empty init.\n3. **Is it the right place for this logic?** N/A.\n4. **What would break if deleted?** All `from schemas.xxx import` statements would fail.\n\n### `backend/schemas/requests.py`\n1. **Does this file need to exist?** Yes \u2014 single source of truth for API request contracts.\n2. **Does it do what it claims?** Yes \u2014 defines all request body models.\n3. **Is it the right place for this logic?** Yes \u2014 co-locates related schemas; alternatively, could be split per route module.\n4. **What would break if deleted?** Every route handler that accepts a request body would fail.\n\n### `backend/schemas/responses.py`\n1. **Does this file need to exist?** Yes \u2014 single source of truth for API response contracts.\n2. **Does it do what it claims?** Yes \u2014 defines all response models.\n3. **Is it the right place for this logic?** Yes \u2014 co-locates with requests; alternative is inline `response_model=` dicts.\n4. **What would break if deleted?** Every route handler that returns a typed response would fail.\n\n### `backend/models/__init__.py`\n1. **Does this file need to exist?** Yes \u2014 makes `models` a package.\n2. **Does it do what it claims?** Yes \u2014 empty init.\n3. **Is it the right place for this logic?** N/A.\n4. **What would break if deleted?** All `from models.xxx import` statements would fail.\n\n### `backend/models/schema.py`\n1. **Does this file need to exist?** Yes \u2014 provides internal representation models for the ingestor agent.\n2. **Does it do what it claims?** Partially \u2014 implements the aggregate, but single-letter names and ambiguous field `s` obscure intent.\n3. **Is it the right place for this logic?** Yes \u2014 `models/` is the natural home for data models, though the overlap with `schemas/requests.py` profile models is notable and could be consolidated.\n4. **What would break if deleted?** `agents/ingestor.py` \u2014 cannot parse or construct candidate profiles."
+}
