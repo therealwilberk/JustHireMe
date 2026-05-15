@@ -180,14 +180,6 @@ app.include_router(actions.router)
 app.include_router(ws.router)
 
 
-# Backward-compatible re-exports for tests (remove after test imports updated)
-from core.ws_manager import _agent_event_action
-from services.job_targets import _job_targets, _profile_for_discovery
-from services.scanner import _should_preserve_job_status, _job_eval_document
-from services.generator import _fire_blocker, _generate_one
-from services.provider_probe import _sensitive
-from schemas.requests import FeedbackBody, SettingsBody, ExperienceBody, ProjectBody, ProfileImportBody
-
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="127.0.0.1", port=_port, log_level="warning")
