@@ -39,8 +39,6 @@ def data_base() -> str:
 
 
 _b = data_base()
-_g, _v = os.path.join(_b, "graph"), os.path.join(_b, "vector")
-sql = os.path.join(_b, "crm.db")
 
 
 def _utc_timestamp(offset: timedelta | None = None) -> str:
@@ -84,6 +82,7 @@ def _ensure_dir(path: str) -> str:
 _b = _ensure_dir(_b)
 _g, _v = os.path.join(_b, "graph"), os.path.join(_b, "vector")
 _v = _ensure_dir(_v)
+sql = os.path.join(_b, "crm.db")
 
 _GRAPH_ERROR = ""
 try:
@@ -129,14 +128,6 @@ def _init():
         conn.execute(s)
 
 _init()
-
-
-def graph_available() -> bool:
-    return db is not None and conn is not None
-
-
-def graph_error() -> str:
-    return _GRAPH_ERROR
 
 
 def graph_counts() -> dict:
@@ -518,15 +509,6 @@ def _lead_row_dict(r) -> dict:
         "created_at": r[37] or "",
         "resume_version": r[38] or 0,
     }
-
-
-def get_all_freelance_leads() -> list:
-    c = get_sql_connection()
-    rows = c.execute(
-        f"SELECT {_LEAD_SELECT_COLUMNS} FROM leads WHERE kind='freelance' ORDER BY created_at DESC"
-    ).fetchall()
-    c.close()
-    return [_lead_row_dict(r) for r in rows]
 
 
 def get_job_leads_for_evaluation() -> list:
@@ -1109,22 +1091,6 @@ def get_discovered_leads() -> list:
     ).fetchall()
     c.close()
     return [{"job_id": r[0], "title": r[1], "company": r[2], "url": r[3], "platform": r[4], "description": r[5] or ""} for r in rows]
-
-
-def get_discovered_freelance_leads() -> list:
-    c = get_sql_connection()
-    rows = c.execute(
-        "SELECT job_id,title,company,url,platform,description,budget FROM leads WHERE status='discovered' AND kind='freelance'"
-    ).fetchall()
-    c.close()
-    return [
-        {
-            "job_id": r[0], "title": r[1], "company": r[2],
-            "url": r[3], "platform": r[4],
-            "description": r[5] or "", "budget": r[6] or "",
-        }
-        for r in rows
-    ]
 
 
 def _h(t: str) -> str:
