@@ -4,6 +4,8 @@ The evaluator is LLM-led when an evaluator/global LLM is configured, and falls
 back to the deterministic local rubric when no model is configured or the model
 call fails. The local rubric still runs first so the LLM gets calibrated,
 evidence-backed context and so hard safety caps can prevent obvious overrating.
+
+All prompt truncation limits are driven from ``settings.scoring.evaluator``.
 """
 
 from __future__ import annotations

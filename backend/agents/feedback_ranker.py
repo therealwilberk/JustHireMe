@@ -1,3 +1,9 @@
+"""Feedback-driven signal adjustment for lead scores.
+
+Learning thresholds (max_delta, confidence divisor, contribution threshold,
+top_k) are driven from ``settings.scoring.feedback_learning``. Label/weight
+dictionaries remain as module-level constants — domain data, not config.
+"""
 import re
 from urllib.parse import urlparse
 from logger import get_logger

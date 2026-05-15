@@ -1,3 +1,9 @@
+"""Converts raw text into structured lead data.
+
+Extraction functions (budget, location, company, tech stack) and signal
+quality scoring are heavily tech-centric. Non-tech job support is tracked
+in docs/deferred/lead-intel-flexibility.md.
+"""
 import hashlib
 import re
 from urllib.parse import urlparse
