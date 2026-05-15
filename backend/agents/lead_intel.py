@@ -140,7 +140,7 @@ def classify_kind(text: str, default: str = "job") -> str:
     lower = clean_text(text).lower()
     if has_any(lower, JOB_TERMS):
         return "job"
-    return "job"
+    return default
 
 
 def signal_quality(text: str, default_kind: str = "job") -> dict:
