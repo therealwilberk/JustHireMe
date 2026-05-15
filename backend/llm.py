@@ -87,7 +87,7 @@ def resolve_config(step: str | None = None) -> tuple[str, str, str]:
 def _client_nvidia(k: str):
     return instructor.from_openai(
         OpenAI(
-            base_url="https://integrate.api.nvidia.com/v1",
+            base_url=settings.llm.provider_specific.nvidia_base_url,
             api_key=k,
             timeout=_TIMEOUT,
             max_retries=0,
@@ -98,7 +98,7 @@ def _client_nvidia(k: str):
 
 def _client_gemini(k: str):
     return OpenAI(
-        base_url="https://generativelanguage.googleapis.com/v1beta/openai/",
+        base_url=settings.llm.provider_specific.gemini_base_url,
         api_key=k,
         timeout=_TIMEOUT,
         max_retries=0,
@@ -142,7 +142,7 @@ def call_llm(s: str, u: str, m: type[BaseModel], step: str | None = None):
             _log.warning("groq — no key (step=%s) — falling back", step)
             return _parse_fallback(u, m)
         c = instructor.from_openai(
-            OpenAI(base_url="https://api.groq.com/openai/v1", api_key=k,
+            OpenAI(base_url=settings.llm.provider_specific.groq_base_url, api_key=k,
                    timeout=_TIMEOUT, max_retries=0)
         )
         return c.chat.completions.create(
@@ -196,7 +196,7 @@ def call_llm(s: str, u: str, m: type[BaseModel], step: str | None = None):
         # deepseek-reasoner does not support tool_choice — use JSON mode instead
         mode = instructor.Mode.JSON if "reasoner" in model else instructor.Mode.TOOLS
         c = instructor.from_openai(
-            OpenAI(base_url="https://api.deepseek.com", api_key=k, timeout=_TIMEOUT),
+             OpenAI(base_url=settings.llm.provider_specific.deepseek_base_url, api_key=k, timeout=_TIMEOUT),
             mode=mode,
         )
         return c.chat.completions.create(
@@ -269,7 +269,7 @@ def call_raw(s: str, u: str, step: str | None = None) -> str:
     elif p == "groq":
         if not k:
             return ""
-        c = OpenAI(base_url="https://api.groq.com/openai/v1", api_key=k,
+        c = OpenAI(base_url=settings.llm.provider_specific.groq_base_url, api_key=k,
                    timeout=_TIMEOUT, max_retries=0)
         r = c.chat.completions.create(
             model=model,
@@ -290,7 +290,7 @@ def call_raw(s: str, u: str, step: str | None = None) -> str:
     elif p == "nvidia":
         if not k:
             return ""
-        c = OpenAI(base_url="https://integrate.api.nvidia.com/v1", api_key=k,
+        c = OpenAI(base_url=settings.llm.provider_specific.nvidia_base_url, api_key=k,
                    timeout=_TIMEOUT, max_retries=0)
         r = c.chat.completions.create(
             model=model,
@@ -313,7 +313,7 @@ def call_raw(s: str, u: str, step: str | None = None) -> str:
     elif p == "deepseek":
         if not k:
             return ""
-        c = OpenAI(base_url="https://api.deepseek.com", api_key=k, timeout=_TIMEOUT)
+        c = OpenAI(base_url=settings.llm.provider_specific.deepseek_base_url, api_key=k, timeout=_TIMEOUT)
         r = c.chat.completions.create(
             model=model,
             messages=[{"role": "system", "content": s}, {"role": "user", "content": u}],
