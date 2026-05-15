@@ -77,8 +77,8 @@ async def ingest_portfolio_url(url: str) -> dict:
     llm_unavailable = False
     extract = None
     try:
-        from llm import _resolve
-        provider, api_key, _model = _resolve("ingestor")
+        from llm import resolve_config
+        provider, api_key, _model = resolve_config("ingestor")
         llm_unavailable = provider != "ollama" and not api_key
         system = (
             "You are JustHireMe's production portfolio-ingestion agent. Extract "

@@ -74,6 +74,19 @@ tail -f /tmp/jhm.log
 
 `chore/externalize-job-targets` — active. Moving hardcoded job board lists to user-configurable settings. See `docs/plans/externalize-job-targets.md`.
 
+## Resolve Workflow (per module)
+
+1. **Branch** — `fix/<slug>` from `linux-base`
+2. **Resolve plan** — write from `docs/maps/resolve/TEMPLATE.md`, passes by severity (🔴→🔵→🟡)
+3. **Verify plan against source** — read actual code files first. Confirm every flagged item is real.
+4. **TodoWrite** — before any code
+5. **Execute** — pass by pass, commit per pass
+6. **Re-check every change** — test viability, ripple effects, doc updates, no "domain data" false dismissals
+7. **No-code review** — review pass over all changes before claiming done
+8. **Update map** — `docs/maps/<module>.md` file inventory and flags
+9. **Delete resolve** — `git rm docs/maps/resolve/<module>.md`
+10. **Merge & delete** — `--no-ff` to `linux-base`, delete branch
+
 ## Deferred Items
 
 All deferred/backlog items are documented in `docs/deferred/` — one file per topic with status badges. Current items:

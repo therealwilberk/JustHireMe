@@ -55,6 +55,10 @@ class ScraperLimits(BaseModel):
         "hn:jobs remote hiring",
         "reddit:forhire:hiring job remote",
     ]
+    fill_delay_ms: int = 500  # actuator.py:164
+    selectors_cache_ttl: int = 86400  # selectors.py:12
+    github_max_repos: int = 12  # github_ingestor.py:100
+    github_fork_min_stars: int = 10  # github_ingestor.py:132
 
 
 class SourceCaps(BaseModel):
@@ -77,9 +81,13 @@ class APISourceURLs(BaseModel):
     remoteok: str = "https://remoteok.com/api"
     reddit_search: str = "https://www.reddit.com/r/{subreddit}/search.json"
     github_search_issues: str = "https://api.github.com/search/issues"
+    github_api_base: str = "https://api.github.com"
     google_search: str = "https://www.google.com/search?q={query}&tbs=qdr:w"
     apify_run_sync: str = "https://api.apify.com/v2/acts/{actor}/run-sync-get-dataset-items"
     x_api_base: str = "https://api.x.com/2/tweets/search/recent"
+    groq_api_base: str = "https://api.groq.com/openai/v1"
+    nvidia_api_base: str = "https://integrate.api.nvidia.com/v1"
+    browser_runtime_download_base: str = "https://github.com/vasu-devs/JustHireMe/releases/latest/download"
 
 
 class ApifyKeyNames(BaseModel):

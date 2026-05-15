@@ -2,7 +2,6 @@ import asyncio
 import base64
 import json
 import os
-import sys
 from pydantic import BaseModel, Field
 from typing import List
 from config import settings
@@ -161,7 +160,7 @@ _DOM_MAP = [
     ("textarea[name*='message']",  "cover_letter"),
 ]
 
-_FILL_DELAY = 500
+_FILL_DELAY = settings.scraping.limits.fill_delay_ms
 
 
 async def _upload_resume(p, asset: str) -> bool:
@@ -265,9 +264,9 @@ def _vision_actions_openai_compatible(provider: str, model: str, key: str, b64: 
     extra_body = None
 
     if provider == "groq":
-        kwargs["base_url"] = "https://api.groq.com/openai/v1"
+        kwargs["base_url"] = settings.scraping.api_urls.groq_api_base
     elif provider == "nvidia":
-        kwargs["base_url"] = "https://integrate.api.nvidia.com/v1"
+        kwargs["base_url"] = settings.scraping.api_urls.nvidia_api_base
         extra_body = {"chat_template_kwargs": {"enable_thinking": False}}
     elif provider == "ollama":
         kwargs["base_url"] = get_setting("ollama_url", "http://localhost:11434/v1")
@@ -383,7 +382,7 @@ async def _run(job: dict, asset: str, dry_run: bool = False) -> bool | dict:
                 ),
             )
             pg = await ctx.new_page()
-            await pg.goto(job.get("url", ""), wait_until="domcontentloaded", timeout=30000)
+            await pg.goto(job.get("url", ""), wait_until="domcontentloaded", timeout=settings.scraping.timeouts.page_load)
             await pg.wait_for_timeout(2000)
 
             filled = {"fields": [], "uploaded": False, "vision_actions": 0}
