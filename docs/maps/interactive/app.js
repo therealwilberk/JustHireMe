@@ -4,49 +4,40 @@
 
 /* ─── Route table ─── */
 const ROUTES = [
-  { path: '/',                     page: 'overview',  label: 'Overview',     group: 'SYSTEM',   data: 'overview.json' },
-  { path: '/flows',                page: 'flows',     label: 'Flows',        group: 'SYSTEM',   data: 'flows.json' },
-  { path: '/flags',                page: 'flags',     label: 'Flag Registry', group: 'SYSTEM',  data: 'flags.json' },
-  { path: '/index',                page: 'index',     label: 'Index',        group: 'SYSTEM',   data: 'master-index.json' },
-  { path: '/backend/config',       page: 'unit',      label: 'Config',       group: 'BACKEND',  data: 'backend-config.json', slug: 'backend-config' },
-  { path: '/backend/db',           page: 'unit',      label: 'DB',           group: 'BACKEND',  data: 'backend-db.json', slug: 'backend-db' },
-  { path: '/backend/evaluators',   page: 'unit',      label: 'Evaluators',   group: 'BACKEND',  data: 'backend-evaluators.json', slug: 'backend-evaluators' },
-  { path: '/backend/foundations',  page: 'unit',      label: 'Foundations',  group: 'BACKEND',  data: 'backend-foundations.json', slug: 'backend-foundations' },
-  { path: '/backend/generators',   page: 'unit',      label: 'Generators',   group: 'BACKEND',  data: 'backend-generators.json', slug: 'backend-generators' },
-  { path: '/backend/integrations', page: 'unit',      label: 'Integrations', group: 'BACKEND',  data: 'backend-integrations.json', slug: 'backend-integrations' },
-  { path: '/backend/main',         page: 'unit',      label: 'Main',         group: 'BACKEND',  data: 'backend-main.json', slug: 'backend-main' },
-  { path: '/backend/routes',       page: 'unit',      label: 'Routes',       group: 'BACKEND',  data: 'backend-routes.json', slug: 'backend-routes' },
-  { path: '/backend/scrapers',     page: 'unit',      label: 'Scrapers',     group: 'BACKEND',  data: 'backend-scrapers.json', slug: 'backend-scrapers' },
-  { path: '/backend/services',     page: 'unit',      label: 'Services',     group: 'BACKEND',  data: 'backend-services.json', slug: 'backend-services' },
-  { path: '/backend/tests',        page: 'unit',      label: 'Tests',        group: 'BACKEND',  data: 'backend-tests.json', slug: 'backend-tests' },
-  { path: '/frontend/components',  page: 'unit',      label: 'Components',   group: 'FRONTEND', data: 'frontend-components.json', slug: 'frontend-components' },
-  { path: '/frontend/core',        page: 'unit',      label: 'Core',         group: 'FRONTEND', data: 'frontend-core.json', slug: 'frontend-core' },
-  { path: '/frontend/hooks',       page: 'unit',      label: 'Hooks',        group: 'FRONTEND', data: 'frontend-hooks.json', slug: 'frontend-hooks' },
-  { path: '/frontend/settings',    page: 'unit',      label: 'Settings',     group: 'FRONTEND', data: 'frontend-settings.json', slug: 'frontend-settings' },
-  { path: '/frontend/views',       page: 'unit',      label: 'Views',        group: 'FRONTEND', data: 'frontend-views.json', slug: 'frontend-views' },
-  { path: '/infra/tauri',          page: 'unit',      label: 'Tauri',        group: 'INFRA',    data: 'tauri.json', slug: 'tauri' },
-  { path: '/infra/build-ci',       page: 'unit',      label: 'Build & CI',  group: 'INFRA',    data: 'build-ci.json', slug: 'build-ci' },
+  { path: '/',                     page: 'overview',  label: 'Overview',     group: 'SYSTEM',   data: 'data/overview.json' },
+  { path: '/flows',                page: 'flows',     label: 'Flows',        group: 'SYSTEM',   data: 'data/flows.json' },
+  { path: '/flags',                page: 'flags',     label: 'Flag Registry', group: 'SYSTEM',  data: 'data/flags.json' },
+  { path: '/index',                page: 'index',     label: 'Index',        group: 'SYSTEM',   data: 'data/master-index.json' },
+  { path: '/backend/config',       page: 'unit',      label: 'Config',       group: 'BACKEND',  data: 'data/backend-config.json', slug: 'backend-config' },
+  { path: '/backend/db',           page: 'unit',      label: 'DB',           group: 'BACKEND',  data: 'data/backend-db.json', slug: 'backend-db' },
+  { path: '/backend/evaluators',   page: 'unit',      label: 'Evaluators',   group: 'BACKEND',  data: 'data/backend-evaluators.json', slug: 'backend-evaluators' },
+  { path: '/backend/foundations',  page: 'unit',      label: 'Foundations',  group: 'BACKEND',  data: 'data/backend-foundations.json', slug: 'backend-foundations' },
+  { path: '/backend/generators',   page: 'unit',      label: 'Generators',   group: 'BACKEND',  data: 'data/backend-generators.json', slug: 'backend-generators' },
+  { path: '/backend/integrations', page: 'unit',      label: 'Integrations', group: 'BACKEND',  data: 'data/backend-integrations.json', slug: 'backend-integrations' },
+  { path: '/backend/main',         page: 'unit',      label: 'Main',         group: 'BACKEND',  data: 'data/backend-main.json', slug: 'backend-main' },
+  { path: '/backend/routes',       page: 'unit',      label: 'Routes',       group: 'BACKEND',  data: 'data/backend-routes.json', slug: 'backend-routes' },
+  { path: '/backend/scrapers',     page: 'unit',      label: 'Scrapers',     group: 'BACKEND',  data: 'data/backend-scrapers.json', slug: 'backend-scrapers' },
+  { path: '/backend/services',     page: 'unit',      label: 'Services',     group: 'BACKEND',  data: 'data/backend-services.json', slug: 'backend-services' },
+  { path: '/backend/tests',        page: 'unit',      label: 'Tests',        group: 'BACKEND',  data: 'data/backend-tests.json', slug: 'backend-tests' },
+  { path: '/frontend/components',  page: 'unit',      label: 'Components',   group: 'FRONTEND', data: 'data/frontend-components.json', slug: 'frontend-components' },
+  { path: '/frontend/core',        page: 'unit',      label: 'Core',         group: 'FRONTEND', data: 'data/frontend-core.json', slug: 'frontend-core' },
+  { path: '/frontend/hooks',       page: 'unit',      label: 'Hooks',        group: 'FRONTEND', data: 'data/frontend-hooks.json', slug: 'frontend-hooks' },
+  { path: '/frontend/settings',    page: 'unit',      label: 'Settings',     group: 'FRONTEND', data: 'data/frontend-settings.json', slug: 'frontend-settings' },
+  { path: '/frontend/views',       page: 'unit',      label: 'Views',        group: 'FRONTEND', data: 'data/frontend-views.json', slug: 'frontend-views' },
+  { path: '/infra/tauri',          page: 'unit',      label: 'Tauri',        group: 'INFRA',    data: 'data/tauri.json', slug: 'tauri' },
+  { path: '/infra/build-ci',       page: 'unit',      label: 'Build & CI',  group: 'INFRA',    data: 'data/build-ci.json', slug: 'build-ci' },
 ];
 
 const content = document.getElementById('content');
 const sidebarNav = document.getElementById('sidebar-nav');
 const branchDisplay = document.getElementById('branch-display');
 
-/* ─── Data cache ─── */
-const dataCache = {};
-
-async function loadData(path) {
-  if (dataCache[path]) return dataCache[path];
-  try {
-    const r = await fetch(path);
-    if (!r.ok) throw new Error(`HTTP ${r.status}`);
-    const d = await r.json();
-    dataCache[path] = d;
-    return d;
-  } catch (e) {
-    console.error(`Failed to load ${path}:`, e);
-    return null;
-  }
+/* ─── Data lookup ─── */
+function loadData(path) {
+  const key = path.replace(/^data\//, '').replace(/\.json$/, '');
+  const d = window.__DATA[key];
+  if (!d) console.warn('No data for', key);
+  return d;
 }
 
 /* ─── Sidebar ─── */
@@ -74,7 +65,7 @@ function renderSidebar(activePath) {
 /* ─── Branch display ─── */
 async function loadBranch() {
   try {
-    const r = await fetch('/.git/HEAD');
+    const r = await fetch('../../.git/HEAD');
     if (r.ok) {
       const text = (await r.text()).trim();
       const m = text.match(/ref:\s+refs\/heads\/(.+)/);
@@ -139,7 +130,7 @@ async function renderPage(path) {
 const FLAG_TYPE_ORDER = ['dead','hardcoded','coupled','stale','suspect','incomplete','clean'];
 
 async function renderOverview() {
-  const data = await loadData('data/overview.json');
+  const data = loadData('data/overview.json');
   if (!data) { content.innerHTML = '<div class="loading">Failed to load overview data</div>'; return; }
 
   let html = '<h1>System Overview</h1>';
@@ -286,7 +277,7 @@ function renderGraph(data, activeFilter) {
 
 /* ═══ FLOWS PAGE ═══ */
 async function renderFlows() {
-  const data = await loadData('data/flows.json');
+  const data = loadData('data/flows.json');
   if (!data || data.length === 0) { content.innerHTML = '<div class="loading">No flow data</div>'; return; }
 
   let html = '<h1>Application Flows</h1>';
@@ -527,7 +518,7 @@ function renderFlowSteps(flow) {
 const FLAG_SORT_WEIGHT = { dead:0, hardcoded:1, coupled:2, stale:3, suspect:4, incomplete:5, clean:6 };
 
 async function renderFlags() {
-  const data = await loadData('data/flags.json');
+  const data = loadData('data/flags.json');
   if (!data || data.length === 0) { content.innerHTML = '<div class="loading">No flags found</div>'; return; }
 
   const flagTypes = FLAG_TYPE_ORDER.filter(t => data.some(f => f.type === t));
@@ -667,7 +658,7 @@ async function renderFlags() {
 
 /* ═══ INDEX PAGE ═══ */
 async function renderIndex() {
-  const data = await loadData('data/master-index.json');
+  const data = loadData('data/master-index.json');
   if (!data) { content.innerHTML = '<div class="loading">Failed to load index</div>'; return; }
 
   const EMOJI_MAP = {
@@ -765,7 +756,7 @@ async function renderIndex() {
     navigator.clipboard.writeText(md).then(() => {
       const btn = document.getElementById('export-btn');
       const orig = btn.textContent;
-      btn.textContent = '✓ Copied!';
+      btn.textContent = 'Copied!';
       setTimeout(() => { btn.textContent = orig; }, 1500);
     }).catch(() => {
       const btn = document.getElementById('export-btn');
@@ -778,102 +769,355 @@ async function renderIndex() {
 }
 
 /* ═══ UNIT PAGE ═══ */
+const FLAG_EMOJI_MAP = { '🟢':'clean', '🟡':'suspect', '🟠':'stale', '🔴':'dead', '🟣':'coupled', '🔵':'hardcoded', '⚪':'incomplete' };
+
+function parseFileFlag(file) {
+  const raw = file.Flag || file['Overall flag'] || '';
+  const emoji = raw.trim().slice(0, 2);
+  return FLAG_EMOJI_MAP[emoji] || '';
+}
+
+function parseAssessment(text) {
+  if (!text) return [];
+  if (text.trim().charAt(0) === '|') return parseAssessmentTable(text);
+
+  const sections = [];
+  let current = null;
+  for (const line of text.split('\n')) {
+    const hm = line.match(/^###\s+(.+)/);
+    if (hm) {
+      if (current) sections.push(current);
+      current = { file: hm[1].replace(/`/g, '').trim(), qas: [] };
+      continue;
+    }
+    const qm = line.match(/^(\d+)\.\s+\*\*(.+?)\*\*(.+)/);
+    if (qm) {
+      if (!current) current = { file: '', qas: [] };
+      current.qas.push({ num: qm[1], q: qm[2], a: qm[3].trim() });
+    }
+  }
+  if (current) sections.push(current);
+  return sections;
+}
+
+function parseAssessmentTable(text) {
+  const lines = text.split('\n').filter(function(l) { return l.trim().length > 0; });
+  if (lines.length < 3) return [];
+  const sections = [];
+  for (var i = 2; i < lines.length; i++) {
+    var parts = lines[i].split('|').filter(function(p) { return p.trim().length > 0; }).map(function(p) { return p.trim(); });
+    if (parts.length >= 5) {
+      sections.push({
+        file: parts[0].replace(/`/g, '').trim(),
+        qas: [
+          { num: '1', q: 'Does it need to exist?', a: parts[1] },
+          { num: '2', q: 'Does what it claims?', a: parts[2] },
+          { num: '3', q: 'Right place?', a: parts[3] },
+          { num: '4', q: 'Breaks if deleted?', a: parts[4] },
+        ]
+      });
+    }
+  }
+  return sections;
+}
+
+const SLUG_PATHS = (function buildSlugMap() {
+  const m = {};
+  const pairs = [
+    ['backend/routes', 'backend-routes'], ['backend/config', 'backend-config'],
+    ['backend/db', 'backend-db'], ['backend/evaluators', 'backend-evaluators'],
+    ['backend/foundations', 'backend-foundations'], ['backend/generators', 'backend-generators'],
+    ['backend/integrations', 'backend-integrations'], ['backend/main', 'backend-main'],
+    ['backend/services', 'backend-services'], ['backend/scrapers', 'backend-scrapers'],
+    ['backend/tests', 'backend-tests'], ['backend/agents', null], ['backend/core', 'backend-main'],
+    ['backend/logger.py', 'backend-main'], ['backend/llm.py', 'backend-main'],
+    ['backend/graph', 'backend-main'],
+    ['src/components', 'frontend-components'], ['src/hooks', 'frontend-hooks'],
+    ['src/settings', 'frontend-settings'], ['src/views', 'frontend-views'],
+    ['src/App.tsx', 'frontend-core'], ['src/types.ts', 'frontend-core'],
+    ['src/lib', 'frontend-core'],
+    ['src-tauri', 'tauri'], ['.github', 'build-ci'],
+    ['config', 'backend-config'], ['tests', 'backend-tests'], ['e2e', 'backend-tests'],
+  ];
+  pairs.sort((a, b) => b[0].length - a[0].length);
+  pairs.forEach(p => { m[p[0]] = p[1]; });
+  return m;
+})();
+
+function extractDepSlug(dep) {
+  const m = dep.match(/`([^`]+)`/);
+  if (!m) return '';
+  const path = m[1].toLowerCase();
+  for (const [prefix, slug] of Object.entries(SLUG_PATHS)) {
+    if (slug && path.includes(prefix)) return slug;
+  }
+  return '';
+}
+
 async function renderUnit(route) {
-  const data = await loadData('data/' + route.data);
+  const data = loadData(route.data);
   if (!data) { content.innerHTML = '<div class="loading">Failed to load unit data</div>'; return; }
 
+  const totalFlags = Object.values(data.flagCounts || {}).reduce((a, b) => a + b, 0);
+  const inboundCount = data.deps?.inbound?.length || 0;
+  const outboundCount = data.deps?.outbound?.length || 0;
+
   let html = '<div class="breadcrumb"><a data-path="/">System Overview</a> / ' + esc(data.name) + '</div>';
+
+  html += '<div class="unit-header">';
   html += '<h1>' + esc(data.name) + '</h1>';
-  html += '<div style="color:var(--fg-muted);font-size:13px;margin-bottom:12px">' + esc(data.summary || '').slice(0, 200) + '</div>';
+  html += '<div class="unit-summary">' + esc((data.summary || '').slice(0, 300)) + '</div>';
+  html += '</div>';
+
+  html += '<div class="stat-bar">';
+  html += '<div class="stat-item"><span class="stat-value">' + data.fileCount + '</span><span class="stat-label">files</span></div>';
+  html += '<div class="stat-divider"></div>';
+  html += '<div class="stat-item"><span class="stat-value">' + totalFlags + '</span><span class="stat-label">flags</span></div>';
+  html += '<div class="stat-divider"></div>';
+  html += '<div class="stat-item"><span class="stat-value">' + inboundCount + '</span><span class="stat-label">inbound</span></div>';
+  html += '<div class="stat-divider"></div>';
+  html += '<div class="stat-item"><span class="stat-value">' + outboundCount + '</span><span class="stat-label">outbound</span></div>';
+  html += '</div>';
 
   if (data.flagCounts) {
     html += '<div class="summary-bar">';
     for (const [type, count] of Object.entries(data.flagCounts)) {
       if (count > 0) html += `<span class="flag-badge ${type}"><span class="flag-dot ${type}"></span> ${count} ${type}</span>`;
     }
+    html += '<span style="margin-left:auto;font-size:11px;color:var(--fg-dim);font-family:var(--font-mono)">' + data.group + '</span>';
     html += '</div>';
   }
 
+  const assessments = parseAssessment(data.assessment);
+
   if (data.files && data.files.length > 0) {
     html += '<div class="unit-layout">';
-    html += '<div><h3>Files</h3><div id="file-tree">';
+    html += '<div><h3>Files</h3><div id="file-tree" class="file-tree-scroll">';
     data.files.forEach((f, i) => {
-      const flagColor = {'🟢':'clean','🟡':'suspect','🟠':'stale','🔴':'dead','🟣':'coupled','🔵':'hardcoded','⚪':'incomplete'}[f.Flag] || f['Overall flag'] || '';
-      const flagClass = flagColor;
-      html += `<div class="file-item${i === 0 ? ' active' : ''}" data-file-index="${i}">
-        ${flagClass ? `<span class="flag-dot ${flagClass}"></span>` : ''}
-        <span>${esc(f.File || f.file || '')}</span>
-      </div>`;
+      const flagClass = parseFileFlag(f);
+      html += `<div class="file-item${i === 0 ? ' active' : ''}" data-file-index="${i}">`;
+      if (flagClass) html += `<span class="flag-dot ${flagClass}"></span>`;
+      html += `<span>${esc(f.File || '')}</span>`;
+      if (f.Lines) html += `<span class="file-lines">${f.Lines}</span>`;
+      html += `</div>`;
     });
     html += '</div></div>';
 
     html += '<div><h3>Details</h3><div id="file-detail">';
     if (data.files[0]) {
-      html += renderFileDetail(data.files[0]);
+      html += renderFileDetail(data.files[0], assessments);
     }
     html += '</div></div>';
-    html += '<div><h3>Connections</h3>';
-    if (data.deps) {
-      if (data.deps.inbound && data.deps.inbound.length > 0) {
-        html += '<div style="margin-bottom:12px"><div style="font-size:11px;color:var(--fg-dim);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:4px">Inbound</div>';
-        data.deps.inbound.slice(0, 8).forEach(d => {
-          html += `<div class="conn-item" style="font-size:11px">${esc(d)}</div>`;
-        });
-        html += '</div>';
-      }
-      if (data.deps.outbound && data.deps.outbound.length > 0) {
-        html += '<div><div style="font-size:11px;color:var(--fg-dim);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:4px">Outbound</div>';
-        data.deps.outbound.slice(0, 8).forEach(d => {
-          html += `<div class="conn-item" style="font-size:11px">${esc(d)}</div>`;
-        });
-        html += '</div>';
-      }
-    }
-    html += '</div></div>';
-  }
 
-  /* Flags section */
-  if (data.flags && data.flags.length > 0) {
-    html += '<h2 style="margin-top:24px">Flags (' + data.flags.length + ')</h2>';
-    html += '<table class="data-table"><thead><tr><th>Type</th><th>Item</th><th>Location</th><th>Reason</th></tr></thead><tbody>';
-    data.flags.forEach(f => {
-      html += `<tr><td><span class="flag-dot ${f.type}"></span></td><td class="mono" style="font-size:11px">${esc(f.item)}</td><td class="mono" style="font-size:11px;color:var(--fg-dim)">${esc(f.location)}</td><td style="font-size:11px;color:var(--fg-muted)">${esc(f.reason)}</td></tr>`;
-    });
-    html += '</tbody></table>';
+    html += '<div><h3>Connections</h3>';
+    html += '<div id="unit-deps-graph" class="unit-deps-graph-box"></div>';
+    if (data.deps) {
+      if (inboundCount > 0) {
+        html += '<div style="margin-bottom:12px"><div class="deps-heading">Inbound</div>';
+        data.deps.inbound.forEach(d => {
+          const slug = extractDepSlug(d);
+          html += `<div class="conn-item${slug ? ' clickable' : ''}" data-slug="${slug || ''}">${esc(d)}</div>`;
+        });
+        html += '</div>';
+      }
+      if (outboundCount > 0) {
+        html += '<div><div class="deps-heading">Outbound</div>';
+        data.deps.outbound.forEach(d => {
+          const slug = extractDepSlug(d);
+          html += `<div class="conn-item${slug ? ' clickable' : ''}" data-slug="${slug || ''}">${esc(d)}</div>`;
+        });
+        html += '</div>';
+      }
+    }
+    html += '</div></div>';
+    html += '</div>';
+
+    if (assessments.length > 0) {
+      var assessLabel = assessments.length === 1 && !assessments[0].file ? 'Assessment' : 'File Assessments';
+      html += '<h2 style="margin-top:36px;font-size:16px">' + assessLabel + '</h2>';
+      html += '<div class="assessments">';
+      assessments.forEach(function(a) {
+        var a3 = a.qas[3];
+        var a0 = a.qas[0];
+        var verdict = (a3 && a3.a && a3.a.toLowerCase().includes('would break')) ? 'needed' :
+                      (a0 && a0.a && a0.a.toLowerCase().includes('partially')) ? 'partial' : 'needed';
+        var fileLabel = a.file || 'Unit Overview';
+        html += '<div class="assessment-card ' + verdict + '"><div class="assess-file">' + esc(fileLabel) + '</div>';
+        a.qas.forEach(function(qa) {
+          html += '<div class="assess-qa"><span class="assess-q">' + esc(qa.q) + '</span><span class="assess-a">' + esc(qa.a.slice(0, 200)) + '</span></div>';
+        });
+        html += '</div>';
+      });
+      html += '</div>';
+    }
+
+    if (data.flags && data.flags.length > 0) {
+      html += '<h2 style="margin-top:36px;font-size:16px">All Flags (' + data.flags.length + ')</h2>';
+      html += '<table class="data-table"><thead><tr><th style="width:34px">Prio</th><th style="width:52px">Type</th><th>Item</th><th>Location</th><th>Reason</th></tr></thead><tbody>';
+      data.flags.sort((a, b) => ((a.priority || 'P3').localeCompare(b.priority || 'P3') || 0));
+      data.flags.forEach(f => {
+        const prioColor = f.priority === 'P0' ? 'var(--flag-dead)' : f.priority === 'P1' ? 'var(--warning)' : 'var(--fg-dim)';
+        html += `<tr><td><span class="prio-badge" style="color:${prioColor}">${esc(f.priority || '')}</span></td>
+          <td><span class="flag-dot ${f.type}"></span></td>
+          <td class="mono" style="font-size:11px">${esc(f.item)}</td>
+          <td class="mono" style="font-size:11px;color:var(--fg-dim)">${esc(f.location)}</td>
+          <td style="font-size:11px;color:var(--fg-muted)">${esc(f.reason)}</td>
+        </tr>`;
+      });
+      html += '</tbody></table>';
+    }
   }
 
   content.innerHTML = html;
 
-  /* File tree click handler */
   const treeEl = document.getElementById('file-tree');
   if (treeEl) {
-    treeEl.addEventListener('click', (e) => {
+    treeEl.addEventListener('click', function(e) {
       const item = e.target.closest('.file-item');
       if (!item) return;
-      document.querySelectorAll('.file-item').forEach(el => el.classList.remove('active'));
+      document.querySelectorAll('.file-item').forEach(function(el) { el.classList.remove('active'); });
       item.classList.add('active');
       const idx = parseInt(item.dataset.fileIndex);
       const file = data.files[idx];
       if (file) {
-        document.getElementById('file-detail').innerHTML = renderFileDetail(file);
+        document.getElementById('file-detail').innerHTML = renderFileDetail(file, assessments);
       }
     });
   }
 
-  /* Breadcrumb click handler */
-  content.querySelectorAll('.breadcrumb a').forEach(el => {
-    el.addEventListener('click', () => navigate(el.dataset.path));
+  content.querySelectorAll('.conn-item.clickable').forEach(function(el) {
+    el.addEventListener('click', function() {
+      const slug = el.dataset.slug;
+      if (slug) {
+        const r = ROUTES.find(function(rt) { return rt.slug === slug; });
+        if (r) navigate(r.path);
+      }
+    });
   });
+
+  content.querySelectorAll('.breadcrumb a').forEach(function(el) {
+    el.addEventListener('click', function() { navigate(el.dataset.path); });
+  });
+
+  renderUnitDepsGraph(data.slug);
 }
 
-function renderFileDetail(file) {
-  const flagColor = {'🟢':'clean','🟡':'suspect','🟠':'stale','🔴':'dead','🟣':'coupled','🔵':'hardcoded','⚪':'incomplete'}[file.Flag] || file['Overall flag'] || '';
-  const flagClass = flagColor;
-  let html = `<div class="mono" style="font-size:13px;margin-bottom:4px">${esc(file.File || file.file || '')}</div>`;
-  if (file.Purpose) html += `<div style="font-size:12px;color:var(--fg-muted);margin-bottom:8px">${esc(file.Purpose)}</div>`;
-  if (flagClass) html += `<span class="flag-badge ${flagClass}">${flagClass}</span>`;
-  if (file.Lines) html += `<span style="margin-left:8px;font-family:var(--font-mono);font-size:11px;color:var(--fg-dim)">${esc(file.Lines)} lines</span>`;
+function renderFileDetail(file, assessments) {
+  const flagClass = parseFileFlag(file);
+  const fileName = file.File || '';
+  const normalName = fileName.replace(/`/g, '').trim();
+  const assess = assessments ? assessments.find(function(a) {
+    const af = a.file.replace(/`/g, '').trim();
+    return normalName.includes(af) || af.includes(normalName);
+  }) : null;
+
+  let html = '<div class="file-detail-header"><span class="mono" style="font-size:13px;font-weight:600">' + esc(fileName) + '</span>';
+  if (file.Lines) html += '<span class="file-lines-badge">' + esc(file.Lines) + ' lines</span>';
+  html += '</div>';
+
+  if (file.Purpose) html += '<div class="file-purpose">' + esc(file.Purpose) + '</div>';
+
+  if (flagClass) {
+    html += '<div style="margin-bottom:8px"><span class="flag-badge ' + flagClass + '">' + flagClass + '</span></div>';
+  }
+
+  if (assess && assess.qas.length > 0) {
+    html += '<div class="file-assessment">';
+    assess.qas.forEach(function(qa) {
+      const aLow = qa.a.toLowerCase();
+      const isNeeded = aLow.includes('yes') && !aLow.includes('partially') && !aLow.includes('no');
+      const isPlace = qa.q.includes('right place');
+      const isBreak = qa.q.includes('break');
+      let cls = 'qa-neutral';
+      if (isBreak) cls = aLow.includes('would break') || aLow.includes('everything') ? 'qa-bad' : 'qa-good';
+      else if (isPlace) cls = isNeeded ? 'qa-good' : 'qa-warn';
+      else if (qa.q.includes('need to exist')) cls = isNeeded ? 'qa-good' : 'qa-warn';
+      else cls = isNeeded ? 'qa-good' : 'qa-neutral';
+
+      html += '<div class="file-qa"><span class="file-qa-icon ' + cls + '"></span>'
+        + '<span class="file-qa-text"><strong>' + esc(qa.q) + '</strong> ' + esc(qa.a.slice(0, 200)) + '</span></div>';
+    });
+    html += '</div>';
+  }
+
   return html;
+}
+
+async function renderUnitDepsGraph(slug) {
+  const container = document.getElementById('unit-deps-graph');
+  if (!container) return;
+
+  const overview = loadData('data/overview.json');
+  if (!overview || !overview.nodes) return;
+
+  const center = overview.nodes.find(function(n) { return n.id === slug; });
+  if (!center) { container.innerHTML = ''; return; }
+
+  const neighborIds = new Set();
+  neighborIds.add(slug);
+
+  overview.edges.forEach(function(e) {
+    const sid = e.source && (e.source.id || e.source);
+    const tid = e.target && (e.target.id || e.target);
+    if (sid === slug) neighborIds.add(tid);
+    if (tid === slug) neighborIds.add(sid);
+  });
+
+  if (neighborIds.size < 2) { container.innerHTML = ''; return; }
+
+  const nodes = overview.nodes.filter(function(n) { return neighborIds.has(n.id); }).map(function(n) { return Object.assign({}, n); });
+  const edges = overview.edges.filter(function(e) {
+    const sid = e.source && (e.source.id || e.source);
+    const tid = e.target && (e.target.id || e.target);
+    return neighborIds.has(sid) && neighborIds.has(tid);
+  }).map(function(e) {
+    return { source: e.source && (e.source.id || e.source), target: e.target && (e.target.id || e.target) };
+  });
+
+  const w = Math.max(container.clientWidth || 280, 280);
+  const h = 140;
+
+  container.innerHTML = '';
+  const svg = d3.select(container).append('svg').attr('width', '100%').attr('height', h);
+  const g = svg.append('g');
+
+  const sim = d3.forceSimulation(nodes)
+    .force('link', d3.forceLink(edges).id(function(d) { return d.id; }).distance(70))
+    .force('charge', d3.forceManyBody().strength(-180))
+    .force('center', d3.forceCenter(w / 2, h / 2))
+    .force('collision', d3.forceCollide().radius(26));
+
+  const link = g.append('g').selectAll('line').data(edges).join('line')
+    .attr('stroke', 'var(--border)').attr('stroke-width', 1).attr('stroke-opacity', 0.35);
+
+  const node = g.append('g').selectAll('g').data(nodes).join('g')
+    .style('cursor', function(d) { return d.id !== slug ? 'pointer' : 'default'; })
+    .on('click', function(event, d) {
+      if (d.id !== slug) {
+        const r = ROUTES.find(function(rt) { return rt.slug === d.id; });
+        if (r) navigate(r.path);
+      }
+    });
+
+  node.append('circle')
+    .attr('r', function(d) { return d.id === slug ? 10 : 6; })
+    .attr('fill', function(d) { return d.id === slug ? 'var(--accent)' : 'var(--bg-surface)'; })
+    .attr('stroke', function(d) { return d.id === slug ? 'var(--accent)' : 'var(--fg-dim)'; })
+    .attr('stroke-width', 2);
+
+  node.append('text')
+    .text(function(d) { return d.id === slug ? d.name : d.name.slice(0, 10); })
+    .attr('text-anchor', 'middle')
+    .attr('dy', function(d) { return d.id === slug ? 20 : 16; })
+    .attr('fill', function(d) { return d.id === slug ? 'var(--accent)' : 'var(--fg-dim)'; })
+    .attr('font-size', function(d) { return d.id === slug ? '9px' : '8px'; })
+    .attr('font-family', 'var(--font-mono)');
+
+  sim.on('tick', function() {
+    link.attr('x1', function(d) { return d.source.x; }).attr('y1', function(d) { return d.source.y; })
+        .attr('x2', function(d) { return d.target.x; }).attr('y2', function(d) { return d.target.y; });
+    node.attr('transform', function(d) { return 'translate(' + d.x + ',' + d.y + ')'; });
+  });
 }
 
 /* ─── Helpers ─── */
@@ -886,5 +1130,7 @@ function esc(s) {
 
 /* ─── Init ─── */
 loadBranch();
-navigate(window.location.pathname || '/');
+const initialPath = window.location.pathname || '/';
+renderSidebar(initialPath);
+renderPage(initialPath);
 })();
