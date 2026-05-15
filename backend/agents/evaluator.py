@@ -82,16 +82,6 @@ Return concise structured output only:
 """.strip()
 
 
-def _build_proof(candidate_data: dict) -> str:
-    """Compatibility wrapper used by older tests/imports."""
-    return build_proof_text(candidate_data)
-
-
-def _infer_experience_level(candidate_data: dict) -> str:
-    """Compatibility wrapper used by query/evaluation tests."""
-    return infer_experience_level(candidate_data)
-
-
 def _compact_json(value, limit: int | None = None) -> str:
     if limit is None:
         limit = settings.scoring.evaluator.compact_json_limit

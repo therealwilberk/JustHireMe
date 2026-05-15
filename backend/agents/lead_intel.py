@@ -191,7 +191,7 @@ def signal_quality(text: str, default_kind: str = "job") -> dict:
     }
 
 
-def fit_bullets(title: str, text: str) -> list[str]:
+def fit_bullets(_title: str, text: str) -> list[str]:
     stack = tech_stack_from_text(text)
     bullets = []
     if stack:
@@ -207,7 +207,7 @@ def fit_bullets(title: str, text: str) -> list[str]:
     return bullets[:5]
 
 
-def proof_snippet(title: str, text: str, kind: str) -> str:
+def proof_snippet(title: str, text: str, _kind: str) -> str:
     stack = tech_stack_from_text(text)
     stack_line = ", ".join(stack[:4]) if stack else "AI automation, Python, React"
     return (
@@ -216,7 +216,7 @@ def proof_snippet(title: str, text: str, kind: str) -> str:
     )
 
 
-def followup_sequence(company: str, kind: str) -> list[str]:
+def followup_sequence(company: str, _kind: str) -> list[str]:
     label = company or "there"
     return [
         f"Day 2: Follow up with a concise fit summary for {label}.",
@@ -225,7 +225,7 @@ def followup_sequence(company: str, kind: str) -> list[str]:
     ]
 
 
-def outreach_drafts(title: str, company: str, text: str, kind: str, budget: str = "") -> dict:
+def outreach_drafts(title: str, company: str, text: str, _kind: str = "", _budget: str = "") -> dict:
     clean = clean_text(text)
     project = title or "the role"
     for term in ("AI agent", "LLM", "RAG", "chatbot", "automation", "FastAPI", "React", "SaaS"):
