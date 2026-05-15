@@ -9,6 +9,7 @@ from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 
 from core.config_constants import _log, _UP, _API_TOKEN
 from core.ws_manager import cm
+from config import settings as cfg
 
 router = APIRouter(tags=["ws"])
 
@@ -46,7 +47,7 @@ async def ws_endpoint(ws: WebSocket):
                 "timestamp": datetime.now(timezone.utc).isoformat(),
             }))
             try:
-                msg = await asyncio.wait_for(ws.receive_text(), timeout=2.0)
+                msg = await asyncio.wait_for(ws.receive_text(), timeout=cfg.app.websocket.heartbeat_timeout)
                 if msg == "ping":
                     await ws.send_text(json.dumps({"type": "pong"}))
             except asyncio.TimeoutError:

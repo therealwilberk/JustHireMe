@@ -7,6 +7,7 @@ from fastapi import APIRouter
 
 import services.scanner as scanner
 from core.ws_manager import cm
+from config import settings as cfg
 from schemas.requests import HelpChatBody
 from schemas.responses import StatusResponse, FreeSourcesScanResponse
 from services.job_targets import _profile_for_discovery
@@ -78,7 +79,7 @@ async def cleanup_leads(dry_run: bool = False, limit: int = 1000):
     result = await asyncio.to_thread(cleanup_bad_leads, limit, dry_run)
 
     if not dry_run:
-        for item in result.get("items", [])[:100]:
+        for item in result.get("items", [])[:cfg.app.scan_broadcast.cleanup_broadcast_cap]:
             lead = await asyncio.to_thread(get_lead_by_id, item["job_id"])
             if lead:
                 await cm.broadcast({"type": "LEAD_UPDATED", "data": lead})

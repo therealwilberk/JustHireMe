@@ -13,6 +13,8 @@ from schemas.responses import FireResponse, IdentityResponse, SelectorsRefreshRe
 
 router = APIRouter(prefix="/api/v1", tags=["actions"])
 
+_SELECTORS_RESET_AT = "0"
+
 
 @router.get("/leads/{job_id}/pdf")
 async def get_lead_pdf(job_id: str, kind: str = "resume", version: int | None = None):
@@ -179,7 +181,7 @@ async def refresh_selectors():
     from agents.selectors import get_selectors  # lazy: agents module (per-request dep)
 
     from db.client import save_settings  # lazy: lancedb import takes ~7s
-    save_settings({"selectors_fetched_at": "0"})
+    save_settings({"selectors_fetched_at": _SELECTORS_RESET_AT})
     data = await asyncio.to_thread(get_selectors)
     return {"version": data.get("version"), "platforms": list(data.get("platforms", {}).keys())}
 

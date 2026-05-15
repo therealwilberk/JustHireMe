@@ -92,7 +92,7 @@ async def save_cfg(body: SettingsBody):
     _log_sensitive_deprecation(payload)
     ghost = payload.get("ghost_mode") == "true"
     if ghost and not _sched.get_job("ghost"):
-        _sched.add_job(_ghost_tick, "interval", hours=6, id="ghost")
+        _sched.add_job(_ghost_tick, "interval", hours=cfg_settings.app.ghost_mode.interval_hours, id="ghost")
     return {"ok": True}
 
 

@@ -155,6 +155,20 @@ class ScanConfig(BaseModel):
     max_leads_per_scan: int = 1000  # backend/main.py:1149 default limit for cleanup
 
 
+class UploadLimits(BaseModel):
+    """Limits for file uploads."""
+
+    # from backend/routes/ingest.py:95
+    max_linkedin_export_size: int = Field(default=50 * 1024 * 1024, ge=1024, le=500 * 1024 * 1024)  # 50 MB
+
+
+class ScanBroadcastLimits(BaseModel):
+    """Limits for broadcast batching during scan operations."""
+
+    # from backend/routes/scan.py:81
+    cleanup_broadcast_cap: int = Field(default=100, ge=1, le=1000)
+
+
 class AppDataEnvConfig(BaseModel):
     """Environment variables controlling the app data directory."""
 
@@ -217,6 +231,8 @@ class AppConfig(BaseModel):
     evaluator_profile_keys: EvaluatorProfileKeys = EvaluatorProfileKeys()
     reevaluation: ReEvaluationConfig = ReEvaluationConfig()
     scan: ScanConfig = ScanConfig()
+    upload_limits: UploadLimits = UploadLimits()
+    scan_broadcast: ScanBroadcastLimits = ScanBroadcastLimits()
     app_data: AppDataEnvConfig = AppDataEnvConfig()
     browser: BrowserEnvConfig = BrowserEnvConfig()
     auto_apply: AutoApplyEnvConfig = AutoApplyEnvConfig()

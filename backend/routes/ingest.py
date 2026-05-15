@@ -13,6 +13,7 @@ from fastapi import APIRouter, File, Form, HTTPException, UploadFile
 
 from core.config_constants import _log
 from core.ws_manager import cm
+from config import settings as cfg
 from schemas.requests import (
     GithubIngestBody,
     PortfolioIngestBody,
@@ -92,7 +93,7 @@ async def ingest_linkedin(file: UploadFile = File(...)):
     if not (file.filename or "").endswith(".zip"):
         raise HTTPException(400, "expected a .zip file from LinkedIn data export")
     raw = await file.read()
-    if len(raw) > 50 * 1024 * 1024:
+    if len(raw) > cfg.upload_limits.max_linkedin_export_size:
         raise HTTPException(413, "file too large")
     try:
         parsed = await asyncio.to_thread(parse_linkedin_export, raw)
