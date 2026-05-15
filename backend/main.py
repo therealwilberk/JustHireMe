@@ -109,7 +109,7 @@ async def lifespan(app: FastAPI):
     _log_startup_secret_diagnostics()
     if _sched.get_job("ghost"):
         _sched.remove_job("ghost")
-    _sched.add_job(_ghost_tick, "interval", hours=6, id="ghost")
+    _sched.add_job(_ghost_tick, "interval", hours=settings.app.ghost_mode.interval_hours, id="ghost")
     _sched.start()
     _log.info("FastAPI live.")
     yield
