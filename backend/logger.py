@@ -2,8 +2,7 @@
 
 Configures Python loggers with a CorrelationFilter that injects
 contextual metadata (correlation ID, workflow, lead, job) from
-the async CorrelationContext, and a ContextFormatter that appends
-non-empty context fields as structured key=value pairs.
+the async CorrelationContext onto every log record.
 """
 
 import logging
@@ -45,44 +44,6 @@ class CorrelationFilter(logging.Filter):
         record._ctx_degraded = "DEGRADED" if ctx and ctx.degraded else ""
         record._ctx_retrying = "RETRYING" if ctx and ctx.retrying else ""
         return True
-
-
-class ContextFormatter(logging.Formatter):
-    """Format log records with appended context key=value pairs.
-
-    After the standard format is applied, non-empty context fields
-    (lead, job, node, subsystem, workflow, degraded, retrying) are
-    appended as a pipe-separated suffix.
-    """
-
-    def format(self, record: logging.LogRecord) -> str:
-        """Apply standard formatting and append context fields.
-
-        Args:
-            record: The log record to format.
-
-        Returns:
-            The formatted log string with context suffix.
-        """
-        s = super().format(record)
-        extras = []
-        if record._ctx_lead:
-            extras.append(f"lead={record._ctx_lead}")
-        if record._ctx_job:
-            extras.append(f"job={record._ctx_job}")
-        if record._ctx_node:
-            extras.append(f"node={record._ctx_node}")
-        if record._ctx_subsystem:
-            extras.append(f"sub={record._ctx_subsystem}")
-        if record._ctx_workflow:
-            extras.append(f"flow={record._ctx_workflow}")
-        if record._ctx_degraded:
-            extras.append(record._ctx_degraded)
-        if record._ctx_retrying:
-            extras.append(record._ctx_retrying)
-        if extras:
-            s = f"{s} | {' '.join(extras)}"
-        return s
 
 
 def get_logger(name: str) -> logging.Logger:
