@@ -171,7 +171,11 @@ def _handle(request: Json) -> Json | None:
 
 
 def main() -> None:
-    for line in sys.stdin:
+    # each line is a JSON-RPC request; readline size limit prevents OOM on large payloads
+    while True:
+        line = sys.stdin.readline(65536)
+        if not line:
+            break
         if not line.strip():
             continue
         try:

@@ -48,7 +48,6 @@ from fastapi import FastAPI, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from logger import get_logger
 from config import settings
 from log_context import new_context, set_context, reset_context
 from core.config_constants import _log, _sched, _LOCAL_ORIGIN_RE, _bearer
