@@ -416,9 +416,9 @@ class RegressionTests(unittest.TestCase):
     def test_job_reevaluation_preserves_active_workflow_statuses(self):
         from services.scanner import _should_preserve_job_status
 
-        for status in ("active", "applied", "interviewing", "offer", "hired", "archived"):
+        for status in ("active", "applied", "interviewing", "offer", "hired", "archived", "rejected"):
             self.assertTrue(_should_preserve_job_status(status))
-        for status in ("rejected", "withdrawn", "expired", "closed"):
+        for status in ("withdrawn", "expired", "closed"):
             self.assertFalse(_should_preserve_job_status(status))
 
     def test_job_reevaluation_prompt_includes_full_job_context(self):
