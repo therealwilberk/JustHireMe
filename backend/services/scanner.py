@@ -165,7 +165,10 @@ class ScanManager:
 
 scan_manager = ScanManager()
 
-_REEVALUATION_STATUS_LOCKS = {"approved", "applied", "interviewing", "rejected", "accepted", "discarded"}
+_REEVALUATION_STATUS_LOCKS = {
+    "active", "approved", "applied", "interviewing", "offer", "hired", "archived",
+    "rejected", "accepted", "discarded",
+}
 
 
 def _should_preserve_job_status(status: str) -> bool:

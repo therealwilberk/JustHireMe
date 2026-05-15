@@ -18,17 +18,36 @@ class _FakeConnection:
 
 
 class _FakeSqlConnection:
+    _store: dict[str, list[tuple]] = {}
+
     def executescript(self, *_args, **_kwargs):
         return self
 
-    def execute(self, *_args, **_kwargs):
+    def execute(self, sql: str, params: tuple = ()):
+        upper = sql.upper()
+        if "INSERT" in upper and "INTO SETTINGS" in upper:
+            key, val = params
+            tbl = self._store.setdefault("settings", [])
+            for i, (k, _) in enumerate(tbl):
+                if k == key:
+                    tbl[i] = (key, val)
+                    break
+            else:
+                tbl.append((key, val))
+        elif upper.startswith("SELECT") and "FROM SETTINGS" in upper:
+            rows = self._store.get("settings", [])
+            if "WHERE KEY=?" in upper:
+                key = params[0]
+                self._result = [r for r in rows if r[0] == key]
+            else:
+                self._result = rows
         return self
 
     def fetchone(self):
-        return None
+        return self._result[0] if getattr(self, "_result", None) else None
 
     def fetchall(self):
-        return []
+        return self._result if getattr(self, "_result", None) else []
 
     def commit(self):
         return None
