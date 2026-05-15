@@ -1,6 +1,13 @@
+"""Feedback-driven signal adjustment for lead scores.
+
+Learning thresholds (max_delta, confidence divisor, contribution threshold,
+top_k) are driven from ``settings.scoring.feedback_learning``. Label/weight
+dictionaries remain as module-level constants — domain data, not config.
+"""
 import re
 from urllib.parse import urlparse
 from logger import get_logger
+from config import settings
 
 _log = get_logger(__name__)
 
@@ -122,7 +129,9 @@ def _feature_weight(feature: str) -> float:
     return FEATURE_WEIGHTS.get(prefix, 2.0)
 
 
-def apply_feedback_learning(lead: dict, examples: list[dict], max_delta: int = 18) -> dict:
+def apply_feedback_learning(lead: dict, examples: list[dict]) -> dict:
+    cfg = settings.scoring.feedback_learning
+    max_delta = cfg.max_delta
     out = dict(lead)
     base = int(out.get("signal_score") or 0)
     out.setdefault("base_signal_score", base)
@@ -138,10 +147,10 @@ def apply_feedback_learning(lead: dict, examples: list[dict], max_delta: int = 1
         learned = model.get(feature)
         if not learned:
             continue
-        confidence = min(int(learned["count"]), 5) / 5
+        confidence = min(int(learned["count"]), cfg.confidence_divisor) / cfg.confidence_divisor
         avg = float(learned["sum"]) / max(1, int(learned["count"]))
         contribution = avg * confidence * _feature_weight(feature)
-        if abs(contribution) >= 0.35:
+        if abs(contribution) >= cfg.contribution_threshold:
             contributions.append((feature, contribution))
 
     if not contributions:
@@ -154,7 +163,7 @@ def apply_feedback_learning(lead: dict, examples: list[dict], max_delta: int = 1
     out["learning_delta"] = delta
     out["signal_score"] = max(0, min(100, base + delta))
 
-    top = sorted(contributions, key=lambda item: abs(item[1]), reverse=True)[:3]
+    top = sorted(contributions, key=lambda item: abs(item[1]), reverse=True)[:cfg.top_k]
     pretty = []
     for feature, value in top:
         label = feature.replace(":", " ")

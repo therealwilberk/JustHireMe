@@ -17,11 +17,11 @@ The evaluators unit owns job-lead scoring, candidate profiling, and lead intelli
 
 | # | File | Lines | Purpose | Overall flag |
 |---|------|-------|---------|-------------|
-| 1 | `agents/evaluator.py` | 321 | LLM-led scoring with deterministic fallback | 🟢 mostly clean, minor dead code |
-| 2 | `agents/scoring_engine.py` | 1,097 | Deterministic rubric scoring engine | 🟢 well-factored, many hardcoded values |
-| 3 | `agents/feedback_ranker.py` | 176 | User-feedback-driven signal adjustment | 🟢 focused and clean |
-| 4 | `agents/semantic.py` | 278 | Embedding-based semantic similarity | 🟢 graceful degradation, hardcoded stretch params |
-| 5 | `agents/lead_intel.py` | 314 | Raw text to structured lead conversion | 🟠 has a bug, several unused params |
+| 1 | `agents/evaluator.py` | 274 | LLM-led scoring with deterministic fallback | 🟢 dead prompt removed, truncation limits config-driven |
+| 2 | `agents/scoring_engine.py` | 1,097 | Deterministic rubric scoring engine | 🟢 well-factored, many hardcoded values (domain data — acceptable) |
+| 3 | `agents/feedback_ranker.py` | 176 | User-feedback-driven signal adjustment | 🟢 thresholds now config-driven |
+| 4 | `agents/semantic.py` | 278 | Embedding-based semantic similarity | 🟢 graceful degradation, hardcoded stretch params (noted) |
+| 5 | `agents/lead_intel.py` | 314 | Raw text to structured lead conversion | 🟡 tech-centric — deferred to docs/deferred/lead-intel-flexibility.md |
 
 ---
 
@@ -750,41 +750,29 @@ The evaluators unit owns job-lead scoring, candidate profiling, and lead intelli
 
 ## 4. Flags summary
 
-| Priority | Flag | Item | File:Line | Reason |
-|----------|------|------|-----------|--------|
-| P0 | 🔴 DEAD | `_SYSTEM_PROMPT` 1st definition | `evaluator.py:34-82` | Immediately overwritten by 2nd definition at line 84 |
-| P0 | 🔴 DEAD | `classify_kind` 2nd branch | `lead_intel.py:143` | Always returns "job"; second `return` is unreachable — this is a bug (non-job leads never classified) |
-| P1 | 🔵 HARDCODED | `TECH_TAXONOMY` (84 entries) | `scoring_engine.py:87-171` | Full tech taxonomy baked into Python module |
-| P1 | 🔵 HARDCODED | `TECH_CATEGORY` (84 mappings) | `scoring_engine.py:174-258` | Category mapping baked in |
-| P1 | 🔵 HARDCODED | Rubric weights in `score_job_lead` | `scoring_engine.py:1073-1089` | Weight values for role/stack/proof/seniority/constraints/semantic baked in |
-| P1 | 🔵 HARDCODED | Seniority cap thresholds | `scoring_engine.py:919-940` | All threshold values (6mo/3y/5y/7y) and cap scores (30/38/45/48) baked in |
-| P1 | 🔵 HARDCODED | Criterion score constants | `scoring_engine.py:756-911` | _role_alignment, _stack_overlap, _proof_strength, _seniority_fit, _job_constraints all have hardcoded score values |
-| P1 | 🔵 HARDCODED | `all-MiniLM-L6-v2` model | `semantic.py:5` (docstring) | Embedding model name referenced in docstring, hardcoded in `agents.ingestor._emb` |
-| P1 | 🔵 HARDCODED | Semantic stretch parameters | `semantic.py:264` | Lower bound 0.15, range 0.55 — makes scoring sensitive to this calibration |
-| P1 | 🔵 HARDCODED | Semantic blend weights | `semantic.py:250-259` | Skill/project signal blend (0.40/0.60) and avg/peak blend (0.60/0.40) |
-| P1 | 🔵 HARDCODED | Feedback ranker constants | `feedback_ranker.py:8-35` | POSITIVE_LABELS, NEGATIVE_LABELS, FEATURE_WEIGHTS all baked in; "not_ai" at -1.1 is opinionated |
-| P1 | 🔵 HARDCODED | Feedback delta cap & thresholds | `feedback_ranker.py:125,141,144` | max_delta=18, confidence/5, contribution>=0.35 |
-| P1 | 🔵 HARDCODED | Evaluator truncation limits | `evaluator.py:214,220,223` | JD 9000, proof 7000, baseline 5000 char limits baked in |
-| P1 | 🔵 HARDCODED | `lead_intel.py` term lists | `lead_intel.py:9-59` | TECH_TERMS, TECH_LABELS, INTENT_TERMS, JOB_TERMS, URGENCY_TERMS, NOISE_TERMS all baked in |
-| P1 | 🔵 HARDCODED | Lead intel scoring values | `lead_intel.py:156-180` | signal_quality base/bonus/penalty values baked in |
-| P1 | 🔵 HARDCODED | Lead intel regex patterns | `lead_intel.py:79-82,115-117,127-131` | budget_from_text, location_from_text, company_from_text regexes baked in |
-| P1 | 🔵 HARDCODED | Lead intel city list | `lead_intel.py:116` | Hardcoded city list includes India cities (Bengaluru, Bangalore, Mumbai, Delhi) |
-| P1 | 🔵 HARDCODED | Outreach templates | `lead_intel.py:236-256` | Hardcoded reply/DM/email/proposal text |
-| P1 | 🔵 HARDCODED | `_candidate_location` India reference | `scoring_engine.py:509` | "india" explicitly listed as a location match candidate |
-| P1 | 🟣 COUPLED | `_evaluator_llm_requested` lazy import | `evaluator.py:193` | Imports `db.client.get_setting` inside function body |
-| P1 | 🟣 COUPLED | `_semantic_criterion` lazy import | `scoring_engine.py:1037` | Imports `agents.semantic.semantic_fit` inside function body |
-| P1 | 🟣 COUPLED | `_embed_jd` lazy import | `semantic.py:33` | Imports private `_emb` from `agents.ingestor` |
-| P1 | 🟣 COUPLED | `_vec_store` lazy import | `semantic.py:56` | Imports `db.client.vec` inside function body |
-| P1 | 🟣 COUPLED | `_hard_cap` string matching | `evaluator.py:248-252` | Reads gap strings by prefix — fragile coupling to scoring_engine gap format |
-| P2 | 🟡 SUSPECT | `_build_proof` wrapper | `evaluator.py:134` | Compatibility wrapper — verify if still called externally |
-| P2 | 🟡 SUSPECT | `_infer_experience_level` wrapper | `evaluator.py:139` | Compatibility wrapper — verify if still called externally |
-| P2 | 🟡 SUSPECT | Unused function params | `lead_intel.py:194,210,219,228` | `fit_bullets.title`, `proof_snippet.kind`, `followup_sequence.kind`, `outreach_drafts.kind/budget` |
-| P2 | 🟡 SUSPECT | `classify_kind.default` param | `lead_intel.py:139` | `default` parameter is accepted but never used before the early return |
-| P3 | 🟢 CLEAN | `score()` entry point | `evaluator.py:308` | Well-factored public interface |
-| P3 | 🟢 CLEAN | `score_job_lead()` | `scoring_engine.py:1066` | Well-structured deterministic scoring pipeline |
-| P3 | 🟢 CLEAN | `semantic_fit()` graceful fallback | `semantic.py:189` | Never throws, returns None on any failure |
-| P3 | 🟢 CLEAN | `apply_feedback_learning()` | `feedback_ranker.py:125` | Self-contained, single-responsibility |
-| P3 | 🟢 CLEAN | `manual_lead_from_text()` | `lead_intel.py:272` | Clean orchestration of extraction functions |
+| Priority | Status | Item | File:Line | Resolution |
+|----------|--------|------|-----------|------------|
+| P0 | ✅ RESOLVED | `_SYSTEM_PROMPT` 1st definition | `evaluator.py` | Deleted — dead code, immediately overwritten |
+| P0 | ✅ RESOLVED | `classify_kind` 2nd branch | `lead_intel.py` | Now uses `default` param instead of hardcoded `"job"` |
+| P1 | 🔄 NOTED | `TECH_TAXONOMY` (84 entries) | `scoring_engine.py` | Domain data — acceptable as constants |
+| P1 | 🔄 NOTED | `TECH_CATEGORY` (84 mappings) | `scoring_engine.py` | Domain data — acceptable |
+| P1 | 🔄 NOTED | Rubric weights | `scoring_engine.py` | Scoring engine domain logic — acceptable |
+| P1 | 🔄 NOTED | Seniority cap thresholds | `scoring_engine.py` | Scoring engine domain logic — acceptable |
+| P1 | 🔄 NOTED | Criterion score constants | `scoring_engine.py` | Scoring engine domain logic — acceptable |
+| P1 | 🔄 NOTED | Model name and embedding params | `semantic.py` | Domain data — acceptable |
+| P1 | 🔄 NOTED | Semantic stretch/blend weights | `semantic.py` | Domain logic — acceptable |
+| P1 | 🔄 NOTED | Feedback ranker label/weight dicts | `feedback_ranker.py` | Domain data — acceptable as module-level constants |
+| P1 | ✅ RESOLVED | Feedback delta cap & thresholds | `feedback_ranker.py` | Now driven from `settings.scoring.feedback_learning` |
+| P1 | ✅ RESOLVED | Evaluator truncation limits | `evaluator.py` | Now driven from `settings.scoring.evaluator` |
+| P1 | 🔄 NOTED | `lead_intel.py` term lists | `lead_intel.py` | Deferred — see `docs/deferred/lead-intel-flexibility.md` |
+| P1 | 🔄 NOTED | Lead intel scoring/regex/templates | `lead_intel.py` | Deferred — see `docs/deferred/lead-intel-flexibility.md` |
+| P1 | 🔄 NOTED | `_candidate_location` India reference | `scoring_engine.py` | Domain data — acceptable as static list |
+| P1 | 🔄 NOTED | All 🟣 COUPLED items | evaluator/scoring/semantic | Structural — needs dedicated refactor pass |
+| P2 | ✅ RESOLVED | `_build_proof` wrapper | `evaluator.py` | Removed — zero callers |
+| P2 | ✅ RESOLVED | `_infer_experience_level` wrapper | `evaluator.py` | Removed — zero callers |
+| P2 | ✅ RESOLVED | Unused function params | `lead_intel.py` | Prefixed with `_` to signal intent |
+| P2 | ✅ RESOLVED | `classify_kind.default` param | `lead_intel.py` | Now actually used |
+| P3 | 🟢 CLEAN | All CLEAN items | evaluator/scoring/semantic/feedback/lead_intel | Unchanged |
 
 ---
 

@@ -106,6 +106,14 @@ class EvaluatorConfig(BaseModel):
     # overwritten by evaluator.py:84-131. The live prompt is lines 84-131.
 
 
+class FeedbackLearningConfig(BaseModel):
+    # from backend/agents/feedback_ranker.py
+    max_delta: int = 18
+    confidence_divisor: int = 5
+    contribution_threshold: float = 0.35
+    top_k: int = 3
+
+
 class TechTaxonomy(BaseModel):
     # from backend/agents/scoring_engine.py:87-171
     # maps canonical name -> tuple of aliases
@@ -288,6 +296,7 @@ class ScoringConfig(BaseModel):
     quality_gate_penalties: QualityGatePenalties = QualityGatePenalties()
     seniority: SeniorityLevelConfig = SeniorityLevelConfig()
     evaluator: EvaluatorConfig = EvaluatorConfig()
+    feedback_learning: FeedbackLearningConfig = FeedbackLearningConfig()
     tech_taxonomy: TechTaxonomy = TechTaxonomy()
     tech_category: TechCategory = TechCategory()
 

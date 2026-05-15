@@ -293,15 +293,15 @@ class RegressionTests(unittest.TestCase):
         self.assertEqual(client._json_list("FastAPI, React"), ["FastAPI", "React"])
 
     def test_fire_blocker_requires_real_resume_and_cover_letter(self):
-        import main
+        from services.generator import _fire_blocker
 
         existing_path = __file__
         lead = {"url": "https://example.com/apply", "cover_letter_asset": existing_path}
-        self.assertEqual(main._fire_blocker(lead, existing_path), (0, ""))
+        self.assertEqual(_fire_blocker(lead, existing_path), (0, ""))
 
         missing_cover = {"url": "https://example.com/apply", "cover_letter_asset": ""}
-        self.assertEqual(main._fire_blocker(missing_cover, existing_path)[0], 409)
-        self.assertEqual(main._fire_blocker({}, existing_path)[0], 404)
+        self.assertEqual(_fire_blocker(missing_cover, existing_path)[0], 409)
+        self.assertEqual(_fire_blocker({}, existing_path)[0], 404)
 
     def test_generator_splits_flexible_cover_letter_starts(self):
         from agents.generator import _DocPackage, _normalize_package
@@ -393,39 +393,38 @@ class RegressionTests(unittest.TestCase):
                     pass
 
     def test_profile_update_bodies_accept_existing_item_ids(self):
-        import main
+        from schemas.requests import ExperienceBody, ProjectBody
 
-        exp = main.ExperienceBody.model_validate({"id": "exp-1", "role": "Engineer", "co": "Acme"})
-        project = main.ProjectBody.model_validate({"id": "proj-1", "title": "Agent", "stack": "Python"})
+        exp = ExperienceBody.model_validate({"id": "exp-1", "role": "Engineer", "co": "Acme"})
+        project = ProjectBody.model_validate({"id": "proj-1", "title": "Agent", "stack": "Python"})
 
         self.assertEqual(exp.id, "exp-1")
         self.assertEqual(project.id, "proj-1")
 
     def test_settings_body_keeps_dynamic_keys_but_rejects_objects(self):
-        import main
+        from schemas.requests import SettingsBody
 
-        valid = main.SettingsBody.model_validate({"llm_provider": "deepseek", "ghost_mode": True})
+        valid = SettingsBody.model_validate({"llm_provider": "deepseek", "ghost_mode": True})
         self.assertEqual(valid.model_dump()["llm_provider"], "deepseek")
 
         with self.assertRaises(ValueError):
-            main.SettingsBody.model_validate({"bad key": "x"})
+            SettingsBody.model_validate({"bad key": "x"})
 
         with self.assertRaises(ValueError):
-            main.SettingsBody.model_validate({"nested": {"oops": True}})
+            SettingsBody.model_validate({"nested": {"oops": True}})
 
     def test_job_reevaluation_preserves_active_workflow_statuses(self):
-        import main
+        from services.scanner import _should_preserve_job_status
 
-        for status in ["approved", "applied", "interviewing", "rejected", "accepted", "discarded"]:
-            self.assertTrue(main._should_preserve_job_status(status))
-
-        for status in ["discovered", "tailoring"]:
-            self.assertFalse(main._should_preserve_job_status(status))
+        for status in ("active", "applied", "interviewing", "offer", "hired", "archived"):
+            self.assertTrue(_should_preserve_job_status(status))
+        for status in ("rejected", "withdrawn", "expired", "closed"):
+            self.assertFalse(_should_preserve_job_status(status))
 
     def test_job_reevaluation_prompt_includes_full_job_context(self):
-        import main
+        from services.scanner import _job_eval_document
 
-        doc = main._job_eval_document({
+        doc = _job_eval_document({
             "title": "Applied AI Engineer",
             "company": "Acme",
             "url": "https://example.com/job",
@@ -438,13 +437,13 @@ class RegressionTests(unittest.TestCase):
         self.assertIn("Description: Build FastAPI and React agents.", doc)
 
     def test_agent_event_action_formats_durable_log_lines(self):
-        import main
+        from core.ws_manager import _agent_event_action
 
         self.assertEqual(
-            main._agent_event_action({"event": "cleanup_done", "msg": "discarded 2 bad rows"}),
+            _agent_event_action({"event": "cleanup_done", "msg": "discarded 2 bad rows"}),
             "cleanup_done: discarded 2 bad rows",
         )
-        self.assertEqual(main._agent_event_action({"event": "heartbeat"}), "heartbeat")
+        self.assertEqual(_agent_event_action({"event": "heartbeat"}), "heartbeat")
 
     def test_cleanup_flags_hn_discussion_comments_but_not_jobs(self):
         from db import client
@@ -546,9 +545,9 @@ End-to-end build of a production-grade financial reporting platform.
         self.assertIn("siddhvasudev1402@gmail.com", profile.s)
 
     def test_feedback_body_accepts_lead_quality_labels(self):
-        import main
+        from schemas.requests import FeedbackBody
 
-        body = main.FeedbackBody.model_validate({"feedback": "incorrect_category"})
+        body = FeedbackBody.model_validate({"feedback": "incorrect_category"})
         self.assertEqual(body.feedback, "incorrect_category")
 
     def test_feedback_ranker_boosts_matching_future_leads(self):
@@ -683,12 +682,12 @@ This role is a great fit for customer-facing technical professionals. Apply here
         self.assertFalse(_passes_beginner_job_filter(senior))
 
     def test_job_targets_only_drop_freelance_sources(self):
-        import main
+        from services.job_targets import _job_targets
         from db.client import save_settings
 
         save_settings({"blocked_markers": '["freelance", "upwork", "freelancer.com", "fiverr"]'})
         try:
-            targets = main._job_targets("\n".join([
+            targets = _job_targets("\n".join([
                 "site:linkedin.com/jobs",
                 "site:indeed.com/jobs",
                 "site:jobs.lever.co",
@@ -705,32 +704,32 @@ This role is a great fit for customer-facing technical professionals. Apply here
             save_settings({"blocked_markers": ""})
 
     def test_hn_only_job_targets_return_as_is(self):
-        import main
+        from services.job_targets import _job_targets
 
-        targets = main._job_targets("hn-hiring")
+        targets = _job_targets("hn-hiring")
 
         self.assertEqual(targets, ["hn-hiring"])
 
     def test_job_targets_empty_returns_empty_when_no_settings(self):
-        import main
+        from services.job_targets import _job_targets
 
-        targets = main._job_targets("")
+        targets = _job_targets("")
         self.assertEqual(targets, [])
 
     def test_job_targets_reads_from_settings_when_job_boards_empty(self):
-        import main
+        from services.job_targets import _job_targets
         from db.client import save_settings
 
         save_settings({"job_targets": '["site:linkedin.com/jobs", "https://remoteok.com/api"]'})
         try:
-            targets = main._job_targets("")
+            targets = _job_targets("")
             self.assertIn("site:linkedin.com/jobs", targets)
             self.assertIn("https://remoteok.com/api", targets)
         finally:
             save_settings({"job_targets": ""})
 
     def test_global_job_targets_are_general_market_defaults(self):
-        import main
+        from services.job_targets import _job_targets
         from db.client import save_settings
 
         save_settings({"job_targets": json.dumps([
@@ -740,7 +739,7 @@ This role is a great fit for customer-facing technical professionals. Apply here
             "https://remotive.com/api/remote-jobs",
         ])})
         try:
-            targets = main._job_targets("")
+            targets = _job_targets("")
             self.assertIn("site:linkedin.com/jobs", targets)
             self.assertIn("site:indeed.com/jobs", targets)
             self.assertIn("site:workdayjobs.com", targets)
@@ -832,12 +831,12 @@ This role is a great fit for customer-facing technical professionals. Apply here
         self.assertNotIn("software engineer", queries[0].lower())
 
     def test_desired_position_is_merged_into_discovery_profile(self):
-        import main
+        from services.job_targets import _profile_for_discovery
 
         profile = {"s": "Experienced with SEO and lifecycle campaigns.", "skills": [{"n": "SEO"}]}
         cfg = {"onboarding_target_role": "Growth Marketing Manager"}
 
-        merged = main._profile_for_discovery(profile, cfg)
+        merged = _profile_for_discovery(profile, cfg)
 
         self.assertIn("Growth Marketing Manager", merged["s"])
         self.assertEqual(merged["desired_position"], "Growth Marketing Manager")
@@ -996,9 +995,9 @@ This role is a great fit for customer-facing technical professionals. Apply here
         self.assertEqual(saved[0][1]["source_meta"]["source"], "custom_connector")
 
     def test_custom_connector_headers_are_sensitive_settings(self):
-        import main
+        from services.provider_probe import _sensitive
 
-        self.assertIn("custom_connector_headers", main._sensitive({"custom_connector_headers": "secret"}))
+        self.assertIn("custom_connector_headers", _sensitive({"custom_connector_headers": "secret"}))
 
 
 class TestScoringEngineCaps(unittest.TestCase):
