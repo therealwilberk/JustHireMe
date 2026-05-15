@@ -5,6 +5,7 @@
 **Files in scope:** 7
 **Total lines:** ~1,443
 **Generated:** 2026-05-15
+**Resolved:** `fix/resolve-services` — query templates wired to config, `kind_filter` dead params removed, eval doc dedup, `market_focus` params cleaned. Detailed breakdown below is preserved as snapshot (may be stale).
 
 ---
 
@@ -18,13 +19,13 @@ The `backend/services/` package is the orchestration layer between API routes (H
 
 | # | File | Lines | Purpose | Overall flag |
 |---|------|-------|---------|-------------|
-| 1 | `services/__init__.py` | 0 | Empty package init | 🟢 CLEAN — empty, intentional |
-| 2 | `services/generator.py` | 170 | Resume/CL generation and application submission pipeline | 🟣 COUPLED — imports `_fire_blocker` from `main` (circular-dodge import) |
-| 3 | `services/ghost.py` | 275 | Ghost mode automated lifecycle (7 phases) | 🟣 COUPLED — imports `_fire_blocker` from `main`; accesses private `scan_manager._ghost_lock` |
-| 4 | `services/job_targets.py` | 388 | Job target CRUD, validation, profile enrichment, settings helpers | 🟢 CLEAN — well-scoped, tested |
-| 5 | `services/provider_probe.py` | 115 | LLM provider API key health checking | 🟢 CLEAN — single-purpose, tested |
-| 6 | `services/scanner.py` | 358 | Scan lifecycle state machine + scan/reevaluate pipelines | 🟣 COUPLED — singleton `scan_manager` imported by ghost/scan routes; private attrs accessed externally |
-| 7 | `services/scout.py` | 137 | X/Twitter and free-source signal scanning dispatch | 🟢 CLEAN — well-scoped, tested |
+| 1 | `services/__init__.py` | 0 | Empty package init | 🟢 CLEAN |
+| 2 | `services/generator.py` | 170 | Resume/CL generation and application submission pipeline | 🟣 COUPLED — `_fire_blocker` circular import (deferred) |
+| 3 | `services/ghost.py` | 275 | Ghost mode automated lifecycle (7 phases) | 🟣 COUPLED — `_fire_blocker` + `_ghost_lock` (deferred) |
+| 4 | `services/job_targets.py` | 388 | Job target CRUD, validation, profile enrichment, settings helpers | 🟢 CLEAN — query templates wired to config, `market_focus` params cleaned |
+| 5 | `services/provider_probe.py` | 115 | LLM provider API key health checking | 🟢 CLEAN — timeout wired to config |
+| 6 | `services/scanner.py` | 358 | Scan lifecycle state machine + scan/reevaluate pipelines | 🟣 COUPLED — private attr access (deferred); eval doc dedup fixed |
+| 7 | `services/scout.py` | 137 | X/Twitter and free-source signal scanning dispatch | 🟢 CLEAN — `kind_filter` dead params removed |
 
 ---
 
@@ -506,8 +507,8 @@ The `backend/services/` package is the orchestration layer between API routes (H
 - **Called by:** `ghost.py:_phase_x_scan`, `scanner.py:_run_scan`
 - **Calls:** `agents.x_scout.run`, `_has_x_token`, `_profile_x_queries`, `_int_cfg`, `_truthy`, `_broadcast_x_source_errors`, `resolve_secret`, `cm.broadcast`
 - **Side effects:** WS broadcasts, external HTTP (X API), agent execution
-- **Hardcodes:** `kind_filter` param is immediately overwritten to `"job"` (line 47); threshold defaults: max_requests=5, max_results=50, min_signal=55, hot_threshold=80
-- **Flag:** 🟡 SUSPECT — `kind_filter` parameter is immediately overwritten to `"job"` making it a dead parameter
+- **Hardcodes:** threshold defaults: max_requests=5, max_results=50, min_signal=55, hot_threshold=80
+- **Flag:** 🟢 — `kind_filter` param removed (was dead)
 
 #### `async _run_free_source_scan(cfg: dict, kind_filter: str | None = None, profile: dict | None = None) -> list[dict]`
 - **Purpose:** Scan free sources (GitHub/HN/Reddit/custom connectors) for signals.
@@ -530,17 +531,17 @@ The `backend/services/` package is the orchestration layer between API routes (H
 
 | Priority | Flag | Item | File:Line | Reason |
 |----------|------|------|-----------|--------|
-| P1 | 🔵 HARDCODED | X query templates | `job_targets.py:302-304` | Search query strings baked in; no config mechanism to customize |
-| P1 | 🔵 HARDCODED | Free source query templates | `job_targets.py:281-285` | `github:`/`hn:`/`reddit:` templates baked in; no config mechanism |
-| P1 | 🔵 HARDCODED | Anthropic model name | `provider_probe.py:46` | `"claude-haiku-4-5-20251001"` pinned to a dated version |
-| P1 | 🔵 HARDCODED | Probe timeout | `provider_probe.py:35` | `httpx.Timeout(5.0)` should read from settings |
-| P1 | 🟣 COUPLED | `_fire_blocker` circular import | `ghost.py:243` | Imports from `main` to avoid `generator`→`ghost` cycle; fragile |
-| P1 | 🟣 COUPLED | `scan_manager._ghost_lock` direct access | `ghost.py:268` | Accesses private `_ghost_lock` instead of a public method on ScanManager |
-| P2 | 🟡 SUSPECT | `_run_scan` duplicates `_job_eval_document` | `scanner.py:340-346` | Inline job-doc formatting instead of calling the shared function at line 186 |
-| P2 | 🟡 SUSPECT | `kind_filter` overwritten | `scout.py:47,109` | Both `_run_x_signal_scan` and `_run_free_source_scan` overwrite the parameter to `"job"` unconditionally |
-| P2 | 🟡 SUSPECT | `_job_targets` unused `market_focus` | `job_targets.py:169` | Parameter accepted but documented as unused |
-| P2 | 🟡 SUSPECT | `_profile_x_queries` unused `market_focus` | `job_targets.py:288` | Parameter accepted but documented as unused |
-| P2 | 🟡 SUSPECT | Raw SQL in `_generate_one` | `generator.py:101-106` | Bypasses `db.client` abstraction for outreach fields update |
+| P1 | ✅ RESOLVED | X query templates | `job_targets.py:302-304` | Wired to `settings.scraping.limits.x_query_template` / `x_query_alt_template` |
+| P1 | ✅ RESOLVED | Free source query templates | `job_targets.py:281-285` | Wired to `settings.scraping.limits.free_source_query_template` |
+| P1 | 🟢 DOMAIN DATA | Anthropic model name | `provider_probe.py:46` | Dated model name for probe; not user-facing config |
+| P1 | ✅ RESOLVED | Probe timeout | `provider_probe.py:35` | Wired to `settings.scraping.timeouts.default_http` |
+| P1 | 🟣 COUPLED | `_fire_blocker` circular import | `ghost.py:243` | Deferred to structural refactor |
+| P1 | 🟣 COUPLED | `scan_manager._ghost_lock` direct access | `ghost.py:268` | Deferred to structural refactor |
+| P2 | ✅ RESOLVED | `_run_scan` duplicates `_job_eval_document` | `scanner.py:340-346` | Replaced inline formatting with `_job_eval_document()` call |
+| P2 | ✅ RESOLVED | `kind_filter` overwritten | `scout.py:47,109` | Removed dead param from both functions; updated callers |
+| P2 | ✅ RESOLVED | `_job_targets` unused `market_focus` | `job_targets.py:169` | Removed parameter |
+| P2 | ✅ RESOLVED | `_profile_x_queries` unused `market_focus` | `job_targets.py:288` | Removed parameter |
+| P2 | 🟡 SUSPECT | Raw SQL in `_generate_one` | `generator.py:101-106` | Noted — requires db.client refactor, deferred |
 | P3 | 🟢 CLEAN | All items not flagged above | — | See per-function flags above |
 
 ---

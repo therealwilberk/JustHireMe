@@ -290,14 +290,14 @@ async def _run_scan() -> None:
     cfg     = get_settings()
     profile = _profile_for_discovery(get_profile(), cfg)
     market_focus = cfg.get("job_market_focus", "global")
-    raw_urls = _job_targets(cfg.get("job_boards", ""), market_focus)
+    raw_urls = _job_targets(cfg.get("job_boards", ""))
     if not raw_urls:
         await cm.broadcast({"type": "agent", "event": "eval_done",
                             "msg": "No job targets configured — add targets in Settings to start scanning."})
         _log.warning("Scan skipped: no job targets configured")
         return
-    await _run_x_signal_scan(cfg, "job", profile)
-    await _run_free_source_scan(cfg, "job", profile)
+    await _run_x_signal_scan(cfg, profile)
+    await _run_free_source_scan(cfg, profile)
 
     await cm.broadcast({"type": "agent", "event": "query_gen_start",
                         "msg": "Generating profile-tailored search queries\u2026"})
@@ -340,13 +340,7 @@ async def _run_scan() -> None:
             await cm.broadcast({"type": "agent", "event": "eval_done", "msg": "Scan stopped during evaluation."})
             return
         try:
-            desc = (lead.get("description") or "").strip()
-            jd = (
-                f"Job Title: {lead.get('title','')}\n"
-                f"Company: {lead.get('company','')}\n"
-                f"URL: {lead.get('url','')}\n"
-                + (f"Description: {desc}" if desc else "")
-            )
+            jd = _job_eval_document(lead)
             result = await asyncio.to_thread(_score, jd, profile)
             await asyncio.to_thread(
                 update_lead_score,

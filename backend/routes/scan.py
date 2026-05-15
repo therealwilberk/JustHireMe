@@ -105,7 +105,7 @@ async def free_sources_scan():
 
     cfg = get_settings()
     profile = _profile_for_discovery(await asyncio.to_thread(get_profile), cfg)
-    leads = await _run_free_source_scan(cfg, "job", profile)
+    leads = await _run_free_source_scan(cfg, profile)
     return {"status": "done", "leads": len(leads)}
 
 

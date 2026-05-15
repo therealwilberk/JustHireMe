@@ -32,8 +32,7 @@ async def _probe_provider_key(provider: str, key: str) -> dict:
     from llm import _OPENAI_COMPAT_BASE_URLS  # lazy: anthropic/instructor/openai import takes ~7s total
     started = time.perf_counter()
     try:
-        timeout = httpx.Timeout(5.0)
-        async with httpx.AsyncClient(timeout=timeout) as client:
+        async with httpx.AsyncClient(timeout=settings.scraping.timeouts.default_http) as client:
             if provider == "anthropic":
                 r = await client.post(
                     "https://api.anthropic.com/v1/messages",

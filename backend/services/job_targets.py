@@ -166,7 +166,7 @@ def _split_configured_targets(raw: str) -> list[str]:
     return targets
 
 
-def _job_targets(raw: str, market_focus: str = "global") -> list[str]:
+def _job_targets(raw: str) -> list[str]:
     """Resolve job targets from raw settings, falling back to stored JSON.
 
     Filters targets against the blocked-markers list (case-insensitive
@@ -174,7 +174,6 @@ def _job_targets(raw: str, market_focus: str = "global") -> list[str]:
 
     Args:
         raw: Raw ``job_boards`` setting string.
-        market_focus: Unused parameter retained for API compatibility.
 
     Returns:
         List of resolved and filtered job target URLs.
@@ -277,21 +276,16 @@ def _profile_free_source_targets(profile: dict) -> str:
         one per line.
     """
     terms = _terms_for_discovery(profile, 3)
-    role_query = " ".join(terms[:2])
-    return "\n".join([
-        f"github:{role_query} hiring help wanted",
-        f"hn:{role_query} remote hiring",
-        f"reddit:forhire:{role_query} hiring job remote",
-    ])
+    role = " ".join(terms[:2])
+    template = settings.scraping.limits.free_source_query_template
+    return template.replace("{role}", role)
 
 
-def _profile_x_queries(profile: dict, market_focus: str = "global") -> str:
+def _profile_x_queries(profile: dict) -> str:
     """Build X/Twitter search queries from a profile.
 
     Args:
         profile: User profile dictionary.
-        market_focus: Market focus string (e.g. ``"global"``).  Currently
-            unused but retained for API compatibility.
 
     Returns:
         A newline-separated string of X search queries, one per line.
@@ -299,9 +293,11 @@ def _profile_x_queries(profile: dict, market_focus: str = "global") -> str:
     terms = _terms_for_discovery(profile, 4)
     role = " OR ".join(f'"{term}"' for term in terms[:3])
     location = '("remote" OR "hybrid" OR "global" OR "onsite")'
+    tpl = settings.scraping.limits.x_query_template
+    alt = settings.scraping.limits.x_query_alt_template
     return "\n".join([
-        f'("hiring" OR "job opening" OR "open role") ({role}) {location} lang:en -is:retweet',
-        f'("we are hiring" OR "is hiring" OR "apply") ({role}) lang:en -is:retweet',
+        tpl.replace("{role}", role).replace("{location}", location),
+        alt.replace("{role}", role),
     ])
 
 
