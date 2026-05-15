@@ -11,6 +11,7 @@ import json
 import sys
 from typing import Any, Callable
 
+from config import settings
 from agents.evaluator import score as score_fit
 from agents.lead_intel import (
     budget_from_text,
@@ -62,9 +63,9 @@ def _evaluate_lead(args: Json) -> Json:
         return _error_result("lead must be a JSON object")
     quality = evaluate_lead_quality(
         lead,
-        min_quality=int(args.get("min_quality") or 60),
-        target_level=_text(args.get("target_level")) or "beginner",
-        max_age_days=int(args.get("max_age_days") or 7),
+        min_quality=int(args.get("min_quality") or settings.scoring.quality_gate.min_quality_score),
+        target_level=_text(args.get("target_level")) or settings.scoring.quality_gate.default_target_level,
+        max_age_days=int(args.get("max_age_days") or settings.scraping.lead_max_age_days),
     )
     return _tool_result(quality)
 
