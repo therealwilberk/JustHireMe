@@ -9,7 +9,7 @@
 **File:** `docs/maps/backend-db.md`
 **Codebase path(s):** `backend/db/`
 **Files in scope:** 2 (`__init__.py`, `client.py`)
-**Total lines:** ~1641
+**Total lines:** ~1607 (was 1641; -34 lines resolved 2026-05-15)
 **Generated:** 2026-05-15
 ```
 
@@ -26,7 +26,7 @@ The `backend/db/` unit is the data access layer for the entire JustHireMe applic
 | # | File | Lines | Purpose | Overall flag |
 |---|------|-------|---------|-------------|
 | 1 | `backend/db/__init__.py` | 0 | Empty — exists only for package resolution | 🟢 |
-| 2 | `backend/db/client.py` | 1641 | Multi-engine data access: SQLite, Kuzu, LanceDB | 🟣 COUPLED — three DBs in one file, module-level side effects, circular dep with config |
+| 2 | `backend/db/client.py` | 1607 | Multi-engine data access: SQLite, Kuzu, LanceDB | 🟣 COUPLED — three DBs in one file, module-level side effects, circular dep with config |
 
 ---
 
@@ -63,16 +63,16 @@ The `backend/db/` unit is the data access layer for the entire JustHireMe applic
 | `_KUZU_IMPORT_ERROR` | str | `""` or error msg from try/except | `_init` guard, `_GRAPH_ERROR` | 🟢 |
 | `_LANCEDB_IMPORT_ERROR` | str | `""` or error msg from try/except | `vec` initialization guard | 🟢 |
 | `_log` | Logger | `get_logger(__name__)` | Throughout file | 🟢 |
-| `_b` (first assign) | str | result of `data_base()` | `_g`, `_v`, `sql` on line 42 | 🔴 DEAD — overwritten on line 84 before any read |
+| `_b` (first assign) | str | result of `data_base()` | — | ✅ RESOLVED — premature `_g`, `_v`, `sql` computation removed; `sql` now computed after `_ensure_dir` |
 | `_g` | str | `os.path.join(_b, "graph")` | `kuzu.Database()` | 🟢 |
 | `_v` | str | `os.path.join(_b, "vector")` | `lancedb.connect()` | 🟢 |
-| `sql` | str | `os.path.join(_b, "crm.db")` | `get_sql_connection`, exported to `agents/generator.py` and `e2e/manval/run_live_fire.py` | 🟢 — but 🔵 HARDCODED filename "crm.db" |
-| `_b` (second assign) | str | result of `_ensure_dir(data_base())` | `_g`, `_v`, data directory for all stores | 🟢 |
-| `_GRAPH_ERROR` | str | `""` or error msg | `graph_error()` | 🟢 |
+| `sql` | str | `os.path.join(_b, "crm.db")` | `get_sql_connection`, exported to `agents/generator.py` and `e2e/manval/run_live_fire.py` | ✅ RESOLVED — now computed after `_ensure_dir`, uses ensured path |
+| `_b` (second assign) | str | result of `_ensure_dir(data_base())` | `_g`, `_v`, `sql`, data directory for all stores | 🟢 |
+| `_GRAPH_ERROR` | str | `""` or error msg | — | 🟡 `graph_error()` removed; `_GRAPH_ERROR` still used internally for warning log |
 | `db` | kuzu.Database / None | `kuzu.Database(_g)` or None | `conn`, `graph_counts`, all graph CRUD, `_read_profile_from_graph` | 🟢 |
-| `conn` | kuzu.Connection / None | `kuzu.Connection(db)` or None | `_init`, `graph_available`, `graph_counts` | 🟢 |
+| `conn` | kuzu.Connection / None | `kuzu.Connection(db)` or None | `_init`, `graph_counts` | 🟢 — `graph_available()` removed |
 | `vec` | lancedb.LanceDBConnection / _NullVectorStore | `lancedb.connect(_v)` or `_NullVectorStore()` | `_delete_vec_rows`, `_add_skill_vec`, `_add_project_vec`, exported to `agents/ingestor.py` and `agents/semantic.py` | 🟢 |
-| `_LEAD_SELECT_COLUMNS` | str | long comma-separated column list | `get_all_leads`, `get_all_freelance_leads`, `get_job_leads_for_evaluation`, `cleanup_bad_leads`, `recompute_learning_scores`, `get_lead_by_id`, `get_due_followups` | 🔵 HARDCODED — 38-column list must be kept in sync with schema |
+| `_LEAD_SELECT_COLUMNS` | str | long comma-separated column list | `get_all_leads`, `get_job_leads_for_evaluation`, `cleanup_bad_leads`, `recompute_learning_scores`, `get_lead_by_id`, `get_due_followups` | 🔵 HARDCODED — 38-column list must be kept in sync with schema |
 | `_PROFILE_SNAPSHOT_KEY` | str | `"profile_snapshot_json"` | `_load_profile_snapshot`, `_save_profile_snapshot` | 🟢 |
 
 **Classes:**
@@ -122,19 +122,13 @@ The `backend/db/` unit is the data access layer for the entire JustHireMe applic
 - **Hardcodes:** All 9 node table schemas and 7 rel table schemas, table names, property names, and types
 - **Flag:** 🔵 HARDCODED — all table names and schemas are baked in; 🟣 COUPLED — runs at module level, assumes Kuzu is available
 
-#### `graph_available() -> bool`
-- **Purpose:** Returns whether the Kuzu graph store is operational
-- **Called by:** unknown — not imported anywhere across codebase or tests
-- **Calls:** none
-- **Side effects:** none
-- **Flag:** 🔴 DEAD — defined but never referenced outside this file (confirmed by grep)
+#### `graph_available() -> bool` — ✅ REMOVED
+- **Was:** Returns whether the Kuzu graph store is operational
+- **Status:** Deleted — never imported or called anywhere
 
-#### `graph_error() -> str`
-- **Purpose:** Returns the graph initialization error message
-- **Called by:** unknown — not imported anywhere across codebase or tests
-- **Calls:** none
-- **Side effects:** none
-- **Flag:** 🔴 DEAD — defined but never referenced outside this file (confirmed by grep)
+#### `graph_error() -> str` — ✅ REMOVED
+- **Was:** Returns the graph initialization error message
+- **Status:** Deleted — never imported or called anywhere
 
 #### `graph_counts() -> dict`
 - **Purpose:** Returns approximate node counts per entity type from Kuzu
@@ -223,15 +217,13 @@ The `backend/db/` unit is the data access layer for the entire JustHireMe applic
 
 #### `_lead_row_dict(r) -> dict`
 - **Purpose:** Converts a SQLite row tuple to a dict with proper parsing of JSON fields
-- **Called by:** `get_all_leads`, `get_all_freelance_leads`, `get_job_leads_for_evaluation`, `cleanup_bad_leads`, `recompute_learning_scores`, `get_lead_by_id`, `get_due_followups`
+- **Called by:** `get_all_leads`, `get_job_leads_for_evaluation`, `cleanup_bad_leads`, `recompute_learning_scores`, `get_lead_by_id`, `get_due_followups`
 - **Calls:** `_json_dict`, `_json_list`
 - **Flag:** 🟢 — but index-based tuple access (r[0]..r[38]) is fragile, depends on column order matching `_LEAD_SELECT_COLUMNS`
 
-#### `get_all_freelance_leads() -> list`
-- **Purpose:** Returns all freelance/gig leads
-- **Called by:** unknown — not imported anywhere
-- **Calls:** `get_sql_connection`, `_lead_row_dict`
-- **Flag:** 🔴 DEAD — never imported outside this file (confirmed by grep)
+#### `get_all_freelance_leads() -> list` — ✅ REMOVED
+- **Was:** Returns all freelance/gig leads
+- **Status:** Deleted — never imported or called anywhere
 
 #### `get_job_leads_for_evaluation() -> list`
 - **Purpose:** Returns job-type leads (not freelance) for evaluation
@@ -406,11 +398,9 @@ The `backend/db/` unit is the data access layer for the entire JustHireMe applic
 - **Calls:** `get_sql_connection`, `c.execute`
 - **Flag:** 🟢
 
-#### `get_discovered_freelance_leads() -> list`
-- **Purpose:** Returns freelance leads in 'discovered' status
-- **Called by:** unknown — not imported anywhere outside this file
-- **Calls:** `get_sql_connection`, `c.execute`
-- **Flag:** 🔴 DEAD — never imported or called (confirmed by grep)
+#### `get_discovered_freelance_leads() -> list` — ✅ REMOVED
+- **Was:** Returns freelance leads in 'discovered' status
+- **Status:** Deleted — never imported or called anywhere
 
 #### `_h(t: str) -> str`
 - **Purpose:** Returns first 12 hex chars of MD5 hash for ID generation
@@ -607,10 +597,15 @@ The `backend/db/` unit is the data access layer for the entire JustHireMe applic
 | `refresh_profile_snapshot` | `routes/ingest.py`, `tests/test_observability.py` |
 | `update_candidate` | `routes/ingest.py` |
 | `add_skill` | `routes/ingest.py`, `tests/test_observability.py` |
-| `update_skill` | `tests/test_observability.py` |
+| `update_skill` | `routes/profile.py`, `tests/test_observability.py` |
+| `delete_skill` | `routes/profile.py` |
 | `add_experience` | `routes/ingest.py` |
+| `update_experience` | `routes/profile.py` |
+| `delete_experience` | `routes/profile.py` |
 | `add_education` | `routes/ingest.py` |
 | `add_project` | `routes/ingest.py` |
+| `update_project` | `routes/profile.py` |
+| `delete_project` | `routes/profile.py` |
 | `add_certification` | `routes/ingest.py` |
 | `add_achievement` | `routes/ingest.py` (via `add_skill, add_project, save_settings` import on line 165) |
 | `vec` | `agents/ingestor.py`, `agents/semantic.py` |
@@ -625,30 +620,30 @@ The `backend/db/` unit is the data access layer for the entire JustHireMe applic
 
 | Priority | Flag | Item | File:Line | Reason |
 |----------|------|------|-----------|--------|
-| P0 | 🔴 DEAD | `graph_available()` | `client.py:134` | Defined but never imported or called — confirmed by grep |
-| P0 | 🔴 DEAD | `graph_error()` | `client.py:138` | Defined but never imported or called — confirmed by grep |
-| P0 | 🔴 DEAD | `get_all_freelance_leads()` | `client.py:523` | Defined but never imported or called — confirmed by grep |
-| P0 | 🔴 DEAD | `get_discovered_freelance_leads()` | `client.py:1114` | Defined but never imported or called — confirmed by grep |
-| P0 | 🔴 DEAD | `_b` first assignment | `client.py:41` | Immediately overwritten on line 84, never read |
-| P1 | 🟣 COUPLED | Module-level import chain | `client.py:28+131+242` | `from config import settings` creates circular dep (config → db.client → config via secrets.py); `_init()` and `_init_sql()` run at module level |
-| P1 | 🟣 COUPLED | Kuzu CRUD functions | `client.py:1307-1595` | Create new `Connection(db)` 2-3 times per call, no connection reuse; mixed with SQLite and LanceDB in same functions |
-| P1 | 🟣 COUPLED | `save_settings`/`get_settings`/`get_setting` | `client.py:936-955` | SQLite-based key-value store duplicates the Pydantic config layer (`config/*.py`) |
-| P1 | ⚪ INCOMPLETE | Duplicate `resume_version` migration | `client.py:228,234-238` | Lines 228 and 234-238 both attempt to add `resume_version` column — second block is redundant |
-| P1 | ⚪ INCOMPLETE | `refresh_profile_snapshot` called twice | `client.py:1574,1594` | `update_candidate` calls `refresh_profile_snapshot` twice (before and after Kuzu operation) — likely bug |
-| P1 | ⚪ INCOMPLETE | `refresh_profile_snapshot` called twice | `client.py:1410,1413` | `delete_experience` calls `refresh_profile_snapshot` twice |
-| P2 | 🔵 HARDCODED | Score thresholds (76) | `client.py:378,380` | Magic number `76` for "matched"/"tailoring" threshold should be configurable |
-| P2 | 🔵 HARDCODED | Status string set | `client.py:988-992` | Allowed lead status values are baked into `update_lead_status` |
-| P2 | 🔵 HARDCODED | Feedback-to-status mappings | `client.py:1029-1037` | Hardcoded in `save_lead_feedback` — should be a configurable policy |
-| P2 | 🔵 HARDCODED | `_LEAD_SELECT_COLUMNS` | `client.py:245-252` | 38-column list must be kept in sync with schema by hand |
-| P2 | 🔵 HARDCODED | All Kuzu table names/schemas | `client.py:112-128` | All node/rel table names, property names, and types are baked in |
-| P2 | 🔵 HARDCODED | All SQLite table names/schemas | `client.py:173-194` | All table names, column names, and types are baked in |
-| P2 | 🟡 SUSPECT | `save_asset_path()` | `client.py:402` | Partially superseded by `save_asset_package()` — only used by `run_live_fire.py` |
-| P2 | 🟡 SUSPECT | `update_skill()` | `client.py:1333` | Not imported by any production code — only `tests/test_observability.py` |
-| P2 | 🟡 SUSPECT | `update_experience()` | `client.py:1393` | Not imported by any production code |
-| P2 | 🟡 SUSPECT | `delete_skill()` | `client.py:1347` | Not imported by any production code |
-| P2 | 🟡 SUSPECT | `delete_experience()` | `client.py:1408` | Not imported by any production code |
-| P2 | 🟡 SUSPECT | `update_project()` | `client.py:1459` | Not imported by any production code |
-| P2 | 🟡 SUSPECT | `delete_project()` | `client.py:1478` | Not imported by any production code |
+| P0 | ✅ RESOLVED | `graph_available()` | was `client.py:134` | Removed — never imported or called |
+| P0 | ✅ RESOLVED | `graph_error()` | was `client.py:138` | Removed — never imported or called |
+| P0 | ✅ RESOLVED | `get_all_freelance_leads()` | was `client.py:523` | Removed — never imported or called |
+| P0 | ✅ RESOLVED | `get_discovered_freelance_leads()` | was `client.py:1114` | Removed — never imported or called |
+| P0 | ✅ RESOLVED | `_b` premature path computation | was `client.py:41-43` | Removed — `_g`, `_v`, `sql` now computed after `_ensure_dir` |
+| P1 | 🟣 COUPLED | Module-level import chain | `client.py:28+125+236` | `from config import settings` creates circular dep (config → db.client → config via secrets.py); `_init()` and `_init_sql()` run at module level |
+| P1 | 🟣 COUPLED | Kuzu CRUD functions | `client.py:1263-1551` | Create new `Connection(db)` 2-3 times per call, no connection reuse; mixed with SQLite and LanceDB in same functions |
+| P1 | 🟣 COUPLED | `save_settings`/`get_settings`/`get_setting` | `client.py:920-939` | SQLite-based key-value store duplicates the Pydantic config layer (`config/*.py`) |
+| P1 | ⚪ INCOMPLETE | Duplicate `resume_version` migration | `client.py:222,228-232` | Lines 222 and 228-232 both attempt to add `resume_version` column — second block is redundant |
+| P1 | ⚪ INCOMPLETE | `refresh_profile_snapshot` called twice | `client.py:1530,1550` | `update_candidate` calls `refresh_profile_snapshot` twice (before and after Kuzu operation) — likely bug |
+| P1 | ⚪ INCOMPLETE | `refresh_profile_snapshot` called twice | `client.py:1366,1369` | `delete_experience` calls `refresh_profile_snapshot` twice |
+| P2 | ✅ RESOLVED | Score thresholds (76) | was `client.py:369,371` | Externalized to `config.scoring.quality_gate.score_threshold_matched` |
+| P2 | ✅ RESOLVED | Status string set | was `client.py:970-974` | Externalized to `config.scoring.LEAD_STATUSES` |
+| P2 | ✅ RESOLVED | Feedback-to-status mappings | was `client.py:990-1014` | Externalized to `config.scoring.VALID_FEEDBACK`, `FEEDBACK_DISCARDED` |
+| P2 | 🔵 HARDCODED | `_LEAD_SELECT_COLUMNS` | `client.py:236-243` | 38-column list must be kept in sync with schema by hand |
+| P2 | 🔵 HARDCODED | All Kuzu table names/schemas | `client.py:106-122` | All node/rel table names, property names, and types are baked in |
+| P2 | 🔵 HARDCODED | All SQLite table names/schemas | `client.py:167-188` | All table names, column names, and types are baked in |
+| P2 | 🟡 SUSPECT | `save_asset_path()` | `client.py:397` | Partially superseded by `save_asset_package()` — only used by `e2e/manval/run_live_fire.py` |
+| P2 | 🟢 USED | `update_skill()` | `client.py:1289` | Used by `routes/profile.py:update_skill_endpoint` and `tests/test_observability.py` — NOT dead |
+| P2 | 🟢 USED | `delete_skill()` | `client.py:1303` | Used by `routes/profile.py:delete_skill_endpoint` — NOT dead |
+| P2 | 🟢 USED | `update_experience()` | `client.py:1349` | Used by `routes/profile.py:update_experience_endpoint` — NOT dead |
+| P2 | 🟢 USED | `delete_experience()` | `client.py:1364` | Used by `routes/profile.py:delete_experience_endpoint` — NOT dead |
+| P2 | 🟢 USED | `update_project()` | `client.py:1415` | Used by `routes/profile.py:update_project_endpoint` — NOT dead |
+| P2 | 🟢 USED | `delete_project()` | `client.py:1434` | Used by `routes/profile.py:delete_project_endpoint` — NOT dead |
 | P3 | 🟢 CLEAN | `_utc_timestamp()` | `client.py:46` | Well-scoped helper, no issues |
 | P3 | 🟢 CLEAN | `url_exists()` | `client.py:265` | Simple, correct, well-used |
 | P3 | 🟢 CLEAN | `get_sql_connection()` | `client.py:155` | Correct pragma usage (WAL, foreign_keys, busy_timeout) |
