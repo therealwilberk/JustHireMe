@@ -62,6 +62,7 @@ class ScraperLimits(BaseModel):
     free_source_query_template: str = "github:{role} hiring help wanted\nhn:{role} remote hiring\nreddit:forhire:{role} hiring job remote"
     x_query_template: str = '("hiring" OR "job opening" OR "open role") ({role}) {location} lang:en -is:retweet'
     x_query_alt_template: str = '("we are hiring" OR "is hiring" OR "apply") ({role}) lang:en -is:retweet'
+    probe_anthropic_model: str = "claude-haiku-4-5-20251001"
 
 
 class SourceCaps(BaseModel):
@@ -91,6 +92,7 @@ class APISourceURLs(BaseModel):
     groq_api_base: str = "https://api.groq.com/openai/v1"
     nvidia_api_base: str = "https://integrate.api.nvidia.com/v1"
     browser_runtime_download_base: str = "https://github.com/vasu-devs/JustHireMe/releases/latest/download"
+    anthropic_api_base: str = "https://api.anthropic.com"
 
 
 class ApifyKeyNames(BaseModel):
