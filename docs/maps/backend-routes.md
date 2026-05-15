@@ -2,7 +2,7 @@
 **File:** `docs/maps/backend-routes.md`
 **Codebase path(s):** `backend/routes/`
 **Files in scope:** 9 (including `__init__.py`)
-**Total lines:** ~1,662
+**Total lines:** ~1,662 (was 1,662; +20 lines config, -7 lines routes; net +13 resolved 2026-05-15)
 **Generated:** 2026-05-15
 
 ---
@@ -18,14 +18,14 @@
 | # | File | Lines | Purpose | Overall flag |
 |---|------|-------|---------|-------------|
 | 1 | `routes/__init__.py` | 0 | Package marker, empty | 🟢 — standard Python package init |
-| 2 | `routes/actions.py` | 210 | Fire, PDF, form read, identity, selectors refresh, preview | 🟢 — well-scoped, coherent |
-| 3 | `routes/ingest.py` | 356 | Profile ingestion from 6 sources (paste, PDF, LinkedIn, GitHub, JSON, portfolio) | 🟡 SUSPECT — file is 2.4× the mean; domain boundary with `profile.py` is blurry |
+| 2 | `routes/actions.py` | 212 | Fire, PDF, form read, identity, selectors refresh, preview | ✅ RESOLVED — `_SELECTORS_RESET_AT` constant extracted |
+| 3 | `routes/ingest.py` | 357 | Profile ingestion from 6 sources (paste, PDF, LinkedIn, GitHub, JSON, portfolio) | ✅ RESOLVED — upload limit wired to config |
 | 4 | `routes/leads.py` | 404 | Lead CRUD, pipeline, CSV export, follow-ups | 🟡 SUSPECT — largest file at 404 lines; `_annotate_job_lead` is helper that could live in `services.scout` |
-| 5 | `routes/misc.py` | 145 | Health, events, graph stats, template, help chat | 🟣 COUPLED — `/api/v1/help/chat` collides with `scan.py`'s identical path |
+| 5 | `routes/misc.py` | 144 | Health, events, graph stats, template, help chat | ✅ RESOLVED — dead imports removed |
 | 6 | `routes/profile.py` | 203 | Candidate info, skills, experience, projects CRUD | 🟢 — clean CRUD, consistent validation |
-| 7 | `routes/scan.py` | 125 | Scan start/stop, reevaluate, cleanup, free-sources, help chat | 🟣 COUPLED — duplicate `POST /api/v1/help/chat` shadows `misc.py`; imports `_run_free_source_scan` as a private name |
-| 8 | `routes/settings.py` | 160 | Settings CRUD, API key validation, job-targets | 🟡 SUSPECT — settings save has implicit ghost-mode schedule side effect; imports `_ghost_tick` private name |
-| 9 | `routes/ws.py` | 59 | WebSocket endpoint for real-time streaming + heartbeat | 🟢 — lean, focused, self-contained |
+| 7 | `routes/scan.py` | 126 | Scan start/stop, reevaluate, cleanup, free-sources, help chat | ✅ RESOLVED — broadcast cap wired to config |
+| 8 | `routes/settings.py` | 160 | Settings CRUD, API key validation, job-targets | ✅ RESOLVED — ghost interval wired to config |
+| 9 | `routes/ws.py` | 60 | WebSocket endpoint for real-time streaming + heartbeat | ✅ RESOLVED — heartbeat timeout wired to config |
 
 ---
 
@@ -730,23 +730,23 @@
 
 | Priority | Flag | Item | File:Line | Reason |
 |----------|------|------|-----------|--------|
-| P0 | 🟣 COUPLED | `help_chat` duplicate route | `misc.py:132` + `scan.py:112` | Both register `POST /api/v1/help/chat`; scan's handler shadows misc's due to registration order |
-| P1 | 🔴 DEAD | `HTTPException` import | `misc.py:9` | Imported but never used in this file |
-| P1 | 🔴 DEAD | `JSONResponse` import | `misc.py:10` | Imported but never used in this file |
-| P1 | 🟣 COUPLED | `_profile_for_discovery` import | `scan.py:12` | Imports private name from `services.job_targets` |
-| P1 | 🟣 COUPLED | `_run_free_source_scan` import | `scan.py:13` | Imports private name from `services.scout` |
+| P0 | 🟣 COUPLED | `help_chat` duplicate route | `misc.py:132` + `scan.py:112` | Both register `POST /api/v1/help/chat`; scan's handler shadows misc's due to registration order — deferred (structural) |
+| P1 | ✅ RESOLVED | `HTTPException` import | was `misc.py:9` | Removed — unused import |
+| P1 | ✅ RESOLVED | `JSONResponse` import | was `misc.py:10` | Removed — unused import |
+| P1 | 🟣 COUPLED | `_profile_for_discovery` import | `scan.py:12` | Imports private name from `services.job_targets` — deferred (structural) |
+| P1 | 🟣 COUPLED | `_run_free_source_scan` import | `scan.py:13` | Imports private name from `services.scout` — deferred (structural) |
 | P1 | 🟣 COUPLED | `_ghost_tick` import | `settings.py:12` | Imports private name from `services.ghost` |
 | P1 | 🟣 COUPLED | `_sensitive` import | `settings.py:14` | Imports private name from `services.provider_probe` |
 | P1 | 🟣 COUPLED | `_probe_provider_key` import | `settings.py:14` | Imports private name from `services.provider_probe` |
 | P1 | 🟣 COUPLED | `_log_sensitive_deprecation` import | `settings.py:14` | Imports private name from `services.provider_probe` |
-| P1 | 🔵 HARDCODED | `50 * 1024 * 1024` | `ingest.py:95` | File size limit should be in settings |
-| P1 | 🔵 HARDCODED | `"selectors_fetched_at": "0"` | `actions.py:182` | Magic reset value should be a constant |
-| P1 | 🔵 HARDCODED | `"fresher"`, `"junior"` etc strings | `leads.py:38,91-94` | Seniority level strings duplicated in two places |
+| P1 | ✅ RESOLVED | `50 * 1024 * 1024` | was `ingest.py:95` | Externalized to `config.app.upload_limits.max_linkedin_export_size` |
+| P1 | ✅ RESOLVED | `"selectors_fetched_at": "0"` | was `actions.py:182` | Extracted to module constant `_SELECTORS_RESET_AT` |
+| P1 | 🔵 HARDCODED | `"fresher"`, `"junior"` etc strings | `leads.py:38,91-94` | Seniority level strings duplicated in two places — domain data |
 | P1 | 🔵 HARDCODED | Provider list inline | `settings.py:50` | Provider names duplicated from llm module |
 | P2 | 🔵 HARDCODED | `"job"` kind filter | `leads.py:285` | Lead kind is baked in as a string literal |
-| P2 | 🔵 HARDCODED | 100 items WS broadcast cap | `scan.py:81` | Batch limit should be configurable |
-| P2 | 🔵 HARDCODED | Heartbeat 2.0s timeout | `ws.py:49` | Should be configurable |
-| P2 | ⚪ INCOMPLETE | Ghost mode interval | `settings.py:95` | `hours=6` should read from `config.app.ghost_mode.interval_hours` |
+| P2 | ✅ RESOLVED | 100 items WS broadcast cap | was `scan.py:81` | Externalized to `config.app.scan_broadcast.cleanup_broadcast_cap` |
+| P2 | ✅ RESOLVED | Heartbeat 2.0s timeout | was `ws.py:49` | Externalized to `config.app.websocket.heartbeat_timeout` |
+| P2 | ✅ RESOLVED | Ghost mode interval | was `settings.py:95` | Wired to `config.app.ghost_mode.interval_hours` |
 | P2 | 🟡 SUSPECT | `save_lead` call with 20+ kwargs | `leads.py:288-314` | Brittle; should accept a lead dict |
 | P3 | 🟢 CLEAN | Most route functions | various | Well-documented, correctly lazy-imported, consistent error handling |
 
