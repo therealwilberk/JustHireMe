@@ -179,8 +179,27 @@
     "clean": 5
   },
   "deps": {
-    "inbound": [],
-    "outbound": []
+    "inbound": [
+      "`services/generator.py` \u2014 `generator.run_package`",
+      "`services/ghost.py` \u2014 `generator.run_package`",
+      "`graph/__init__.py` \u2014 `generator.run_package`",
+      "`e2e/manval/run_live_fire.py` \u2014 `generator.run`, `ingestor.run`",
+      "`routes/ingest.py` \u2014 `ingestor.ingest`",
+      "`db/client.py` \u2014 `ingestor._emb`",
+      "`agents/semantic.py` \u2014 `ingestor._emb`",
+      "`tests/test_regressions.py` \u2014 `generator._DocPackage`, `generator._normalize_package`, `ingestor._parse_local`",
+      "`tests/test_observability.py` \u2014 `ingestor._h`, `ingestor._put_rel`, `ingestor._put_node`, `ingestor._put_vec`",
+      "`tests/test_graph.py`, `tests/test_graph_failures.py` \u2014 `generator.run_package` (mocked)"
+    ],
+    "outbound": [
+      "`db.client.data_base`, `get_profile`, `get_sql_connection` \u2014 `backend-db`",
+      "`db.client.vec` \u2014 `backend-db`",
+      "`db.client.db` \u2014 `backend-db`",
+      "`models.schema.C`, `S`, `E`, `P` \u2014 `backend-models`",
+      "`agents.scoring_engine.TECH_TAXONOMY` \u2014 `backend-scoring-engine`",
+      "`llm.call_llm`, `call_raw`, `resolve_config` \u2014 `backend-llm`",
+      "`logger.get_logger` \u2014 `backend-logger`"
+    ]
   },
   "assessment": "### `backend/agents/generator.py`\n\n1. **Does this file need to exist?** Yes \u2014 core document generation logic that's separate from both the LLM abstraction layer and the app services.\n2. **Does it do what it claims?** Yes \u2014 generates package documents from leads + profile, matching the filename.\n3. **Is it the right place for this logic?** Yes \u2014 the PDF rendering and LLM prompting are agent concerns; the fallback logic makes sense co-located.\n4. **What would break if deleted?** `graph/__init__.py` generate_nodes, `services/ghost.py`, `services/generator.py`, and `e2e/manval/run_live_fire.py` would all fail.\n\n### `backend/agents/ingestor.py`\n\n1. **Does this file need to exist?** Yes \u2014 ingestion pipeline (graph + vectors + parsing) is a distinct concern.\n2. **Does it do what it claims?** Yes \u2014 ingests profile text into structured data, graph, and vectors.\n3. **Is it the right place for this logic?** Partially \u2014 the embedding function `_emb` is imported by `db/client.py` and `agents/semantic.py`, creating a reverse dependency. Embedding could arguably live in a shared utility rather than the ingestor.\n4. **What would break if deleted?** `routes/ingest.py` /ingest endpoint, `db/client.py` skill/project vector search (via `_emb`), `agents/semantic.py` semantic search (via `_emb`), `e2e/manval/run_live_fire.py` ingestion."
 }

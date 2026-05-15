@@ -99,7 +99,36 @@
       "Every view module depends on `types.ts` (all TypeScript interfaces/types)",
       "`App.tsx` imports every view, component, and hook module"
     ],
-    "outbound": []
+    "outbound": [
+      "`./hooks/useWS` \u2014 App.tsx",
+      "`./hooks/useLeads` \u2014 App.tsx",
+      "`./hooks/useDueFollowups` \u2014 App.tsx",
+      "`./hooks/useGraphStats` \u2014 App.tsx",
+      "`./hooks/useKeyboardShortcuts` \u2014 App.tsx",
+      "`./components/Sidebar` \u2014 App.tsx",
+      "`./components/Topbar` \u2014 App.tsx",
+      "`./components/ErrorBoundary` \u2014 App.tsx",
+      "`./components/ApprovalDrawer` \u2014 App.tsx",
+      "`./components/OnboardingWizard` \u2014 App.tsx",
+      "`./components/HelpChat` \u2014 App.tsx",
+      "`./components/UpdatePrompt` \u2014 App.tsx",
+      "`./components/Icon` \u2014 SettingsModal.tsx",
+      "`./settings/GlobalSettings` \u2014 SettingsModal.tsx",
+      "`./settings/StepSettings` \u2014 SettingsModal.tsx",
+      "`./settings/DiscoverySettings` \u2014 SettingsModal.tsx",
+      "`./settings/AutomationSettings` \u2014 SettingsModal.tsx",
+      "`./settings/shared` \u2014 SettingsModal.tsx",
+      "`./views/DashboardView` \u2014 App.tsx",
+      "`./views/LeadInboxView` \u2014 App.tsx",
+      "`./views/ApplyJobView` \u2014 App.tsx",
+      "`./views/PipelineView` \u2014 App.tsx",
+      "`./views/GraphView` \u2014 App.tsx",
+      "`./views/ActivityView` \u2014 App.tsx",
+      "`./views/ProfileView` \u2014 App.tsx",
+      "`./views/IngestionView` \u2014 App.tsx",
+      "`./lib/leadUtils` \u2014 App.tsx",
+      "`./types` \u2014 App.tsx, SettingsModal.tsx"
+    ]
   },
   "assessment": "### `src/App.tsx`\n1. **Does this file need to exist?** Yes \u2014 root component is the single entry point for the app.\n2. **Does it do what it claims?** Yes \u2014 `App` component manages app state and renders views.\n3. **Is it the right place for this logic?** Partially \u2014 the 8 action callbacks (`onScan`, `onStopScan`, etc.) are tightly coupled to App.tsx; some could be extracted to a custom hook, but the current pattern is acceptable for a single-page desktop app.\n4. **What would break if deleted?** The entire app \u2014 no other module creates the React root or owns the state hub.\n\n### `src/main.tsx`\n1. **Does this file need to exist?** Yes \u2014 standard React entry point.\n2. **Does it do what it claims?** Yes \u2014 mounts the app.\n3. **Is it the right place for this logic?** Yes.\n4. **What would break if deleted?** Nothing would render \u2014 no DOM mount point.\n\n### `src/types.ts`\n1. **Does this file need to exist?** Yes \u2014 central type definitions avoid circular imports and duplication.\n2. **Does it do what it claims?** Yes \u2014 provides all shared types.\n3. **Is it the right place for this logic?** Yes.\n4. **What would break if deleted?** Every frontend file that imports from `./types` \u2014 compilation would fail everywhere.\n\n### `src/SettingsModal.tsx`\n1. **Does this file need to exist?** Yes \u2014 settings UI is a distinct modal component.\n2. **Does it do what it claims?** Yes \u2014 fetches, displays, and saves settings.\n3. **Is it the right place for this logic?** Yes.\n4. **What would break if deleted?** Settings modal would not appear; `App.tsx` line 213 would fail.\n\n### `src/index.css`\n1. **Does this file need to exist?** Yes \u2014 all visual styling.\n2. **Does it do what it claims?** Yes \u2014 provides global styles and design tokens.\n3. **Is it the right place for this logic?** Yes \u2014 single stylesheet is appropriate for this scale; CSS custom properties provide theme consistency.\n4. **What would break if deleted?** Entire app would be unstyled (no layout, no colors, no component styling)."
 }

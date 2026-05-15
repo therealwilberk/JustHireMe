@@ -81,7 +81,7 @@ def extract_flags(text):
                 flag_type = None
                 for e, t in [("🔴","dead"),("🔵","hardcoded"),("🟣","coupled"),
                              ("⚪","incomplete"),("🟠","stale"),("🟡","suspect"),("🟢","clean")]:
-                    if e in flag_cell or e in flag_cell:
+                    if e in flag_cell:
                         flag_type = t
                         break
                 if flag_type:
@@ -95,27 +95,37 @@ def extract_flags(text):
     return flags
 
 def extract_deps(text):
-    """Extract dependency info"""
+    """Extract dependency info (bullet list or table format)"""
     inbound = []
     outbound = []
     current = None
     for line in text.split("\n"):
-        if "**Inbound (other units depend on this):**" in line or "**Inbound" in line:
+        stripped = line.strip()
+        if not stripped:
+            continue
+        if "**Inbound (other units depend on this):**" in stripped or "**Inbound" in stripped:
             current = "inbound"
             continue
-        if "**Outbound (this unit depends on others):**" in line or "**Outbound" in line:
+        if "**Outbound (this unit depends on others):**" in stripped or "**Outbound" in stripped:
             current = "outbound"
             continue
-        if current == "inbound" and line.strip():
-            if line.strip().startswith("- "):
-                inbound.append(line.strip()[2:].strip())
-            elif line.strip().startswith("**") and "**" in line[2:]:
-                current = None
-        if current == "outbound" and line.strip():
-            if line.strip().startswith("- "):
-                outbound.append(line.strip()[2:].strip())
-            elif line.strip().startswith("**") and "**" in line[2:]:
-                current = None
+        if current and (stripped.startswith("**") and "**" in stripped[2:]):
+            current = None
+            continue
+        if current == "inbound":
+            if stripped.startswith("- "):
+                inbound.append(stripped[2:].strip())
+            elif stripped.startswith("|") and not stripped.startswith("|---"):
+                cells = [c.strip() for c in stripped.strip("|").split("|")]
+                if len(cells) >= 2 and re.search(r'[.\\/`\U0001F300-\U0010FFFF]', cells[0]):
+                    inbound.append(f"{cells[0]} — {cells[1]}")
+        if current == "outbound":
+            if stripped.startswith("- "):
+                outbound.append(stripped[2:].strip())
+            elif stripped.startswith("|") and not stripped.startswith("|---"):
+                cells = [c.strip() for c in stripped.strip("|").split("|")]
+                if len(cells) >= 2 and re.search(r'[.\\/`\U0001F300-\U0010FFFF]', cells[0]):
+                    outbound.append(f"{cells[0]} — {cells[1]}")
     return inbound, outbound
 
 def get_file_inventory(text):
@@ -281,21 +291,27 @@ def build_flows():
             current_flags = []
         if current_flow and "|" in line and "---" not in line and line.strip().startswith("|"):
             cells = [c.strip() for c in line.strip("|").split("|")]
-            if len(cells) >= 4 and cells[0].isdigit():
+            if len(cells) >= 4 and re.match(r'^\d', cells[0]):
                 current_steps.append({
-                    "step": int(cells[0]),
+                    "step": cells[0],
                     "participant": cells[1],
                     "file": cells[2],
                     "action": cells[3]
                 })
-        flag_m = re.match(r"^\| (🔴|🔵|🟣|⚪|🟠|🟡|🟢)\s+(.+?)\s+\|\s+(.+?)\s+\|\s+(.+?)\s+\|", line)
-        if flag_m and current_flow:
-            current_flags.append({
-                "type": flag_color(flag_m.group(1)),
-                "item": flag_m.group(2).strip(),
-                "source": flag_m.group(3).strip(),
-                "reason": flag_m.group(4).strip()
-            })
+        if current_flow and "|" in line and line.strip().startswith("|"):
+            cells = [c.strip() for c in line.strip("|").split("|")]
+            if len(cells) >= 3:
+                for e, t in [("🔴","dead"),("🔵","hardcoded"),("🟣","coupled"),
+                             ("⚪","incomplete"),("🟠","stale"),("🟡","suspect"),("🟢","clean")]:
+                    if e in cells[0]:
+                        # Known flags: Flag-col cells[0] has emoji+label, cells[1]=description, cells[2]=source
+                        current_flags.append({
+                            "type": t,
+                            "item": cells[1] if len(cells) > 1 else "",
+                            "source": cells[2] if len(cells) > 2 else "",
+                            "reason": ""
+                        })
+                        break
     if current_flow:
         flows.append({"name": current_flow, "steps": current_steps, "flags": current_flags})
     return flows

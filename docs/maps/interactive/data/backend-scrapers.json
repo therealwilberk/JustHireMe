@@ -305,8 +305,25 @@
     "clean": 4
   },
   "deps": {
-    "inbound": [],
-    "outbound": []
+    "inbound": [
+      "`services/scanner.py` \u2014 `scout.run`, `query_gen.generate`",
+      "`services/ghost.py` \u2014 `query_gen.generate`, `scout.run`",
+      "`services/scout.py` \u2014 `x_scout.run`, `free_scout.run`",
+      "`routes/leads.py` \u2014 `scout.classify_job_seniority`",
+      "`mcp_server.py` \u2014 `quality_gate.evaluate_lead_quality`",
+      "`tests/test_regressions.py` \u2014 Multiple private functions from all files",
+      "`tests/test_observability.py` \u2014 `quality_gate._parse_date`"
+    ],
+    "outbound": [
+      "`agents/lead_intel` \u2014 signal_quality, outreach_drafts, fit_bullets, followup_sequence, etc.",
+      "`agents/browser_runtime` \u2014 launch_chromium",
+      "`agents/scoring_engine` \u2014 infer_experience_level (in query_gen.py)",
+      "`llm` \u2014 call_llm",
+      "`db/client` \u2014 url_exists, save_lead, rank_lead_by_feedback",
+      "`config` \u2014 settings",
+      "`config/secrets` \u2014 resolve_secret",
+      "`logger` \u2014 get_logger"
+    ]
   },
   "assessment": "### `agents/scout.py`\n\n1. **Does this file need to exist?** Yes \u2014 it's the primary job board scraper and orchestrator.\n2. **Does it do what it claims?** Partially \u2014 name says \"scout\" but also handles HN, RSS, API sources, LLM extraction, dedup, saving; it's an orchestrator, not just a scraper.\n3. **Is it the right place for this logic?** Partially \u2014 the `run()` function is a monolith. Source-specific scrapers could be extracted. Quality gate logic belongs in `quality_gate.py` (already refactored). Date parsing is duplicated there.\n4. **What would break if deleted?** `services/scanner.py`, `services/ghost.py`, `routes/leads.py` (classify_job_seniority), `free_scout.py` (5 imports), `x_scout.py` (1 import).\n\n### `agents/free_scout.py`\n\n1. **Does this file need to exist?** Yes \u2014 organic source discovery is distinct from structured job board scraping.\n2. **Does it do what it claims?** Yes \u2014 \"free source scout\" accurately describes its purpose.\n3. **Is it the right place for this logic?** Yes \u2014 ATS, GitHub, HN, Reddit scraping naturally group together.\n4. **What would break if deleted?** `services/scout.py` (_run_free_source_scan), `scout.py:_scrape_ats_target`, `tests/test_regressions.py`.\n\n### `agents/x_scout.py`\n\n1. **Does this file need to exist?** Yes \u2014 X/Twitter is a distinct signal source with unique API and classification needs.\n2. **Does it do what it claims?** Yes \u2014 X/Twitter scout.\n3. **Is it the right place for this logic?** Yes \u2014 self-contained module with single responsibility.\n4. **What would break if deleted?** `services/scout.py` (_run_x_signal_scan), `tests/test_regressions.py`.\n\n### `agents/quality_gate.py`\n\n1. **Does this file need to exist?** Yes \u2014 shared quality gate used by 3 modules (scout, free_scout, mcp_server).\n2. **Does it do what it claims?** Yes \u2014 lead quality gate.\n3. **Is it the right place for this logic?** Yes \u2014 this is the right abstraction boundary.\n4. **What would break if deleted?** `scout.py:run()`, `free_scout.py:run()`, `mcp_server.py`.\n\n### `agents/query_gen.py`\n\n1. **Does this file need to exist?** Yes \u2014 profile-tailored query generation is a distinct concern.\n2. **Does it do what it claims?** Yes \u2014 generates search queries for job discovery.\n3. **Is it the right place for this logic?** Partially \u2014 `_india_clause` and `_enrich_passthrough_targets` are board-specific hacks that could be pushed to config.\n4. **What would break if deleted?** `services/scanner.py`, `services/ghost.py`."
 }

@@ -165,8 +165,18 @@
     "clean": 2
   },
   "deps": {
-    "inbound": [],
-    "outbound": []
+    "inbound": [
+      "`App.tsx` \u2014 All 8 view components (lines 15-22, 197-204)"
+    ],
+    "outbound": [
+      "`src/types` \u2014 All views",
+      "`src/lib/leadUtils` \u2014 `DashboardView`, `ApplyJobView`, `PipelineView`",
+      "`src/components/Icon` \u2014 `DashboardView`, `GraphView`, `PipelineView`, `LeadInboxView`, `ApplyJobView`, `IngestionView`, `ProfileView`",
+      "`src/components/LeadFilterBar` \u2014 `PipelineView`",
+      "`src/components/JobCard` \u2014 `PipelineView`",
+      "`@tauri-apps/plugin-opener` \u2014 `ApplyJobView`",
+      "`framer-motion` \u2014 `IngestionView`"
+    ]
   },
   "assessment": "### `ActivityView.tsx`\n1. **Does this file need to exist?** Yes \u2014 dedicated log stream page\n2. **Does it do what it claims?** Yes \u2014 name matches\n3. **Is it the right place for this logic?** Yes \u2014 UI-only, no business logic\n4. **What would break if deleted?** The Activity tab in the app would render nothing; `App.tsx` would fail to import\n\n### `ApplyJobView.tsx`\n1. **Does this file need to exist?** Yes \u2014 distinct view for job customization package\n2. **Does it do what it claims?** Yes\n3. **Is it the right place for this logic?** Partially \u2014 the polling and PDF loading logic could arguably live in custom hooks, but inline is acceptable\n4. **What would break if deleted?** The \"Customize job\" feature from dashboard, the \"apply\" view route in App.tsx\n\n### `DashboardView.tsx`\n1. **Does this file need to exist?** Yes \u2014 home screen\n2. **Does it do what it claims?** Yes\n3. **Is it the right place for this logic?** Yes \u2014 purely presentational\n4. **What would break if deleted?** The entire app would have no landing page; `App.tsx` import breaks\n\n### `GraphView.tsx`\n1. **Does this file need to exist?** Yes \u2014 knowledge graph visualization\n2. **Does it do what it claims?** Yes\n3. **Is it the right place for this logic?** Yes\n4. **What would break if deleted?** Graph tab would be missing; `App.tsx` import breaks\n\n### `IngestionView.tsx`\n1. **Does this file need to exist?** Yes \u2014 multi-tab ingestion is a core feature\n2. **Does it do what it claims?** Yes\n3. **Is it the right place for this logic?** No \u2014 553 lines is too large for a single component; each tab could be extracted to `src/views/ingestion/*.tsx`\n4. **What would break if deleted?** All 8 ingestion sources (resume, manual, LinkedIn, GitHub, portfolio, JSON, raw, template) would be inaccessible\n\n### `LeadInboxView.tsx`\n1. **Does this file need to exist?** Yes\n2. **Does it do what it claims?** Yes\n3. **Is it the right place for this logic?** Yes \u2014 small, focused\n4. **What would break if deleted?** Manual lead creation and free-source scan would be gone\n\n### `PipelineView.tsx`\n1. **Does this file need to exist?** Yes\n2. **Does it do what it claims?** Yes \u2014 pipeline management\n3. **Is it the right place for this logic?** Yes \u2014 contains substantial filter/sort/pagination state that belongs in a view\n4. **What would break if deleted?** Lead pipeline, bulk delete, CSV export, filters, sorting \u2014 core functionality\n\n### `ProfileView.tsx`\n1. **Does this file need to exist?** Yes\n2. **Does it do what it claims?** Yes\n3. **Is it the right place for this logic?** Yes \u2014 includes CRUD, inline editing, evidence map\n4. **What would break if deleted?** Profile viewing/editing is inaccessible; `ProfileView.test.tsx` fails\n\n### `ProfileView.test.tsx`\n1. **Does this file need to exist?** Yes \u2014 only test file for views unit\n2. **Does it do what it claims?** Yes \u2014 tests error visibility for CRUD operations\n3. **Is it the right place for this logic?** Yes \u2014 collocated with tested component\n4. **What would break if deleted?** No automated regression coverage for ProfileView error states"
 }

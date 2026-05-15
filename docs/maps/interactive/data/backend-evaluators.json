@@ -284,8 +284,28 @@
     "clean": 5
   },
   "deps": {
-    "inbound": [],
-    "outbound": []
+    "inbound": [
+      "`services/scanner.py` \u2014 `evaluator.py`",
+      "`services/ghost.py` \u2014 `evaluator.py`",
+      "`graph/__init__.py` \u2014 `evaluator.py`",
+      "`mcp_server.py` \u2014 `evaluator.py`, `lead_intel.py`",
+      "`routes/leads.py` \u2014 `lead_intel.py`",
+      "`agents/quality_gate.py` \u2014 `lead_intel.py`",
+      "`agents/x_scout.py` \u2014 `lead_intel.py`",
+      "`agents/free_scout.py` \u2014 `lead_intel.py`",
+      "`agents/generator.py` \u2014 `scoring_engine.py`",
+      "`agents/query_gen.py` \u2014 `scoring_engine.py`",
+      "`db/client.py` \u2014 `feedback_ranker.py`",
+      "`tests/test_regressions.py` \u2014 All 5 modules",
+      "`tests/test_observability.py` \u2014 `scoring_engine.py`"
+    ],
+    "outbound": [
+      "`db.client.vec` \u2014 `semantic.py:_vec_store`",
+      "`db.client.get_setting` \u2014 `evaluator.py:_evaluator_llm_requested`",
+      "`agents.ingestor._emb` \u2014 `semantic.py:_embed_jd`",
+      "`llm.call_llm` \u2014 `evaluator.py:_score_with_llm`",
+      "`logger.get_logger` \u2014 All 5 files"
+    ]
   },
   "assessment": "### `agents/evaluator.py`\n\n1. **Does this file need to exist?** Yes \u2014 provides the LLM-led scoring path and decouples callers from the deterministic engine internals.\n2. **Does it do what it claims?** Yes \u2014 consistently implements \"LLM-led with deterministic fallback\".\n3. **Is it the right place for this logic?** Yes \u2014 the evaluator/fallback pattern is appropriately separated from the rubric engine.\n4. **What would break if deleted?** `services/scanner.py`, `services/ghost.py`, `graph/__init__.py`, `mcp_server.py` \u2014 all import `score`. Tests also directly test this module.\n\n### `agents/scoring_engine.py`\n\n1. **Does this file need to exist?** Yes \u2014 this is the core scoring logic for the entire app.\n2. **Does it do what it claims?** Yes \u2014 \"Deterministic scoring engine\" is accurate.\n3. **Is it the right place for this logic?** Partially \u2014 the massive hardcoded taxonomies (TECH_TAXONOMY, ROLE_KEYWORDS, WRONG_FIELD_TERMS) might be better as data files loaded at startup. The rubric weights belong in config.\n4. **What would break if deleted?** `evaluator.py` (imports 3 functions), `generator.py` (imports TECH_TAXONOMY), `query_gen.py` (imports infer_experience_level), plus all tests.\n\n### `agents/feedback_ranker.py`\n\n1. **Does this file need to exist?** Yes \u2014 small, focused, single-responsibility.\n2. **Does it do what it claims?** Yes \u2014 applies feedback-based signal adjustment.\n3. **Is it the right place for this logic?** Yes \u2014 it is correctly separated from the deterministic scoring engine.\n4. **What would break if deleted?** `db/client.py` lines 754, 771 \u2014 feedback learning in lead storage would be lost. Tests.\n\n### `agents/semantic.py`\n\n1. **Does this file need to exist?** Yes \u2014 provides embedding-based similarity as a separate concern.\n2. **Does it do what it claims?** Yes \u2014 \"fail-soft semantic fit that returns None on failure\".\n3. **Is it the right place for this logic?** Yes \u2014 separated from the scoring engine where it's consumed.\n4. **What would break if deleted?** `scoring_engine.py:_semantic_criterion` returns None (which it already handles), so scoring degrades cleanly to keyword-only. Tests.\n\n### `agents/lead_intel.py`\n\n1. **Does this file need to exist?** Yes \u2014 central text-to-lead conversion used by scouts, routes, MCP server.\n2. **Does it do what it claims?** Partially \u2014 the `classify_kind` function has a confirmed bug (always returns \"job\"). Name is accurate otherwise.\n3. **Is it the right place for this logic?** Yes \u2014 it's a conversion/enrichment layer between raw scraped text and structured lead dicts.\n4. **What would break if deleted?** `routes/leads.py`, `agents/x_scout.py`, `agents/free_scout.py`, `mcp_server.py`, `agents/quality_gate.py` \u2014 all heavily depend on this module."
 }
