@@ -13,6 +13,7 @@ from typing import List
 
 from pydantic import BaseModel, Field
 from logger import get_logger
+from config import settings
 
 from agents.scoring_engine import (
     build_proof_text,
@@ -91,7 +92,9 @@ def _infer_experience_level(candidate_data: dict) -> str:
     return infer_experience_level(candidate_data)
 
 
-def _compact_json(value, limit: int = 14000) -> str:
+def _compact_json(value, limit: int | None = None) -> str:
+    if limit is None:
+        limit = settings.scoring.evaluator.compact_json_limit
     try:
         text = json.dumps(value, ensure_ascii=False, default=str, indent=2)
     except Exception:
@@ -161,16 +164,16 @@ def _user_prompt(jd: str, candidate_data: dict, baseline: dict) -> str:
     return (
         "JOB POSTING\n"
         "----------\n"
-        f"{str(jd or '').strip()[:9000]}\n\n"
+        f"{str(jd or '').strip()[:settings.scoring.evaluator.user_prompt_jd_max_chars]}\n\n"
         "CANDIDATE PROFILE JSON\n"
         "----------------------\n"
         f"{_compact_json(_profile_prompt_payload(candidate_data))}\n\n"
         "PROFILE PROOF SUMMARY\n"
         "---------------------\n"
-        f"{proof[:7000]}\n\n"
+        f"{proof[:settings.scoring.evaluator.user_prompt_proof_max_chars]}\n\n"
         "DETERMINISTIC BASELINE FOR CALIBRATION\n"
         "--------------------------------------\n"
-        f"{_compact_json(baseline, limit=5000)}\n\n"
+        f"{_compact_json(baseline, limit=settings.scoring.evaluator.user_prompt_baseline_max_chars)}\n\n"
         "Use the baseline as a calibration aid, not as the final answer. "
         "You may raise or lower the score when the full profile evidence supports it."
     )
