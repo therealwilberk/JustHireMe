@@ -1,0 +1,156 @@
+{
+  "slug": "tauri",
+  "name": "Tauri",
+  "group": "INFRA",
+  "summary": "The Tauri unit is the desktop shell. It owns the Tauri application lifecycle (build, window, run loop), Python sidecar process management (spawn, stdout protocol parsing, health monitoring, graceful shutdown), IPC commands that the frontend uses to discover the backend's port and API token, and the bundle/updater configuration. It depends on `tauri-plugin-shell` (sidecar spawning), `tauri-plugin-notification` (desktop alerts), `tauri-plugin-updater` (self-update), and `tauri-plugin-process` (app lifecycle). No other unit imports from this one \u2014 it is the outermost shell.\n\n---",
+  "fileCount": 5,
+  "files": [
+    {
+      "#": "1",
+      "File": "`src-tauri/src/lib.rs`",
+      "Lines": "393",
+      "Purpose": "Core Tauri app: builder, sidecar lifecycle, IPC commands, event loop",
+      "Overall flag": "\ud83d\udfe0 Sidecar stdout protocol and error handling need attention"
+    },
+    {
+      "#": "2",
+      "File": "`src-tauri/src/main.rs`",
+      "Lines": "6",
+      "Purpose": "Binary entry point",
+      "Overall flag": "\ud83d\udfe2 Minimal and correct"
+    },
+    {
+      "#": "3",
+      "File": "`src-tauri/tauri.conf.json`",
+      "Lines": "78",
+      "Purpose": "App config: window, bundle, updater, CSP, plugins",
+      "Overall flag": "\ud83d\udfe1 macOS signing, limited Linux targets, CSP reviewed"
+    },
+    {
+      "#": "4",
+      "File": "`src-tauri/capabilities/default.json`",
+      "Lines": "11",
+      "Purpose": "IPC permission set for main window",
+      "Overall flag": "\ud83d\udfe1 Missing `shell:default` and `process:default`"
+    },
+    {
+      "#": "5",
+      "File": "`src-tauri/capabilities/desktop.json`",
+      "Lines": "16",
+      "Purpose": "Desktop-platform IPC permissions",
+      "Overall flag": "\ud83d\udfe1 Overlaps with default.json"
+    }
+  ],
+  "flags": [
+    {
+      "type": "dead",
+      "item": "`notify_high_score_lead`",
+      "location": "`lib.rs:47`",
+      "reason": "\"high score\" is game terminology, irrelevant to hiring domain",
+      "priority": "P0"
+    },
+    {
+      "type": "suspect",
+      "item": "Post-startup stdout dropped",
+      "location": "`lib.rs:355-371`",
+      "reason": "After startup phase, sidecar stdout is silently consumed and discarded \u2014 if backend sends data there post-startup, it's lost",
+      "priority": "P1"
+    },
+    {
+      "type": "suspect",
+      "item": "No SIGKILL fallback on Unix",
+      "location": "`lib.rs:110-113`",
+      "reason": "`kill_process_tree` sends only TERM; stubborn children survive",
+      "priority": "P1"
+    },
+    {
+      "type": "suspect",
+      "item": "LOCALAPPDATA set on all platforms",
+      "location": "`lib.rs:219`",
+      "reason": "Windows-specific env var set unconditionally; harmless but confusing",
+      "priority": "P1"
+    },
+    {
+      "type": "suspect",
+      "item": "PLAYWRIGHT_BROWSERS_PATH set twice",
+      "location": "`lib.rs:238,254`",
+      "reason": "Second assignment (app data dir) always overwrites first (resource dir); resource-dir path may be dead code",
+      "priority": "P1"
+    },
+    {
+      "type": "stale",
+      "item": "`shell:default` permission",
+      "location": "`capabilities/default.json:7`",
+      "reason": "Shell plugin initialized but no shell capability granted",
+      "priority": "P1"
+    },
+    {
+      "type": "stale",
+      "item": "`process:default` permission",
+      "location": "`capabilities/default.json:7`",
+      "reason": "Process plugin initialized but no process capability granted",
+      "priority": "P1"
+    },
+    {
+      "type": "hardcoded",
+      "item": "macOS signing identity",
+      "location": "`tauri.conf.json:64`",
+      "reason": "`\"-\"` = ad-hoc; not distributable without a real cert",
+      "priority": "P2"
+    },
+    {
+      "type": "stale",
+      "item": "No RPM bundle target",
+      "location": "`tauri.conf.json:62`",
+      "reason": "Fedora/openSUSE users can't install via system package",
+      "priority": "P2"
+    },
+    {
+      "type": "hardcoded",
+      "item": "CSP connect-src wildcard port",
+      "location": "`tauri.conf.json:23`",
+      "reason": "`http://127.0.0.1:*` \u2014 broad but necessary for dynamic sidecar port",
+      "priority": "P2"
+    },
+    {
+      "type": "suspect",
+      "item": "`core:default` + `opener:default` in both capabilities",
+      "location": "`desktop.json:12-13`",
+      "reason": "Granted twice across default.json and desktop.json; harmless union",
+      "priority": "P2"
+    },
+    {
+      "type": "hardcoded",
+      "item": "Verbose window event logging",
+      "location": "`lib.rs:381`",
+      "reason": "Every window event logged on every interaction \u2014 debug verbosity leaks into release builds",
+      "priority": "P2"
+    },
+    {
+      "type": "clean",
+      "item": "`main.rs`",
+      "location": "all",
+      "reason": "Minimal entry point, correct",
+      "priority": "P3"
+    }
+  ],
+  "flagCounts": {
+    "dead": 1,
+    "hardcoded": 3,
+    "coupled": 0,
+    "incomplete": 0,
+    "stale": 3,
+    "suspect": 5,
+    "clean": 1
+  },
+  "deps": {
+    "inbound": [
+      "None. The Tauri unit is the outermost shell; nothing in the Rust workspace imports from it."
+    ],
+    "outbound": [
+      "**backend** (Python): spawned as sidecar, communicates via stdout protocol (`PORT:`, `JHM_TOKEN=`) and HTTP API at the discovered port",
+      "**frontend** (Node/JS): built by `beforeBuildCommand` (Vite/TS), served in `devUrl` or `frontendDist`, invokes IPC commands"
+    ]
+  },
+  "assessment": "### `src-tauri/src/lib.rs`\n1. **Does this file need to exist?** Yes \u2014 central Tauri shell logic.\n2. **Does it do what it claims?** Mostly yes \u2014 name \"lib\" is generic but standard for Rust library crates.\n3. **Is it the right place for this logic?** Yes \u2014 sidecar lifecycle belongs in the Tauri layer.\n4. **What would break if deleted?** The entire application \u2014 no Tauri app, no sidecar spawning, no IPC.\n\n### `src-tauri/src/main.rs`\n1. **Does this file need to exist?** Yes \u2014 binary entry point.\n2. **Does it do what it claims?** Yes \u2014 calls `run()`.\n3. **Is it the right place for this logic?** Yes \u2014 standard Rust binary bootstrap.\n4. **What would break if deleted?** No executable entry point; build fails.\n\n### `src-tauri/tauri.conf.json`\n1. **Does this file need to exist?** Yes \u2014 required by Tauri build.\n2. **Does it do what it claims?** Yes \u2014 configuration is complete and valid.\n3. **Is it the right place for this logic?** Yes \u2014 canonical location.\n4. **What would break if deleted?** Build fails; no window config, bundle, or updater.\n\n### `src-tauri/capabilities/default.json`\n1. **Does this file need to exist?** Yes \u2014 required for IPC permission grants in Tauri v2.\n2. **Does it do what it claims?** Partially \u2014 grants core/opener/notification but misses shell and process.\n3. **Is it the right place for this logic?** Yes.\n4. **What would break if deleted?** IPC calls from the frontend would be denied for opener and notification.\n\n### `src-tauri/capabilities/desktop.json`\n1. **Does this file need to exist?** Yes \u2014 required for updater permission on desktop.\n2. **Does it do what it claims?** Yes \u2014 grants updater on desktop platforms.\n3. **Is it the right place for this logic?** Yes.\n4. **What would break if deleted?** Updater plugin calls from frontend would be denied on desktop."
+}

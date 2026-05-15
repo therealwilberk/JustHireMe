@@ -1,0 +1,312 @@
+{
+  "slug": "backend-scrapers",
+  "name": "Scrapers",
+  "group": "BACKEND",
+  "summary": "This unit owns the \"scouting\" layer \u2014 every code path that discovers job leads from external sources. It contains five modules: (1) `scout.py` \u2014 the primary orchestrator that handles LLM-based extraction from scraped pages, RSS feeds, HN Hiring threads, and API-based boards (RemoteOK, Remotive, Jobicy); (2) `free_scout.py` \u2014 scrapes organic/free sources (Greenhouse, Lever, Ashby, Workable ATS boards, GitHub issues, HN comments, Reddit) with a custom connector system; (3) `x_scout.py` \u2014 searches X/Twitter API v2 for hiring-signal tweets; (4) `quality_gate.py` \u2014 deterministic lead quality filter shared across scrapers; (5) `query_gen.py` \u2014 generates profile-tailored Google `site:` search queries via LLM. The unit depends on `agents/lead_intel`, `agents/browser_runtime`, `llm`, `db.client`, `config`, and `logger`. Consumers are `services/scout.py`, `services/scanner.py`, `services/ghost.py`, `routes/leads.py`, and `mcp_server.py`.\n\n---",
+  "fileCount": 5,
+  "files": [
+    {
+      "#": "1",
+      "File": "`agents/scout.py`",
+      "Lines": "1,027",
+      "Purpose": "Primary job-lead scraper: crawl, extract, save",
+      "Overall flag": "\ud83d\udfe0 STALE \u2014 duplicates exist across `free_scout.py` and `quality_gate.py`; `_ensure_scheme` is defined twice"
+    },
+    {
+      "#": "2",
+      "File": "`agents/free_scout.py`",
+      "Lines": "718",
+      "Purpose": "Free-source signal scraper: ATS, GitHub, HN, Reddit, custom connectors",
+      "Overall flag": "\ud83d\udfe1 SUSPECT \u2014 imports and re-uses private (`_`) functions from `scout.py`; large code duplication with `scout.py` run loop"
+    },
+    {
+      "#": "3",
+      "File": "`agents/x_scout.py`",
+      "Lines": "478",
+      "Purpose": "X/Twitter API v2 hiring-signal scanner",
+      "Overall flag": "\ud83d\udfe2 CLEAN \u2014 well-structured single-responsibility module; minor hardcoded query/default issues"
+    },
+    {
+      "#": "4",
+      "File": "`agents/quality_gate.py`",
+      "Lines": "203",
+      "Purpose": "Deterministic lead quality evaluation",
+      "Overall flag": "\ud83d\udfe1 SUSPECT \u2014 `_parse_date` duplicates `scout.py:_parse_date` with different implementation; not exported from a shared location"
+    },
+    {
+      "#": "5",
+      "File": "`agents/query_gen.py`",
+      "Lines": "239",
+      "Purpose": "Profile-tailored Google site: query generation",
+      "Overall flag": "\ud83d\udfe1 SUSPECT \u2014 `_india_clause` is India-specific logic that may not belong in general query gen; fallback path may produce unusably broad queries"
+    }
+  ],
+  "flags": [
+    {
+      "type": "dead",
+      "item": "`import sys`",
+      "location": "`scout.py:4`",
+      "reason": "Never used anywhere in file",
+      "priority": "P0"
+    },
+    {
+      "type": "dead",
+      "item": "`_ensure_scheme` (first def)",
+      "location": "`scout.py:374`",
+      "reason": "Immediately redefined at line 386, first def unreachable",
+      "priority": "P0"
+    },
+    {
+      "type": "dead",
+      "item": "`_source_cap()`",
+      "location": "`scout.py:431`",
+      "reason": "Never called within the unit; `_SOURCE_CAPS` defined but unused",
+      "priority": "P0"
+    },
+    {
+      "type": "dead",
+      "item": "`_is_ats_target()`",
+      "location": "`scout.py:531`",
+      "reason": "Defined but never called; ATS routing is in free_scout.py",
+      "priority": "P0"
+    },
+    {
+      "type": "coupled",
+      "item": "`free_scout.py` imports `_`-prefixed from `scout.py`",
+      "location": "`free_scout.py:26`",
+      "reason": "Imports 5 private functions; creates tight cross-module coupling",
+      "priority": "P1"
+    },
+    {
+      "type": "coupled",
+      "item": "`scout.py:_scrape_ats_target` imports `free_scout`",
+      "location": "`scout.py:541`",
+      "reason": "Circular-ish dependency; scout and free_scout import each other",
+      "priority": "P1"
+    },
+    {
+      "type": "coupled",
+      "item": "`x_scout.py` lazy-imports `scout.classify_job_seniority` inside function body",
+      "location": "`x_scout.py:345`",
+      "reason": "Inline lazy import hidden in a function",
+      "priority": "P1"
+    },
+    {
+      "type": "hardcoded",
+      "item": "`_MAX_AGE_DAYS = 7`",
+      "location": "`scout.py:20`",
+      "reason": "Should be in config/settings, not hardcoded",
+      "priority": "P1"
+    },
+    {
+      "type": "hardcoded",
+      "item": "`_SOURCE_CAPS`",
+      "location": "`scout.py:25`",
+      "reason": "Per-source lead caps baked in, should be configurable",
+      "priority": "P1"
+    },
+    {
+      "type": "hardcoded",
+      "item": "Seniority term tuples (`_FRESHER_TERMS`, etc.)",
+      "location": "`scout.py:35-64`",
+      "reason": "Taxonomies baked in, should be in config/scoring.py",
+      "priority": "P1"
+    },
+    {
+      "type": "hardcoded",
+      "item": "`_SENIOR_FLAGS`, `_BEGINNER_FLAGS`, `_RED_FLAGS`",
+      "location": "`quality_gate.py:22-59`",
+      "reason": "Flag lists baked in, should be in config/scoring.py",
+      "priority": "P1"
+    },
+    {
+      "type": "hardcoded",
+      "item": "ATS API endpoints",
+      "location": "`free_scout.py:260-344`",
+      "reason": "4 ATS board API URLs baked in (Greenhouse, Lever, Ashby, Workable)",
+      "priority": "P1"
+    },
+    {
+      "type": "hardcoded",
+      "item": "HN Algolia API URLs",
+      "location": "`scout.py:870-892`",
+      "reason": "`hn.algolia.com` URLs and 35-day search window baked in",
+      "priority": "P1"
+    },
+    {
+      "type": "hardcoded",
+      "item": "X API base URL",
+      "location": "`x_scout.py:19`",
+      "reason": "`https://api.x.com/2/tweets/search/recent` should be in config",
+      "priority": "P1"
+    },
+    {
+      "type": "hardcoded",
+      "item": "Default X queries",
+      "location": "`x_scout.py:23-27`",
+      "reason": "3 search queries hardcoded as fallback",
+      "priority": "P1"
+    },
+    {
+      "type": "hardcoded",
+      "item": "X term tuples (TECH_TERMS, ROLE_TERMS, etc.)",
+      "location": "`x_scout.py:35-76`",
+      "reason": "7 hardcoded term tuples for classification",
+      "priority": "P1"
+    },
+    {
+      "type": "hardcoded",
+      "item": "`DEFAULT_TARGETS`",
+      "location": "`free_scout.py:35`",
+      "reason": "5 hardcoded default targets (Greenhouse OpenAI, Anthropic, etc.)",
+      "priority": "P1"
+    },
+    {
+      "type": "hardcoded",
+      "item": "`_india_clause`",
+      "location": "`query_gen.py:142`",
+      "reason": "India-specific location appending logic baked into general query gen",
+      "priority": "P1"
+    },
+    {
+      "type": "hardcoded",
+      "item": "`_scrape_remoteok` User-Agent spoof",
+      "location": "`scout.py:606`",
+      "reason": "Hardcoded Chrome UA string for scraping",
+      "priority": "P1"
+    },
+    {
+      "type": "suspect",
+      "item": "`_passes_beginner_job_filter`",
+      "location": "`scout.py:229`",
+      "reason": "Only called from tests; `run()` does not invoke it \u2014 potential dead code",
+      "priority": "P2"
+    },
+    {
+      "type": "suspect",
+      "item": "`_is_beginner_role`",
+      "location": "`scout.py:182`",
+      "reason": "Only called by `_passes_beginner_job_filter` (which is DEAD)",
+      "priority": "P2"
+    },
+    {
+      "type": "suspect",
+      "item": "`_is_strictly_recent`",
+      "location": "`scout.py:145`",
+      "reason": "Only called by `_is_fresh_lead`; thin wrapper",
+      "priority": "P2"
+    },
+    {
+      "type": "suspect",
+      "item": "`LAST_ERRORS` / `LAST_USAGE` module state",
+      "location": "All 3 run files",
+      "reason": "Mutable module-level state accessed via `getattr` \u2014 fragile",
+      "priority": "P2"
+    },
+    {
+      "type": "suspect",
+      "item": "`_parse_date` duplicate",
+      "location": "`scout.py:71` vs `quality_gate.py:77`",
+      "reason": "Two different implementations of the same date parser; not shared",
+      "priority": "P2"
+    },
+    {
+      "type": "suspect",
+      "item": "`_lead_text` duplicate",
+      "location": "`scout.py:153` vs `quality_gate.py:62`",
+      "reason": "Nearly identical; different field set (quality_gate includes `location`)",
+      "priority": "P2"
+    },
+    {
+      "type": "suspect",
+      "item": "`free_scout.py:run()` duplicated save logic",
+      "location": "`free_scout.py:618-644` and `684-710`",
+      "reason": "~40 lines of save code repeated identically for targets vs connectors",
+      "priority": "P2"
+    },
+    {
+      "type": "suspect",
+      "item": "`HOT_LEAD_THRESHOLD` defined but unused in file",
+      "location": "`quality_gate.py:20`",
+      "reason": "Defined in quality_gate but not referenced there; used by callers directly",
+      "priority": "P2"
+    },
+    {
+      "type": "suspect",
+      "item": "`_scrape_reddit` no auth",
+      "location": "`free_scout.py:470`",
+      "reason": "Uses public Reddit JSON endpoint without API key \u2014 rate limits may hit",
+      "priority": "P2"
+    },
+    {
+      "type": "hardcoded",
+      "item": "`_CONNECTOR_MAX_ITEMS = 60`",
+      "location": "`free_scout.py:44`",
+      "reason": "Custom connector item cap baked in",
+      "priority": "P2"
+    },
+    {
+      "type": "hardcoded",
+      "item": "Timeout values (30s) in HTTP clients",
+      "location": "Multiple",
+      "reason": "At least 10 hardcoded `timeout=30` occurrences across 3 files",
+      "priority": "P2"
+    },
+    {
+      "type": "hardcoded",
+      "item": "`_role_terms` catalog",
+      "location": "`query_gen.py:74-85`",
+      "reason": "10 role category\u2192alias mappings baked in",
+      "priority": "P3"
+    },
+    {
+      "type": "hardcoded",
+      "item": "`_looks_role_like` terms",
+      "location": "`scout.py:494-504`",
+      "reason": "14 role indicator terms baked in",
+      "priority": "P3"
+    },
+    {
+      "type": "clean",
+      "item": "`quality_gate.py:evaluate_lead_quality`",
+      "location": "`quality_gate.py:139`",
+      "reason": "Well-structured, documented, deterministic, single-purpose",
+      "priority": "P3"
+    },
+    {
+      "type": "clean",
+      "item": "`x_scout.py:signal_quality`",
+      "location": "`x_scout.py:154`",
+      "reason": "Well-scoped scoring function with penalties",
+      "priority": "P3"
+    },
+    {
+      "type": "clean",
+      "item": "`query_gen.py:_extract_domains`",
+      "location": "`query_gen.py:22`",
+      "reason": "Clean helper, single responsibility",
+      "priority": "P3"
+    },
+    {
+      "type": "clean",
+      "item": "`free_scout.py:_scrape_custom_connector`",
+      "location": "`free_scout.py:99`",
+      "reason": "Well-designed generic connector pattern",
+      "priority": "P3"
+    }
+  ],
+  "flagCounts": {
+    "dead": 4,
+    "hardcoded": 16,
+    "coupled": 3,
+    "incomplete": 0,
+    "stale": 0,
+    "suspect": 9,
+    "clean": 4
+  },
+  "deps": {
+    "inbound": [],
+    "outbound": []
+  },
+  "assessment": "### `agents/scout.py`\n\n1. **Does this file need to exist?** Yes \u2014 it's the primary job board scraper and orchestrator.\n2. **Does it do what it claims?** Partially \u2014 name says \"scout\" but also handles HN, RSS, API sources, LLM extraction, dedup, saving; it's an orchestrator, not just a scraper.\n3. **Is it the right place for this logic?** Partially \u2014 the `run()` function is a monolith. Source-specific scrapers could be extracted. Quality gate logic belongs in `quality_gate.py` (already refactored). Date parsing is duplicated there.\n4. **What would break if deleted?** `services/scanner.py`, `services/ghost.py`, `routes/leads.py` (classify_job_seniority), `free_scout.py` (5 imports), `x_scout.py` (1 import).\n\n### `agents/free_scout.py`\n\n1. **Does this file need to exist?** Yes \u2014 organic source discovery is distinct from structured job board scraping.\n2. **Does it do what it claims?** Yes \u2014 \"free source scout\" accurately describes its purpose.\n3. **Is it the right place for this logic?** Yes \u2014 ATS, GitHub, HN, Reddit scraping naturally group together.\n4. **What would break if deleted?** `services/scout.py` (_run_free_source_scan), `scout.py:_scrape_ats_target`, `tests/test_regressions.py`.\n\n### `agents/x_scout.py`\n\n1. **Does this file need to exist?** Yes \u2014 X/Twitter is a distinct signal source with unique API and classification needs.\n2. **Does it do what it claims?** Yes \u2014 X/Twitter scout.\n3. **Is it the right place for this logic?** Yes \u2014 self-contained module with single responsibility.\n4. **What would break if deleted?** `services/scout.py` (_run_x_signal_scan), `tests/test_regressions.py`.\n\n### `agents/quality_gate.py`\n\n1. **Does this file need to exist?** Yes \u2014 shared quality gate used by 3 modules (scout, free_scout, mcp_server).\n2. **Does it do what it claims?** Yes \u2014 lead quality gate.\n3. **Is it the right place for this logic?** Yes \u2014 this is the right abstraction boundary.\n4. **What would break if deleted?** `scout.py:run()`, `free_scout.py:run()`, `mcp_server.py`.\n\n### `agents/query_gen.py`\n\n1. **Does this file need to exist?** Yes \u2014 profile-tailored query generation is a distinct concern.\n2. **Does it do what it claims?** Yes \u2014 generates search queries for job discovery.\n3. **Is it the right place for this logic?** Partially \u2014 `_india_clause` and `_enrich_passthrough_targets` are board-specific hacks that could be pushed to config.\n4. **What would break if deleted?** `services/scanner.py`, `services/ghost.py`."
+}

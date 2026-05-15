@@ -1,0 +1,172 @@
+{
+  "slug": "frontend-views",
+  "name": "Views",
+  "group": "FRONTEND",
+  "summary": "The `src/views/` unit contains all top-level page components consumed by `App.tsx` via a view-router pattern (`view` state \u2192 conditional render inside `<ErrorBoundary>` wrappers). Each view corresponds to a distinct screen in the Tauri desktop app: dashboard, pipeline (lead table with tabs/filters), lead inbox (manual + free-source entry), job-apply (customization package with polling), profile (candidate evidence graph), activity (live agent log stream), graph (Kuzu node topology), and ingestion (multi-tab context import). All views are owned by `App.tsx` and consume shared types from `src/types.ts`, utility functions from `src/lib/leadUtils.ts`, and UI components from `src/components/`. No view is imported by any other view \u2014 they are leaf components in the dependency tree.\n\n---",
+  "fileCount": 9,
+  "files": [
+    {
+      "#": "1",
+      "File": "`ActivityView.tsx`",
+      "Lines": "66",
+      "Purpose": "Live agent log stream with category filtering",
+      "Overall flag": "\ud83d\udfe2 CLEAN"
+    },
+    {
+      "#": "2",
+      "File": "`ApplyJobView.tsx`",
+      "Lines": "346",
+      "Purpose": "Job URL paste \u2192 analyze \u2192 generate resume/cover + polling for completion",
+      "Overall flag": "\ud83d\udfe0 STALE (poll interval + leftover comment)"
+    },
+    {
+      "#": "3",
+      "File": "`DashboardView.tsx`",
+      "Lines": "297",
+      "Purpose": "Home screen: stats, top leads, scan/maintenance actions",
+      "Overall flag": "\ud83d\udfe2 CLEAN"
+    },
+    {
+      "#": "4",
+      "File": "`GraphView.tsx`",
+      "Lines": "137",
+      "Purpose": "Pentagon visualization of Kuzu node types",
+      "Overall flag": "\ud83d\udfe2 CLEAN"
+    },
+    {
+      "#": "5",
+      "File": "`IngestionView.tsx`",
+      "Lines": "553",
+      "Purpose": "Multi-tab import (resume, manual, raw, LinkedIn, GitHub, portfolio, JSON, template)",
+      "Overall flag": "\ud83d\udfe0 STALE (try/catch swallowing)"
+    },
+    {
+      "#": "6",
+      "File": "`LeadInboxView.tsx`",
+      "Lines": "106",
+      "Purpose": "Manual lead creation + free-source scan trigger",
+      "Overall flag": "\ud83d\udfe2 CLEAN"
+    },
+    {
+      "#": "7",
+      "File": "`PipelineView.tsx`",
+      "Lines": "269",
+      "Purpose": "Lead table with tabs, filters, sort, bulk delete, CSV export",
+      "Overall flag": "\ud83d\udfe2 CLEAN"
+    },
+    {
+      "#": "8",
+      "File": "`ProfileView.tsx`",
+      "Lines": "384",
+      "Purpose": "Candidate evidence map: skills/experience/projects with CRUD",
+      "Overall flag": "\ud83d\udfe2 CLEAN"
+    },
+    {
+      "#": "9",
+      "File": "`ProfileView.test.tsx`",
+      "Lines": "193",
+      "Purpose": "Test suite for ProfileView error states",
+      "Overall flag": "\ud83d\udfe2 CLEAN"
+    }
+  ],
+  "flags": [
+    {
+      "type": "dead",
+      "item": "`port` prop",
+      "location": "`ApplyJobView.tsx:7`",
+      "reason": "Declared in props, checked in guard (L111), but never used for any actual port-dependent operation",
+      "priority": "P0"
+    },
+    {
+      "type": "hardcoded",
+      "item": "Poll interval (1800)",
+      "location": "`ApplyJobView.tsx:53`",
+      "reason": "Should be a module constant, not a magic number",
+      "priority": "P1"
+    },
+    {
+      "type": "hardcoded",
+      "item": "`document.getElementById`",
+      "location": "`IngestionView.tsx:260`",
+      "reason": "Uses string ID instead of React ref for file input trigger",
+      "priority": "P1"
+    },
+    {
+      "type": "hardcoded",
+      "item": "Error swallowing",
+      "location": "`IngestionView.tsx:44-196`",
+      "reason": "All 8 ingestion functions use `catch { setStatus(\"error\") }` \u2014 no error detail surfaces to user",
+      "priority": "P1"
+    },
+    {
+      "type": "suspect",
+      "item": "Log filter fragility",
+      "location": "`ActivityView.tsx:37-39`",
+      "reason": "`msg.toLowerCase().includes()` could silently break if server changes log message format",
+      "priority": "P2"
+    },
+    {
+      "type": "suspect",
+      "item": "Silent polling failure",
+      "location": "`ApplyJobView.tsx:52`",
+      "reason": "`catch { /* keep waiting */ }` never informs user of persistent failures",
+      "priority": "P2"
+    },
+    {
+      "type": "suspect",
+      "item": "`PentagonGraph` `any[]` param",
+      "location": "`GraphView.tsx:4`",
+      "reason": "Should have a typed interface instead of `any[]`",
+      "priority": "P2"
+    },
+    {
+      "type": "suspect",
+      "item": "visibleCount reset",
+      "location": "`PipelineView.tsx:28`",
+      "reason": "Resets pagination to 1st page on ANY filter change, losing scroll position",
+      "priority": "P2"
+    },
+    {
+      "type": "suspect",
+      "item": "Endpoint mapping switch",
+      "location": "`IngestionView.tsx:59`",
+      "reason": "`type === \"exp\" ? \"experience\" : type` fragile if new types added",
+      "priority": "P2"
+    },
+    {
+      "type": "suspect",
+      "item": "Profile/EditData typed `any`",
+      "location": "`ProfileView.tsx:11,15`",
+      "reason": "`profile` and `editData` both typed `any` \u2014 no type safety",
+      "priority": "P2"
+    },
+    {
+      "type": "clean",
+      "item": "General architecture",
+      "location": "All files",
+      "reason": "Views are well-structured, props are explicit, side effects managed",
+      "priority": "P3"
+    },
+    {
+      "type": "clean",
+      "item": "Test coverage",
+      "location": "`ProfileView.test.tsx`",
+      "reason": "11 tests covering error visibility with mocks, retry clearing, fallback messages",
+      "priority": "P3"
+    }
+  ],
+  "flagCounts": {
+    "dead": 1,
+    "hardcoded": 3,
+    "coupled": 0,
+    "incomplete": 0,
+    "stale": 0,
+    "suspect": 6,
+    "clean": 2
+  },
+  "deps": {
+    "inbound": [],
+    "outbound": []
+  },
+  "assessment": "### `ActivityView.tsx`\n1. **Does this file need to exist?** Yes \u2014 dedicated log stream page\n2. **Does it do what it claims?** Yes \u2014 name matches\n3. **Is it the right place for this logic?** Yes \u2014 UI-only, no business logic\n4. **What would break if deleted?** The Activity tab in the app would render nothing; `App.tsx` would fail to import\n\n### `ApplyJobView.tsx`\n1. **Does this file need to exist?** Yes \u2014 distinct view for job customization package\n2. **Does it do what it claims?** Yes\n3. **Is it the right place for this logic?** Partially \u2014 the polling and PDF loading logic could arguably live in custom hooks, but inline is acceptable\n4. **What would break if deleted?** The \"Customize job\" feature from dashboard, the \"apply\" view route in App.tsx\n\n### `DashboardView.tsx`\n1. **Does this file need to exist?** Yes \u2014 home screen\n2. **Does it do what it claims?** Yes\n3. **Is it the right place for this logic?** Yes \u2014 purely presentational\n4. **What would break if deleted?** The entire app would have no landing page; `App.tsx` import breaks\n\n### `GraphView.tsx`\n1. **Does this file need to exist?** Yes \u2014 knowledge graph visualization\n2. **Does it do what it claims?** Yes\n3. **Is it the right place for this logic?** Yes\n4. **What would break if deleted?** Graph tab would be missing; `App.tsx` import breaks\n\n### `IngestionView.tsx`\n1. **Does this file need to exist?** Yes \u2014 multi-tab ingestion is a core feature\n2. **Does it do what it claims?** Yes\n3. **Is it the right place for this logic?** No \u2014 553 lines is too large for a single component; each tab could be extracted to `src/views/ingestion/*.tsx`\n4. **What would break if deleted?** All 8 ingestion sources (resume, manual, LinkedIn, GitHub, portfolio, JSON, raw, template) would be inaccessible\n\n### `LeadInboxView.tsx`\n1. **Does this file need to exist?** Yes\n2. **Does it do what it claims?** Yes\n3. **Is it the right place for this logic?** Yes \u2014 small, focused\n4. **What would break if deleted?** Manual lead creation and free-source scan would be gone\n\n### `PipelineView.tsx`\n1. **Does this file need to exist?** Yes\n2. **Does it do what it claims?** Yes \u2014 pipeline management\n3. **Is it the right place for this logic?** Yes \u2014 contains substantial filter/sort/pagination state that belongs in a view\n4. **What would break if deleted?** Lead pipeline, bulk delete, CSV export, filters, sorting \u2014 core functionality\n\n### `ProfileView.tsx`\n1. **Does this file need to exist?** Yes\n2. **Does it do what it claims?** Yes\n3. **Is it the right place for this logic?** Yes \u2014 includes CRUD, inline editing, evidence map\n4. **What would break if deleted?** Profile viewing/editing is inaccessible; `ProfileView.test.tsx` fails\n\n### `ProfileView.test.tsx`\n1. **Does this file need to exist?** Yes \u2014 only test file for views unit\n2. **Does it do what it claims?** Yes \u2014 tests error visibility for CRUD operations\n3. **Is it the right place for this logic?** Yes \u2014 collocated with tested component\n4. **What would break if deleted?** No automated regression coverage for ProfileView error states"
+}

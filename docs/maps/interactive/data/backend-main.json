@@ -1,0 +1,237 @@
+{
+  "slug": "backend-main",
+  "name": "Main",
+  "group": "BACKEND",
+  "summary": "The **backend-main** unit owns the FastAPI application lifecycle (startup config validation, auth, CORS, scheduler, router registration), the LLM provider abstraction layer (17 providers, per-step config resolution, structured + raw calling), a minimal MCP stdio server exposing three job-intelligence tools, and the structured logging pipeline (contextvar-based correlation IDs, log enrichment filter, logger factory with file rotation). It is consumed by every agent, route, and service in the backend \u2014 `get_logger()` is the single most imported symbol across the entire codebase. It depends on `config/` for all its Pydantic-schema'd settings and on `core/config_constants` for the API token, scheduler singleton, bearer scheme, and CORS regex.\n\n---",
+  "fileCount": 5,
+  "files": [
+    {
+      "#": "1",
+      "File": "`backend/main.py`",
+      "Lines": "193",
+      "Purpose": "FastAPI entrypoint: lifespan, middleware, CORS, auth, router registration, backward-compat re-exports",
+      "Overall flag": "\ud83d\udfe2 CLEAN \u2014 well-structured, but has stale re-exports"
+    },
+    {
+      "#": "2",
+      "File": "`backend/llm.py`",
+      "Lines": "355",
+      "Purpose": "LLM provider abstraction: 17 providers, per-step config resolution, structured + raw calling",
+      "Overall flag": "\ud83d\udfe0 STALE \u2014 duplicate hardcoded URLs alongside config values; monolithic provider chain"
+    },
+    {
+      "#": "3",
+      "File": "`backend/mcp_server.py`",
+      "Lines": "191",
+      "Purpose": "Minimal MCP stdio server (no SDK): 3 tools, JSON-RPC 2.0",
+      "Overall flag": "\ud83d\udfe2 CLEAN \u2014 focused, minimal, no SDK debt"
+    },
+    {
+      "#": "4",
+      "File": "`backend/logger.py`",
+      "Lines": "132",
+      "Purpose": "Logging setup: CorrelationFilter, ContextFormatter (dead), get_logger factory",
+      "Overall flag": "\ud83d\udfe0 STALE \u2014 ContextFormatter defined but never wired"
+    },
+    {
+      "#": "5",
+      "File": "`backend/log_context.py`",
+      "Lines": "103",
+      "Purpose": "contextvar-based correlation context propagation",
+      "Overall flag": "\ud83d\udfe2 CLEAN \u2014 single responsibility, well-typed"
+    }
+  ],
+  "flags": [
+    {
+      "type": "dead",
+      "item": "`ContextFormatter` class",
+      "location": "`logger.py:50`",
+      "reason": "Defined but never wired into any handler; `get_logger` uses `logging.Formatter`",
+      "priority": "P0"
+    },
+    {
+      "type": "hardcoded",
+      "item": "`\"https://integrate.api.nvidia.com/v1\"`",
+      "location": "`llm.py:90`",
+      "reason": "URL duplicated with `config/llm.py:81`; should use `provider_specific.nvidia_base_url`",
+      "priority": "P1"
+    },
+    {
+      "type": "hardcoded",
+      "item": "`\"https://generativelanguage.googleapis.com/v1beta/openai/\"`",
+      "location": "`llm.py:100`",
+      "reason": "URL duplicated with `config/llm.py:82`; should use `provider_specific.gemini_base_url`",
+      "priority": "P1"
+    },
+    {
+      "type": "hardcoded",
+      "item": "`\"https://api.groq.com/openai/v1\"`",
+      "location": "`llm.py:145, 272`",
+      "reason": "URL duplicated with `config/llm.py:83`",
+      "priority": "P1"
+    },
+    {
+      "type": "hardcoded",
+      "item": "`\"https://api.deepseek.com\"`",
+      "location": "`llm.py:199, 316`",
+      "reason": "URL duplicated with `config/llm.py:84`",
+      "priority": "P1"
+    },
+    {
+      "type": "hardcoded",
+      "item": "`max_tokens=4096` (anthropic)",
+      "location": "`llm.py:133`",
+      "reason": "Should read from `settings.llm.max_tokens`",
+      "priority": "P1"
+    },
+    {
+      "type": "hardcoded",
+      "item": "`max_tokens=16384` (nvidia)",
+      "location": "`llm.py:176, 298`",
+      "reason": "Should read from `settings.llm.nvidia_max_tokens`",
+      "priority": "P1"
+    },
+    {
+      "type": "hardcoded",
+      "item": "`timeout=120.0` (anthropic, raw)",
+      "location": "`llm.py:130, 260`",
+      "reason": "Should read from `settings.llm.timeout_seconds`",
+      "priority": "P1"
+    },
+    {
+      "type": "hardcoded",
+      "item": "`hours=6` (ghost interval)",
+      "location": "`main.py:112`",
+      "reason": "Should read from `settings.app.ghost_mode.interval_hours`",
+      "priority": "P1"
+    },
+    {
+      "type": "hardcoded",
+      "item": "Secret diagnostic key list",
+      "location": "`main.py:88-94`",
+      "reason": "5 secret tuples baked inline; should be driven from config",
+      "priority": "P1"
+    },
+    {
+      "type": "hardcoded",
+      "item": "`min_quality=60`, `target_level=\"beginner\"`",
+      "location": "`mcp_server.py:65-66`",
+      "reason": "Defaults should come from scoring/scraping settings",
+      "priority": "P1"
+    },
+    {
+      "type": "stale",
+      "item": "Backward-compat re-exports",
+      "location": "`main.py:183-189`",
+      "reason": "Comment says \"remove after test imports updated\"",
+      "priority": "P2"
+    },
+    {
+      "type": "coupled",
+      "item": "`TOOLS` / `TOOL_DEFINITIONS` manual sync",
+      "location": "`mcp_server.py:88-136`",
+      "reason": "Handler dict and schema list must be updated in lockstep; easy to drift",
+      "priority": "P2"
+    },
+    {
+      "type": "coupled",
+      "item": "Monolithic if/elif in `call_llm` / `call_raw`",
+      "location": "`llm.py:117-348`",
+      "reason": "17 providers in a single function; every new provider touches both functions",
+      "priority": "P2"
+    },
+    {
+      "type": "suspect",
+      "item": "`enrich()` \u2014 no callers found in unit",
+      "location": "`log_context.py:87`",
+      "reason": "Defined with clear purpose but no known callers in scope",
+      "priority": "P2"
+    },
+    {
+      "type": "suspect",
+      "item": "`os` import in `llm.py`",
+      "location": "`llm.py:1`",
+      "reason": "Only used inside `_provider_base_url` for `os.environ.get`",
+      "priority": "P2"
+    },
+    {
+      "type": "suspect",
+      "item": "`get_logger` imported but unused in `main.py`",
+      "location": "`main.py:51`",
+      "reason": "`_log` comes from `core.config_constants`, not from calling `get_logger` locally",
+      "priority": "P2"
+    },
+    {
+      "type": "suspect",
+      "item": "No stdin read size limit in MCP main loop",
+      "location": "`mcp_server.py:173`",
+      "reason": "Unbounded `sys.stdin.readline` could exhaust memory on large payload",
+      "priority": "P2"
+    },
+    {
+      "type": "clean",
+      "item": "`_bind_port`, `_validate_config`, middleware",
+      "location": "`main.py:18-170`",
+      "reason": "Well-scoped, correct, solves real TOCTOU problem",
+      "priority": "P3"
+    },
+    {
+      "type": "clean",
+      "item": "`_resolve` priority chain",
+      "location": "`llm.py:40-79`",
+      "reason": "Clear 4-tier resolution, well-documented",
+      "priority": "P3"
+    },
+    {
+      "type": "clean",
+      "item": "`log_context.py` entire module",
+      "location": "`log_context.py:1-103`",
+      "reason": "Single-responsibility, well-typed, correct contextvar usage",
+      "priority": "P3"
+    },
+    {
+      "type": "clean",
+      "item": "`mcp_server.py` _handle dispatch",
+      "location": "`mcp_server.py:139-169`",
+      "reason": "Clean JSON-RPC 2.0 dispatch, good error wrapping",
+      "priority": "P3"
+    },
+    {
+      "type": "clean",
+      "item": "`get_logger` factory",
+      "location": "`logger.py:88-132`",
+      "reason": "Once-per-name, env-driven config, filter + file handler",
+      "priority": "P3"
+    }
+  ],
+  "flagCounts": {
+    "dead": 1,
+    "hardcoded": 10,
+    "coupled": 2,
+    "incomplete": 0,
+    "stale": 1,
+    "suspect": 4,
+    "clean": 5
+  },
+  "deps": {
+    "inbound": [
+      "Every agent module depends on `get_logger` from `logger.py` (30+ modules)",
+      "Agent modules depend on `call_llm`, `call_raw`, `resolve_config` from `llm.py`",
+      "`services/provider_probe.py` imports `_OPENAI_COMPAT_BASE_URLS` from `llm.py`",
+      "`routes/settings.py` imports `_KEY_NAMES`, `_OPENAI_COMPAT_BASE_URLS` from `llm.py`",
+      "`routes/leads.py`, `services/scout.py`, `services/ghost.py` depend on `log_context.py`",
+      "`services/ghost.py` lazy-imports `_fire_blocker` from `main.py`",
+      "All API tests import `app` from `main.py`",
+      "`test_mcp_server.py` imports `_handle` from `mcp_server.py`"
+    ],
+    "outbound": [
+      "`config/` \u2014 settings schemas for all 5 files (llm config, logging config, app config, etc.)",
+      "`core/config_constants` \u2014 `_API_TOKEN`, `_sched`, `_log`, `_LOCAL_ORIGIN_RE`, `_bearer`",
+      "`services/ghost` \u2014 `_ghost_tick` for scheduler",
+      "`routes/` \u2014 8 router modules",
+      "`db/client` \u2014 `get_setting` for LLM resolution and provider URL lookup",
+      "`agents/evaluator`, `agents/lead_intel`, `agents/quality_gate` \u2014 MCP tool implementations"
+    ]
+  },
+  "assessment": "### `backend/main.py`\n1. **Does this file need to exist?** Yes \u2014 it is the application entrypoint.\n2. **Does it do what it claims?** Yes \u2014 docstring accurately describes the dual-`__main__` bootstrap pattern.\n3. **Is it the right place for this logic?** Yes \u2014 entrypoint, middleware, and router registration belong here.\n4. **What would break if deleted?** The entire application \u2014 no FastAPI app, no server startup, no router registration, no auth middleware.\n\n### `backend/llm.py`\n1. **Does this file need to exist?** Yes \u2014 LLM provider abstraction is a core concern.\n2. **Does it do what it claims?** Partially \u2014 the docstring doesn't mention the URL/config duplication issue or the monolithic provider chain.\n3. **Is it the right place for this logic?** Mostly yes, but provider-specific client construction (`_client_nvidia`, `_client_gemini`) could live in a providers/ subpackage if the provider count grows further.\n4. **What would break if deleted?** Every agent that calls `call_llm` or `call_raw` (~10 modules), plus `services/provider_probe.py` and `routes/settings.py` that import `_OPENAI_COMPAT_BASE_URLS`.\n\n### `backend/mcp_server.py`\n1. **Does this file need to exist?** Yes \u2014 exposes LLM-agent tools via MCP protocol without SDK dependency.\n2. **Does it do what it claims?** Yes \u2014 implements initialize, tools/list, tools/call correctly.\n3. **Is it the right place for this logic?** Yes \u2014 standalone protocol adapter, belongs as its own module.\n4. **What would break if deleted?** MCP integration (external AI assistants that use JustHireMe tools) would be unavailable; `test_mcp_server.py` would fail. Application itself would still function.\n\n### `backend/logger.py`\n1. **Does this file need to exist?** Yes \u2014 centralized logging configuration.\n2. **Does it do what it claims?** Partially \u2014 claims `ContextFormatter` enriches logs but never uses it; the enrichment happens via `CorrelationFilter` + standard Formatter instead.\n3. **Is it the right place for this logic?** Yes \u2014 logging setup belongs in its own module.\n4. **What would break if deleted?** Every module in the backend would lose its logger setup \u2014 ~30 modules would fail on `from logger import get_logger`.\n\n### `backend/log_context.py`\n1. **Does this file need to exist?** Yes \u2014 contextvar-based correlation propagation is a cross-cutting concern.\n2. **Does it do what it claims?** Yes \u2014 docstring accurately describes thread-safe async context propagation.\n3. **Is it the right place for this logic?** Yes \u2014 separated from logger.py to avoid circular imports (logger.py lazy-imports `get_context`).\n4. **What would break if deleted?** `logger.py` (lazy import), `main.py` (middleware), `services/scout.py`, `services/ghost.py`, `routes/leads.py` \u2014 all depend on context functions."
+}

@@ -1,0 +1,1050 @@
+[
+  {
+    "name": "Scan",
+    "steps": [
+      {
+        "step": 1,
+        "participant": "HTTP route",
+        "file": "`routes/scan.py:scan()`",
+        "action": "Calls `scanner.scan_manager.start_scan()`"
+      },
+      {
+        "step": 2,
+        "participant": "State machine",
+        "file": "`services/scanner.py:ScanManager.start_scan()`",
+        "action": "Acquires lock, spawns `_run_scan_task()`"
+      },
+      {
+        "step": 3,
+        "participant": "Scan pipeline",
+        "file": "`services/scanner.py:_run_scan()`",
+        "action": "Resolves targets, runs X scan, free-source scan, query gen, scout, LLM eval"
+      },
+      {
+        "step": 5,
+        "participant": "Scout runner",
+        "file": "`agents/scout.py:run()`",
+        "action": "Orchestrates scraping across targets (RSS, HN, APIs, Playwright crawl), LLM extraction, dedup, quality gate, save"
+      },
+      {
+        "step": 6,
+        "participant": "Quality gate",
+        "file": "`agents/quality_gate.py:evaluate_lead_quality()`",
+        "action": "Deterministic freshness/seniority/red-flag check per lead"
+      },
+      {
+        "step": 7,
+        "participant": "LLM evaluation",
+        "file": "`agents/evaluator.py:score()`",
+        "action": "Scores each lead 0-100 against candidate profile; LLM-led or deterministic"
+      },
+      {
+        "step": 8,
+        "participant": "DB persistence",
+        "file": "`db/client:save_lead()`, `update_lead_score()`",
+        "action": "SQLite INSERT/UPDATE; LanceDB index; Kuzu graph entities"
+      },
+      {
+        "step": 9,
+        "participant": "Broadcast",
+        "file": "`core/ws_manager.py:_CM.broadcast()`",
+        "action": "Sends `{type, job_id, score, status, event}` to all WS clients"
+      }
+    ],
+    "flags": [
+      {
+        "type": "hardcoded",
+        "item": "HARDCODED",
+        "source": "`_MAX_AGE_DAYS = 7` freshness window",
+        "reason": "`scout.py:20`"
+      },
+      {
+        "type": "hardcoded",
+        "item": "HARDCODED",
+        "source": "ATS API URLs (Greenhouse, Lever, Ashby, Workable)",
+        "reason": "`free_scout.py:260-344`"
+      },
+      {
+        "type": "hardcoded",
+        "item": "HARDCODED",
+        "source": "HN Algolia API URLs + 35-day search window",
+        "reason": "`scout.py:870-892`"
+      },
+      {
+        "type": "hardcoded",
+        "item": "HARDCODED",
+        "source": "X API base URL + default queries",
+        "reason": "`x_scout.py:19,23-27`"
+      },
+      {
+        "type": "hardcoded",
+        "item": "HARDCODED",
+        "source": "Seniority term taxonomies",
+        "reason": "`scout.py:35-64`"
+      },
+      {
+        "type": "hardcoded",
+        "item": "HARDCODED",
+        "source": "Quality gate red-flag / seniority lists",
+        "reason": "`quality_gate.py:22-59`"
+      },
+      {
+        "type": "hardcoded",
+        "item": "HARDCODED",
+        "source": "Google URL template `tbs=qdr:w`",
+        "reason": "`scout.py`"
+      },
+      {
+        "type": "hardcoded",
+        "item": "HARDCODED",
+        "source": "Multiple `timeout=30` in HTTP clients",
+        "reason": "`free_scout.py`, `scout.py`"
+      },
+      {
+        "type": "coupled",
+        "item": "COUPLED",
+        "source": "`free_scout.py` imports 5 private functions from `scout.py`",
+        "reason": "`free_scout.py:26`"
+      },
+      {
+        "type": "coupled",
+        "item": "COUPLED",
+        "source": "`x_scout.py` lazy-imports `scout.classify_job_seniority`",
+        "reason": "`x_scout.py:345`"
+      },
+      {
+        "type": "suspect",
+        "item": "SUSPECT",
+        "source": "Duplicate date parsers (`scout.py` vs `quality_gate.py`)",
+        "reason": "Both files"
+      },
+      {
+        "type": "suspect",
+        "item": "SUSPECT",
+        "source": "`scanner.py:_run_scan()` duplicates `_job_eval_document` inline",
+        "reason": "`scanner.py:340-346`"
+      },
+      {
+        "type": "suspect",
+        "item": "SUSPECT",
+        "source": "`kind_filter` param overwritten to `\"job\"` unconditionally",
+        "reason": "`scout.py:47,109`"
+      }
+    ]
+  },
+  {
+    "name": "Ghost Mode",
+    "steps": [
+      {
+        "step": 1,
+        "participant": "Scheduler start",
+        "file": "`main.py:lifespan`",
+        "action": "`_sched.add_job(_ghost_tick, \"interval\", hours=6)`"
+      },
+      {
+        "step": 2,
+        "participant": "Tick function",
+        "file": "`services/ghost.py:_ghost_tick()`",
+        "action": "Try-acquire `scan_manager._ghost_lock`, run `GhostService.run()`"
+      },
+      {
+        "step": 3,
+        "participant": "Phase 1: Preflight",
+        "file": "`GhostService._phase_preflight()`",
+        "action": "Check ghost enabled, resolve targets, has X token, free sources enabled"
+      },
+      {
+        "step": 4,
+        "participant": "Phase 2: X scan",
+        "file": "`GhostService._phase_x_scan()`",
+        "action": "Calls `services/scout._run_x_signal_scan()`"
+      },
+      {
+        "step": 5,
+        "participant": "Phase 3: Free scan",
+        "file": "`GhostService._phase_free_scan()`",
+        "action": "Calls `services/scout._run_free_source_scan()`"
+      },
+      {
+        "step": 6,
+        "participant": "Phase 4: Scout",
+        "file": "`GhostService._phase_scout()`",
+        "action": "Generates queries via `query_gen.generate()`, runs `scout.run()`"
+      },
+      {
+        "step": 7,
+        "participant": "Phase 5: Eval",
+        "file": "`GhostService._phase_eval()`",
+        "action": "Scores discovered leads via `evaluator.score()`, filters \u226585"
+      },
+      {
+        "step": 8,
+        "participant": "Phase 6: Gen",
+        "file": "`GhostService._phase_gen()`",
+        "action": "Runs `generator.run_package()` for approved leads"
+      },
+      {
+        "step": 9,
+        "participant": "Phase 7: Apply",
+        "file": "`GhostService._phase_apply()`",
+        "action": "If auto-apply enabled, runs `actuator.run()` via `_fire_blocker`"
+      },
+      {
+        "step": 10,
+        "participant": "Broadcast",
+        "file": "`core/ws_manager.py:_CM.broadcast()`",
+        "action": "Each phase broadcasts progress events"
+      }
+    ],
+    "flags": [
+      {
+        "type": "hardcoded",
+        "item": "HARDCODED",
+        "source": "Ghost interval `hours=6`",
+        "reason": "`main.py:112` \u2014 should read `settings.app.ghost_mode.interval_hours`"
+      },
+      {
+        "type": "coupled",
+        "item": "COUPLED",
+        "source": "`scan_manager._ghost_lock` accessed directly (private attr)",
+        "reason": "`ghost.py:268`"
+      },
+      {
+        "type": "coupled",
+        "item": "COUPLED",
+        "source": "`_fire_blocker` imported from `main.py` (circular workaround)",
+        "reason": "`ghost.py:243`"
+      }
+    ]
+  },
+  {
+    "name": "Ingest",
+    "steps": [
+      {
+        "step": 1,
+        "participant": "HTTP route",
+        "file": "`routes/ingest.py:ingest()`",
+        "action": "Accepts raw text or PDF upload"
+      },
+      {
+        "step": 2,
+        "participant": "Ingest agent",
+        "file": "`agents/ingestor.py:ingest()`",
+        "action": "Calls `_pdf()` if PDF, then `run()`"
+      },
+      {
+        "step": 3,
+        "participant": "Extraction",
+        "file": "`agents/ingestor.py:run()`",
+        "action": "LLM extraction first (via `call_llm`), fallback to `_parse_local()`"
+      },
+      {
+        "step": 4,
+        "participant": "Graph write",
+        "file": "`agents/ingestor.py:_graph(p)`",
+        "action": "Creates Kuzu nodes (Candidate, Skill, Experience, Project, Education, Certification, Achievement) and relationships"
+      },
+      {
+        "step": 5,
+        "participant": "Vector write",
+        "file": "`agents/ingestor.py:_vectors(p)`",
+        "action": "Embeds skills + projects via `_emb()`, writes to LanceDB"
+      },
+      {
+        "step": 6,
+        "participant": "Snapshot refresh",
+        "file": "`db/client:refresh_profile_snapshot()`",
+        "action": "Re-reads Kuzu graph into SQLite settings snapshot"
+      },
+      {
+        "step": 7,
+        "participant": "Broadcast",
+        "file": "`core/ws_manager.py:_CM.broadcast()`",
+        "action": "Sends ingest-complete event"
+      }
+    ],
+    "flags": [
+      {
+        "type": "hardcoded",
+        "item": "HARDCODED",
+        "source": "SentenceTransformer model `\"all-MiniLM-L6-v2\"`",
+        "reason": "`ingestor.py:32`"
+      },
+      {
+        "type": "suspect",
+        "item": "SUSPECT",
+        "source": "Thread-safety race on `_st` in `_emb()`",
+        "reason": "`ingestor.py:23-45`"
+      },
+      {
+        "type": "suspect",
+        "item": "SUSPECT",
+        "source": "Kuzu connections not explicitly closed",
+        "reason": "`ingestor.py:66-67`"
+      },
+      {
+        "type": "coupled",
+        "item": "COUPLED",
+        "source": "`_emb()` imported by `db/client.py` and `agents/semantic.py`",
+        "reason": "Reverse dependency"
+      }
+    ]
+  },
+  {
+    "name": "Application Fire",
+    "steps": [
+      {
+        "step": 1,
+        "participant": "HTTP route",
+        "file": "`routes/actions.py:fire()`",
+        "action": "Checks blockers via `_fire_blocker()`, schedules `_actuate()` in background"
+      },
+      {
+        "step": 2,
+        "participant": "Fire blocker",
+        "file": "`services/generator.py:_fire_blocker()`",
+        "action": "Validates lead exists, not applied, has URL, assets exist"
+      },
+      {
+        "step": 3,
+        "participant": "Actuation",
+        "file": "`services/generator.py:_actuate()`",
+        "action": "Fetches `get_lead_for_fire()`, calls `agents.actuator.run()`"
+      },
+      {
+        "step": 4,
+        "participant": "Browser automation",
+        "file": "`agents/actuator.py:run()`",
+        "action": "Launches Playwright via `launch_chromium()`, fills DOM fields, falls back to vision-based fill, finds submit button, optionally submits"
+      },
+      {
+        "step": 5,
+        "participant": "DB update",
+        "file": "`db/client:mark_applied()`",
+        "action": "Sets lead status to `\"applied\"`, records event"
+      },
+      {
+        "step": 6,
+        "participant": "Broadcast",
+        "file": "`core/ws_manager.py:_CM.broadcast()`",
+        "action": "Sends fire-complete event"
+      }
+    ],
+    "flags": [
+      {
+        "type": "hardcoded",
+        "item": "HARDCODED",
+        "source": "`_DOM_MAP` selectors (18 CSS pairs)",
+        "reason": "`actuator.py:144-162`"
+      },
+      {
+        "type": "hardcoded",
+        "item": "HARDCODED",
+        "source": "`_FILL_DELAY = 500`, submit selectors",
+        "reason": "`actuator.py:164,346-353`"
+      },
+      {
+        "type": "hardcoded",
+        "item": "HARDCODED",
+        "source": "Provider base URLs (Groq, NVIDIA, Ollama)",
+        "reason": "`actuator.py:268-273`"
+      },
+      {
+        "type": "coupled",
+        "item": "COUPLED",
+        "source": "`asyncio.run()` in `actuator.run()` may conflict with running loop",
+        "reason": "`actuator.py:454`"
+      },
+      {
+        "type": "suspect",
+        "item": "SUSPECT",
+        "source": "Cover letter silently truncated to 1500 chars in vision context",
+        "reason": "`actuator.py:330`"
+      }
+    ]
+  },
+  {
+    "name": "Settings",
+    "steps": [
+      {
+        "step": 1,
+        "participant": "HTTP route (GET)",
+        "file": "`routes/settings.py:get_cfg()`",
+        "action": "Reads all settings via `get_settings()`, masks sensitive keys via `_sensitive()`"
+      },
+      {
+        "step": 2,
+        "participant": "HTTP route (POST)",
+        "file": "`routes/settings.py:save_cfg()`",
+        "action": "Merges with existing (preserving masked values), calls `save_settings()`, probes key deprecation, restarts ghost scheduler if `ghost_mode=true`"
+      },
+      {
+        "step": 3,
+        "participant": "Key validation",
+        "file": "`routes/settings.py:validate_settings()`",
+        "action": "Probes each configured provider via `_probe_provider_key()`"
+      },
+      {
+        "step": 4,
+        "participant": "Provider probe",
+        "file": "`services/provider_probe.py:_probe_provider_key()`",
+        "action": "Sends cheapest-possible request to each provider, returns `{status, latency_ms}`"
+      },
+      {
+        "step": 5,
+        "participant": "DB persistence",
+        "file": "`db/client:get_settings()` / `save_settings()`",
+        "action": "SQLite key-value store (all values stored as `str`)"
+      }
+    ],
+    "flags": [
+      {
+        "type": "hardcoded",
+        "item": "HARDCODED",
+        "source": "Provider list in `validate_settings`",
+        "reason": "`settings.py:50` \u2014 duplicates `llm.py`"
+      },
+      {
+        "type": "hardcoded",
+        "item": "HARDCODED",
+        "source": "Anthropic model `\"claude-haiku-4-5-20251001\"` in probe",
+        "reason": "`provider_probe.py:46`"
+      },
+      {
+        "type": "hardcoded",
+        "item": "HARDCODED",
+        "source": "Probe timeout `5.0s`",
+        "reason": "`provider_probe.py:35`"
+      },
+      {
+        "type": "incomplete",
+        "item": "INCOMPLETE",
+        "source": "Ghost interval `hours=6` hardcoded, not from config",
+        "reason": "`settings.py:95`"
+      },
+      {
+        "type": "coupled",
+        "item": "COUPLED",
+        "source": "6 imports of private (`_`) names from services",
+        "reason": "`settings.py:12-14`"
+      },
+      {
+        "type": "coupled",
+        "item": "COUPLED",
+        "source": "Settings CRUD in SQLite duplicates Pydantic config layer",
+        "reason": "`backend-db map`"
+      }
+    ]
+  },
+  {
+    "name": "WebSocket",
+    "steps": [
+      {
+        "step": 1,
+        "participant": "WS route",
+        "file": "`routes/ws.py:ws_endpoint()`",
+        "action": "Calls `_require_ws_token()`, accepts connection"
+      },
+      {
+        "step": 2,
+        "participant": "Auth guard",
+        "file": "`routes/ws.py:_require_ws_token()`",
+        "action": "Checks query param or Bearer header against `_API_TOKEN`"
+      },
+      {
+        "step": 3,
+        "participant": "Connection manager",
+        "file": "`core/ws_manager.py:_CM.add()`",
+        "action": "Registers WebSocket in thread-safe set"
+      },
+      {
+        "step": 4,
+        "participant": "Heartbeat loop",
+        "file": "`routes/ws.py:ws_endpoint()`",
+        "action": "Sends uptime/timestamp JSON every 2s"
+      },
+      {
+        "step": 5,
+        "participant": "Agent broadcast",
+        "file": "`core/ws_manager.py:_CM.broadcast()`",
+        "action": "Called by all agents: sends JSON to all connected clients, dead connections removed"
+      },
+      {
+        "step": 6,
+        "participant": "Event persistence",
+        "file": "`core/ws_manager.py:_CM.broadcast()`",
+        "action": "Calls `db/client:record_event()` via `asyncio.to_thread`"
+      },
+      {
+        "step": 7,
+        "participant": "Disconnect",
+        "file": "`routes/ws.py:ws_endpoint()`",
+        "action": "`cm.remove()` on disconnect or error"
+      }
+    ],
+    "flags": [
+      {
+        "type": "hardcoded",
+        "item": "HARDCODED",
+        "source": "Heartbeat interval 2.0s",
+        "reason": "`ws.py:49`"
+      },
+      {
+        "type": "coupled",
+        "item": "COUPLED",
+        "source": "`_CM.broadcast()` lazy-imports `db.client.record_event`",
+        "reason": "`ws_manager.py:72`"
+      },
+      {
+        "type": "suspect",
+        "item": "SUSPECT",
+        "source": "Post-startup sidecar stdout silently dropped",
+        "reason": "`tauri:lib.rs:355-371`"
+      }
+    ]
+  },
+  {
+    "name": "Reevaluation",
+    "steps": [
+      {
+        "step": 1,
+        "participant": "HTTP route",
+        "file": "`routes/scan.py:reevaluate_jobs()`",
+        "action": "Calls `scanner.scan_manager.start_reevaluate()`"
+      },
+      {
+        "step": 2,
+        "participant": "State machine",
+        "file": "`services/scanner.py:ScanManager.start_reevaluate()`",
+        "action": "Acquires lock, spawns `_run_reevaluate_jobs_task()`"
+      },
+      {
+        "step": 3,
+        "participant": "Reevaluation loop",
+        "file": "`services/scanner.py:_run_reevaluate_jobs()`",
+        "action": "Iterates `get_job_leads_for_evaluation()`, preserves terminal statuses via `_should_preserve_job_status()`"
+      },
+      {
+        "step": 4,
+        "participant": "Scoring",
+        "file": "`agents/evaluator.py:score()`",
+        "action": "Scores each lead 0-100"
+      },
+      {
+        "step": 5,
+        "participant": "DB update",
+        "file": "`db/client:update_lead_score()`",
+        "action": "Updates score, reason, match_points, gaps"
+      },
+      {
+        "step": 6,
+        "participant": "Broadcast",
+        "file": "`core/ws_manager.py:_CM.broadcast()`",
+        "action": "Per-lead score update events + `reevaluate-done` at end"
+      }
+    ],
+    "flags": [
+      {
+        "type": "hardcoded",
+        "item": "HARDCODED",
+        "source": "Score threshold `76` for \"matched\"/\"tailoring\"",
+        "reason": "`db/client:378,380`"
+      },
+      {
+        "type": "hardcoded",
+        "item": "HARDCODED",
+        "source": "Status lock set baked in",
+        "reason": "`scanner.py` `_REEVALUATION_STATUS_LOCKS`"
+      },
+      {
+        "type": "suspect",
+        "item": "SUSPECT",
+        "source": "`_should_preserve_job_status` logic duplicates inline in `_run_scan`",
+        "reason": "`scanner.py`"
+      }
+    ]
+  },
+  {
+    "name": "Help/Chat",
+    "steps": [
+      {
+        "step": 1,
+        "participant": "HTTP route",
+        "file": "`routes/misc.py:help_chat()`",
+        "action": "Receives `HelpChatBody` with question + history"
+      },
+      {
+        "step": 2,
+        "participant": "Route collision",
+        "file": "`routes/scan.py:help_chat()`",
+        "action": "**Duplicate route** \u2014 scan.py shadows misc.py's handler due to registration order"
+      },
+      {
+        "step": 3,
+        "participant": "Help agent",
+        "file": "`agents/help_agent.py:answer()`",
+        "action": "Classifies topic via `_topic()`, either returns `_fallback()` or calls LLM via `call_raw()`"
+      },
+      {
+        "step": 4,
+        "participant": "Fallback",
+        "file": "`agents/help_agent.py:_fallback()`",
+        "action": "Deterministic answer for providers/sources/customize/workflow/install topics"
+      },
+      {
+        "step": 5,
+        "participant": "LLM path",
+        "file": "`agents/help_agent.py:answer()`",
+        "action": "Calls `call_raw()` with focused knowledge context via `_focused_knowledge()`"
+      },
+      {
+        "step": 6,
+        "participant": "Response",
+        "file": "Returns `{\"answer\": str}`",
+        "action": ""
+      }
+    ],
+    "flags": [
+      {
+        "type": "coupled",
+        "item": "COUPLED",
+        "source": "Duplicate `help_chat` route (scan.py shadows misc.py)",
+        "reason": "`misc.py:132` + `scan.py:112`"
+      },
+      {
+        "type": "stale",
+        "item": "STALE",
+        "source": "`_USER_GUIDE` India market section baked in",
+        "reason": "`help_agent.py:75,209`"
+      },
+      {
+        "type": "stale",
+        "item": "STALE",
+        "source": "`_PROVIDER_GUIDE` model names will go stale",
+        "reason": "`help_agent.py:177-194`"
+      },
+      {
+        "type": "hardcoded",
+        "item": "HARDCODED",
+        "source": "Model names in `_fallback` (grok-4, kimi-k2-turbo-preview, etc.)",
+        "reason": "`help_agent.py:362-370`"
+      }
+    ]
+  },
+  {
+    "name": "Job Targets CRUD",
+    "steps": [
+      {
+        "step": 1,
+        "participant": "HTTP route (GET)",
+        "file": "`routes/settings.py:get_job_targets_endpoint()`",
+        "action": "Returns current targets + blocked markers"
+      },
+      {
+        "step": 2,
+        "participant": "HTTP route (PUT)",
+        "file": "`routes/settings.py:update_job_targets()`",
+        "action": "Validates via `validate_job_targets()` + `validate_blocked_markers()`, saves via `save_job_targets()`"
+      },
+      {
+        "step": 3,
+        "participant": "HTTP route (DELETE)",
+        "file": "`routes/settings.py:clear_job_targets()`",
+        "action": "Saves empty lists via `save_job_targets()`"
+      },
+      {
+        "step": 4,
+        "participant": "Validation",
+        "file": "`services/job_targets.py:validate_job_targets()`",
+        "action": "Checks format (URL, `site:`, `github:`, `hn:`, `reddit:`, named sources), limits 100 entries, 500 chars each"
+      },
+      {
+        "step": 5,
+        "participant": "Persistence",
+        "file": "`services/job_targets.py:save_job_targets()`",
+        "action": "JSON-serializes and stores via `db.client:save_settings()`"
+      }
+    ],
+    "flags": [
+      {
+        "type": "hardcoded",
+        "item": "HARDCODED",
+        "source": "Validation limits (100 entries, 500 chars)",
+        "reason": "`job_targets.py:213-225`"
+      },
+      {
+        "type": "clean",
+        "item": "CLEAN",
+        "source": "Well-scoped, tested via `test_regressions.py`",
+        "reason": "`job_targets.py`"
+      }
+    ]
+  },
+  {
+    "name": "Health Check",
+    "steps": [
+      {
+        "step": 1,
+        "participant": "HTTP route",
+        "file": "`routes/misc.py:health()`",
+        "action": "No auth middleware applied (exempted in `main.py:162`)"
+      },
+      {
+        "step": 2,
+        "participant": "Browser probe",
+        "file": "`checks chromium_executable()`",
+        "action": "Calls `browser_runtime.chromium_executable()` for binary path"
+      },
+      {
+        "step": 3,
+        "participant": "DB probe",
+        "file": "`checks get_settings()`",
+        "action": "Reads one row from SQLite settings table"
+      },
+      {
+        "step": 4,
+        "participant": "Connection probe",
+        "file": "`checks get_sql_connection()`",
+        "action": "Opens SQLite connection"
+      },
+      {
+        "step": 5,
+        "participant": "Provider info",
+        "file": "`_configured_api_providers()`",
+        "action": "Lists providers with configured keys"
+      },
+      {
+        "step": 6,
+        "participant": "Response",
+        "file": "Returns `HealthResponse`",
+        "action": "Includes uptime, timestamp, log level, dependency status dict"
+      }
+    ],
+    "flags": [
+      {
+        "type": "clean",
+        "item": "CLEAN",
+        "source": "Well-scoped, single-responsibility",
+        "reason": "`routes/misc.py:385`"
+      },
+      {
+        "type": "suspect",
+        "item": "SUSPECT",
+        "source": "`HTTPException` and `JSONResponse` unused imports in `misc.py`",
+        "reason": "`misc.py:9-10`"
+      }
+    ]
+  },
+  {
+    "name": "MCP",
+    "steps": [
+      {
+        "step": 1,
+        "participant": "stdin read loop",
+        "file": "`mcp_server.py:main()`",
+        "action": "Reads JSON-RPC requests line by line from stdin"
+      },
+      {
+        "step": 2,
+        "participant": "Dispatch",
+        "file": "`mcp_server.py:_handle()`",
+        "action": "Routes to initialize, tools/list, or tools/call"
+      },
+      {
+        "step": 3,
+        "participant": "Tool: score_job_fit",
+        "file": "`mcp_server.py:_score_job_fit()`",
+        "action": "Delegates to `agents.evaluator.score()`"
+      },
+      {
+        "step": 4,
+        "participant": "Tool: evaluate_lead_quality",
+        "file": "`mcp_server.py:_evaluate_lead()`",
+        "action": "Delegates to `agents.quality_gate.evaluate_lead_quality()`"
+      },
+      {
+        "step": 5,
+        "participant": "Tool: extract_lead_intel",
+        "file": "`mcp_server.py:_extract_lead_intel()`",
+        "action": "Delegates to 6 `agents.lead_intel.*` functions"
+      },
+      {
+        "step": 6,
+        "participant": "Response",
+        "file": "`stdout` write",
+        "action": "JSON-RPC response with `{jsonrpc, id, result}` or `{jsonrpc, id, error}`"
+      }
+    ],
+    "flags": [
+      {
+        "type": "hardcoded",
+        "item": "HARDCODED",
+        "source": "`min_quality=60`, `target_level=\"beginner\"` defaults",
+        "reason": "`mcp_server.py:65-66`"
+      },
+      {
+        "type": "coupled",
+        "item": "COUPLED",
+        "source": "`TOOLS` / `TOOL_DEFINITIONS` manual sync (easy to drift)",
+        "reason": "`mcp_server.py:88-136`"
+      },
+      {
+        "type": "suspect",
+        "item": "SUSPECT",
+        "source": "No stdin read size limit \u2014 OOM risk on large payload",
+        "reason": "`mcp_server.py:173`"
+      }
+    ]
+  },
+  {
+    "name": "Profile CRUD",
+    "steps": [
+      {
+        "step": 1,
+        "participant": "HTTP route",
+        "file": "`routes/profile.py:*_endpoint()`",
+        "action": "Validates request body against Pydantic schema"
+      },
+      {
+        "step": 2,
+        "participant": "Profile read",
+        "file": "`db/client:get_profile()`",
+        "action": "Tries Kuzu graph first \u2192 falls back to SQLite snapshot \u2192 empty"
+      },
+      {
+        "step": 3,
+        "participant": "Skill CRUD",
+        "file": "`db/client:add_skill()` / `update_skill()` / `delete_skill()`",
+        "action": "Kuzu node CREATE/MERGE/SET/DETACH DELETE + LanceDB vector add/delete + SQLite snapshot refresh"
+      },
+      {
+        "step": 4,
+        "participant": "Experience CRUD",
+        "file": "`db/client:add_experience()` / `update_experience()` / `delete_experience()`",
+        "action": "Kuzu nodes + relationships + snapshot refresh"
+      },
+      {
+        "step": 5,
+        "participant": "Project CRUD",
+        "file": "`db/client:add_project()` / `update_project()` / `delete_project()`",
+        "action": "Kuzu nodes + relationships + LanceDB vector + snapshot refresh"
+      },
+      {
+        "step": 6,
+        "participant": "Candidate edit",
+        "file": "`db/client:update_candidate()`",
+        "action": "Kuzu candidate node UPSERT + snapshot refresh"
+      }
+    ],
+    "flags": [
+      {
+        "type": "coupled",
+        "item": "COUPLED",
+        "source": "Kuzu CRUD functions create 2-3 new `Connection(db)` per call",
+        "reason": "`db/client`"
+      },
+      {
+        "type": "coupled",
+        "item": "COUPLED",
+        "source": "3-DB pattern in single functions (Kuzu + LanceDB + SQLite)",
+        "reason": "`db/client`"
+      },
+      {
+        "type": "suspect",
+        "item": "SUSPECT",
+        "source": "`update_skill()`, `delete_skill()`, `update_experience()`, `delete_experience()`, `update_project()`, `delete_project()` \u2014 no production callers found",
+        "reason": "`db/client`"
+      },
+      {
+        "type": "hardcoded",
+        "item": "HARDCODED",
+        "source": "All Kuzu table names, property names, relationship types",
+        "reason": "`db/client`"
+      },
+      {
+        "type": "clean",
+        "item": "CLEAN",
+        "source": "`get_profile()` fallback chain: graph \u2192 snapshot \u2192 empty",
+        "reason": "`db/client:1282`"
+      }
+    ]
+  },
+  {
+    "name": "Lead CRUD",
+    "steps": [
+      {
+        "step": 1,
+        "participant": "HTTP route (GET)",
+        "file": "`routes/leads.py:leads()`",
+        "action": "Queries `get_all_leads()`, annotates via `_annotate_job_lead()`, filters by seniority"
+      },
+      {
+        "step": 2,
+        "participant": "HTTP route (PUT status)",
+        "file": "`routes/leads.py:update_status()`",
+        "action": "Validates status via `StatusBody`, calls `update_lead_status()`, broadcasts"
+      },
+      {
+        "step": 3,
+        "participant": "HTTP route (PUT feedback)",
+        "file": "`routes/leads.py:update_feedback()`",
+        "action": "Calls `save_lead_feedback()`, broadcasts"
+      },
+      {
+        "step": 4,
+        "participant": "HTTP route (DELETE)",
+        "file": "`routes/leads.py:delete_lead_endpoint()`",
+        "action": "Calls `delete_lead()`"
+      },
+      {
+        "step": 5,
+        "participant": "Manual lead create",
+        "file": "`routes/leads.py:create_manual_lead()`",
+        "action": "Calls `manual_lead_from_text()` \u2192 `save_lead()` \u2192 `rank_lead_by_feedback()` \u2192 broadcast"
+      },
+      {
+        "step": 6,
+        "participant": "DB layer",
+        "file": "`db/client:*`",
+        "action": "SQLite CRUD with event logging"
+      },
+      {
+        "step": 7,
+        "participant": "Broadcast",
+        "file": "`core/ws_manager.py:_CM.broadcast()`",
+        "action": "Status/feedback/deletion events"
+      }
+    ],
+    "flags": [
+      {
+        "type": "hardcoded",
+        "item": "HARDCODED",
+        "source": "Seniority level strings duplicated",
+        "reason": "`leads.py:38,91-94`"
+      },
+      {
+        "type": "hardcoded",
+        "item": "HARDCODED",
+        "source": "Feedback-to-status mappings baked in",
+        "reason": "`db/client:1029-1037`"
+      },
+      {
+        "type": "hardcoded",
+        "item": "HARDCODED",
+        "source": "`\"job\"` kind filter",
+        "reason": "`leads.py:285`"
+      },
+      {
+        "type": "suspect",
+        "item": "SUSPECT",
+        "source": "`save_lead` call with 20+ kwargs",
+        "reason": "`leads.py:288-314`"
+      }
+    ]
+  },
+  {
+    "name": "Export",
+    "steps": [
+      {
+        "step": 1,
+        "participant": "HTTP route",
+        "file": "`routes/leads.py:export_leads_csv()`",
+        "action": "Calls `get_all_leads()`, formats as CSV"
+      },
+      {
+        "step": 2,
+        "participant": "DB read",
+        "file": "`db/client:get_all_leads()`",
+        "action": "Returns all leads ordered by created_at DESC"
+      },
+      {
+        "step": 3,
+        "participant": "Response",
+        "file": "`StreamingResponse`",
+        "action": "`text/csv` content-type with attachment filename"
+      }
+    ],
+    "flags": [
+      {
+        "type": "clean",
+        "item": "CLEAN",
+        "source": "Simple passthrough, no business logic in route",
+        "reason": "`routes/leads.py:265`"
+      }
+    ]
+  },
+  {
+    "name": "Graph Stats",
+    "steps": [
+      {
+        "step": 1,
+        "participant": "HTTP route",
+        "file": "`routes/misc.py:graph_stats()`",
+        "action": "Calls `graph_counts()`"
+      },
+      {
+        "step": 2,
+        "participant": "Kuzu query",
+        "file": "`db/client:graph_counts()`",
+        "action": "Runs 5 MATCH/RETURN count queries on Kuzu node tables"
+      },
+      {
+        "step": 3,
+        "participant": "Response",
+        "file": "`dict`",
+        "action": "Returns `{candidate: N, skill: N, project: N, experience: N, joblead: N}`"
+      }
+    ],
+    "flags": [
+      {
+        "type": "hardcoded",
+        "item": "HARDCODED",
+        "source": "5 node table names baked in",
+        "reason": "`db/client:graph_counts()`"
+      },
+      {
+        "type": "clean",
+        "item": "CLEAN",
+        "source": "Simple query, no side effects",
+        "reason": "`routes/misc.py:399`"
+      }
+    ]
+  },
+  {
+    "name": "Follow-up",
+    "steps": [
+      {
+        "step": 1,
+        "participant": "HTTP route",
+        "file": "`routes/leads.py:due_followups()`",
+        "action": "Calls `get_due_followups(limit)`"
+      },
+      {
+        "step": 2,
+        "participant": "DB query",
+        "file": "`db/client:get_due_followups()`",
+        "action": "Queries SQLite for leads where `followup_due <= now`, ordered by due date"
+      },
+      {
+        "step": 3,
+        "participant": "Response",
+        "file": "`list[dict]`",
+        "action": "Lead dicts with followup metadata"
+      }
+    ],
+    "flags": [
+      {
+        "type": "clean",
+        "item": "CLEAN",
+        "source": "Simple query, no business logic",
+        "reason": "`routes/leads.py:321`"
+      },
+      {
+        "type": "clean",
+        "item": "CLEAN",
+        "source": "Default limit 25, parameterized",
+        "reason": "`routes/leads.py:321`"
+      }
+    ]
+  }
+]

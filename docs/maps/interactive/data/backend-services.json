@@ -1,0 +1,158 @@
+{
+  "slug": "backend-services",
+  "name": "Services",
+  "group": "BACKEND",
+  "summary": "The `backend/services/` package is the orchestration layer between API routes (HTTP/WS) and agents (LLM-powered work). It owns scan lifecycle state (`ScanManager`), ghost-mode automation (`GhostService`), generation/actuation pipeline (`_generate_one`, `_actuate`, `_fire_blocker`), job target configuration CRUD and validation, LLM provider key health-checking (`_probe_provider_key`), and free-source / X signal scanning dispatch. It depends on `agents/`, `db.client`, `core.ws_manager`, `config`, and `log_context`. Route modules (`routes/scan.py`, `routes/settings.py`, `routes/actions.py`, `routes/leads.py`, `main.py`) import from it. It does NOT depend on any other service unit.\n\n---",
+  "fileCount": 7,
+  "files": [
+    {
+      "#": "1",
+      "File": "`services/__init__.py`",
+      "Lines": "0",
+      "Purpose": "Empty package init",
+      "Overall flag": "\ud83d\udfe2 CLEAN \u2014 empty, intentional"
+    },
+    {
+      "#": "2",
+      "File": "`services/generator.py`",
+      "Lines": "170",
+      "Purpose": "Resume/CL generation and application submission pipeline",
+      "Overall flag": "\ud83d\udfe3 COUPLED \u2014 imports `_fire_blocker` from `main` (circular-dodge import)"
+    },
+    {
+      "#": "3",
+      "File": "`services/ghost.py`",
+      "Lines": "275",
+      "Purpose": "Ghost mode automated lifecycle (7 phases)",
+      "Overall flag": "\ud83d\udfe3 COUPLED \u2014 imports `_fire_blocker` from `main`; accesses private `scan_manager._ghost_lock`"
+    },
+    {
+      "#": "4",
+      "File": "`services/job_targets.py`",
+      "Lines": "388",
+      "Purpose": "Job target CRUD, validation, profile enrichment, settings helpers",
+      "Overall flag": "\ud83d\udfe2 CLEAN \u2014 well-scoped, tested"
+    },
+    {
+      "#": "5",
+      "File": "`services/provider_probe.py`",
+      "Lines": "115",
+      "Purpose": "LLM provider API key health checking",
+      "Overall flag": "\ud83d\udfe2 CLEAN \u2014 single-purpose, tested"
+    },
+    {
+      "#": "6",
+      "File": "`services/scanner.py`",
+      "Lines": "358",
+      "Purpose": "Scan lifecycle state machine + scan/reevaluate pipelines",
+      "Overall flag": "\ud83d\udfe3 COUPLED \u2014 singleton `scan_manager` imported by ghost/scan routes; private attrs accessed externally"
+    },
+    {
+      "#": "7",
+      "File": "`services/scout.py`",
+      "Lines": "137",
+      "Purpose": "X/Twitter and free-source signal scanning dispatch",
+      "Overall flag": "\ud83d\udfe2 CLEAN \u2014 well-scoped, tested"
+    }
+  ],
+  "flags": [
+    {
+      "type": "hardcoded",
+      "item": "X query templates",
+      "location": "`job_targets.py:302-304`",
+      "reason": "Search query strings baked in; no config mechanism to customize",
+      "priority": "P1"
+    },
+    {
+      "type": "hardcoded",
+      "item": "Free source query templates",
+      "location": "`job_targets.py:281-285`",
+      "reason": "`github:`/`hn:`/`reddit:` templates baked in; no config mechanism",
+      "priority": "P1"
+    },
+    {
+      "type": "hardcoded",
+      "item": "Anthropic model name",
+      "location": "`provider_probe.py:46`",
+      "reason": "`\"claude-haiku-4-5-20251001\"` pinned to a dated version",
+      "priority": "P1"
+    },
+    {
+      "type": "hardcoded",
+      "item": "Probe timeout",
+      "location": "`provider_probe.py:35`",
+      "reason": "`httpx.Timeout(5.0)` should read from settings",
+      "priority": "P1"
+    },
+    {
+      "type": "coupled",
+      "item": "`_fire_blocker` circular import",
+      "location": "`ghost.py:243`",
+      "reason": "Imports from `main` to avoid `generator`\u2192`ghost` cycle; fragile",
+      "priority": "P1"
+    },
+    {
+      "type": "coupled",
+      "item": "`scan_manager._ghost_lock` direct access",
+      "location": "`ghost.py:268`",
+      "reason": "Accesses private `_ghost_lock` instead of a public method on ScanManager",
+      "priority": "P1"
+    },
+    {
+      "type": "suspect",
+      "item": "`_run_scan` duplicates `_job_eval_document`",
+      "location": "`scanner.py:340-346`",
+      "reason": "Inline job-doc formatting instead of calling the shared function at line 186",
+      "priority": "P2"
+    },
+    {
+      "type": "suspect",
+      "item": "`kind_filter` overwritten",
+      "location": "`scout.py:47,109`",
+      "reason": "Both `_run_x_signal_scan` and `_run_free_source_scan` overwrite the parameter to `\"job\"` unconditionally",
+      "priority": "P2"
+    },
+    {
+      "type": "suspect",
+      "item": "`_job_targets` unused `market_focus`",
+      "location": "`job_targets.py:169`",
+      "reason": "Parameter accepted but documented as unused",
+      "priority": "P2"
+    },
+    {
+      "type": "suspect",
+      "item": "`_profile_x_queries` unused `market_focus`",
+      "location": "`job_targets.py:288`",
+      "reason": "Parameter accepted but documented as unused",
+      "priority": "P2"
+    },
+    {
+      "type": "suspect",
+      "item": "Raw SQL in `_generate_one`",
+      "location": "`generator.py:101-106`",
+      "reason": "Bypasses `db.client` abstraction for outreach fields update",
+      "priority": "P2"
+    },
+    {
+      "type": "clean",
+      "item": "All items not flagged above",
+      "location": "\u2014",
+      "reason": "See per-function flags above",
+      "priority": "P3"
+    }
+  ],
+  "flagCounts": {
+    "dead": 0,
+    "hardcoded": 4,
+    "coupled": 2,
+    "incomplete": 0,
+    "stale": 0,
+    "suspect": 5,
+    "clean": 1
+  },
+  "deps": {
+    "inbound": [],
+    "outbound": []
+  },
+  "assessment": "### `services/__init__.py`\n1. **Does this file need to exist?** Yes \u2014 empty `__init__.py` makes `services` a package.\n2. **Does it do what it claims?** Yes \u2014 it's empty.\n3. **Is it the right place?** Yes.\n4. **What would break if deleted?** All `from services.* import` statements would fail.\n\n### `services/generator.py`\n1. **Does this file need to exist?** Yes \u2014 owns generation and actuation orchestration.\n2. **Does it do what it claims?** Yes \u2014 title matches: \"generation with fire blocking\".\n3. **Is it the right place for this logic?** Partially \u2014 `_fire_blocker` being re-imported from `main.py` in `ghost.py` indicates an ownership ambiguity.\n4. **What would break if deleted?** `routes/actions.py` submit/actuate endpoints, `routes/leads.py` generation route, `main.py` startup registration.\n\n### `services/ghost.py`\n1. **Does this file need to exist?** Yes \u2014 central to the ghost-mode automation feature.\n2. **Does it do what it claims?** Yes \u2014 orchestrates the 7-phase ghost pipeline.\n3. **Is it the right place for this logic?** Yes \u2014 service layer is appropriate.\n4. **What would break if deleted?** `_ghost_tick` scheduler in `main.py`, settings ghost trigger in `routes/settings.py`.\n\n### `services/job_targets.py`\n1. **Does this file need to exist?** Yes \u2014 consolidates all job-target config logic.\n2. **Does it do what it claims?** Yes \u2014 name matches: target resolution, settings accessors, validation.\n3. **Is it the right place for this logic?** Yes \u2014 these are service-level operations.\n4. **What would break if deleted?** All scan/ghost pipelines (no targets to scan), settings CRUD for targets.\n\n### `services/provider_probe.py`\n1. **Does this file need to exist?** Yes \u2014 provides API key health checking for provider config.\n2. **Does it do what it claims?** Yes \u2014 title matches: \"LLM provider API key health checking\".\n3. **Is it the right place for this logic?** Yes \u2014 it is a lightweight service function.\n4. **What would break if deleted?** Provider key validation in settings route would be missing.\n\n### `services/scanner.py`\n1. **Does this file need to exist?** Yes \u2014 owns scan lifecycle state machine and pipelines.\n2. **Does it do what it claims?** Yes \u2014 title matches: \"Scan orchestration and state management\".\n3. **Is it the right place for this logic?** Yes \u2014 service layer is appropriate.\n4. **What would break if deleted?** All scan/reevaluate API endpoints in `routes/scan.py`, ghost mode's lock coordination, `_ghost_tick` in `main.py`.\n\n### `services/scout.py`\n1. **Does this file need to exist?** Yes \u2014 provides the two signal-scan entry points.\n2. **Does it do what it claims?** Yes \u2014 title matches: \"X/Twitter and free source signal scanning\".\n3. **Is it the right place for this logic?** Yes \u2014 service layer dispatch is appropriate; agent-level logic stays in `agents/`.\n4. **What would break if deleted?** Scan and ghost pipelines would lose X/free-source scanning."
+}

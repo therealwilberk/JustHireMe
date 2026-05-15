@@ -1,0 +1,105 @@
+{
+  "slug": "frontend-core",
+  "name": "Core",
+  "group": "FRONTEND",
+  "summary": "The frontend-core unit is the application shell. It owns the React entry point (`main.tsx`), the root `App` component that wires together every view, all shared TypeScript types (`types.ts`), the settings modal (`SettingsModal.tsx`), and the entire design system (`index.css`). It depends on every view, component, and hook module. Every frontend unit depends on `types.ts` for its type definitions.\n\n---",
+  "fileCount": 5,
+  "files": [
+    {
+      "#": "1",
+      "File": "`src/App.tsx`",
+      "Lines": "320",
+      "Purpose": "Root component \u2014 state orchestration, conditional view rendering, modals, keyboard shortcuts",
+      "Overall flag": "\ud83d\udfe2"
+    },
+    {
+      "#": "2",
+      "File": "`src/main.tsx`",
+      "Lines": "34",
+      "Purpose": "React entry point \u2014 mounts `<App />` into DOM with fatal-error fallback",
+      "Overall flag": "\ud83d\udfe2"
+    },
+    {
+      "#": "3",
+      "File": "`src/types.ts`",
+      "Lines": "84",
+      "Purpose": "Shared TypeScript type definitions used across all frontend modules",
+      "Overall flag": "\ud83d\udfe2"
+    },
+    {
+      "#": "4",
+      "File": "`src/SettingsModal.tsx`",
+      "Lines": "85",
+      "Purpose": "Settings modal dialog \u2014 fetch/save config, sub-panel composition",
+      "Overall flag": "\ud83d\udfe2"
+    },
+    {
+      "#": "5",
+      "File": "`src/index.css`",
+      "Lines": "2790",
+      "Purpose": "Global styles \u2014 Tailwind import, design tokens, component classes, responsive breakpoints",
+      "Overall flag": "\ud83d\udfe2"
+    }
+  ],
+  "flags": [
+    {
+      "type": "suspect",
+      "item": "macOS-specific copy",
+      "location": "`App.tsx:274`",
+      "reason": "\"On macOS, use Privacy & Security...\" \u2014 platform-specific instruction in cross-platform app",
+      "priority": "P2"
+    },
+    {
+      "type": "suspect",
+      "item": "GET errors silently swallowed",
+      "location": "`SettingsModal.tsx:22`",
+      "reason": "`.catch(() => {})` on settings fetch \u2014 user sees no feedback if load fails",
+      "priority": "P2"
+    },
+    {
+      "type": "suspect",
+      "item": "Narrow event typing",
+      "location": "`SettingsModal.tsx:26`",
+      "reason": "`set` typed for `ChangeEvent<HTMLInputElement \\",
+      "priority": "P3"
+    },
+    {
+      "type": "clean",
+      "item": "Duplicate CSS selectors",
+      "location": "`index.css:1546+2143`",
+      "reason": "Later declarations override earlier ones (profile-page, profile-map-node, etc.) \u2014 appears to be intentional polish pass",
+      "priority": "P3"
+    },
+    {
+      "type": "clean",
+      "item": "All types exported",
+      "location": "`types.ts`",
+      "reason": "Every type/interface is exported; no dead or internal-only types",
+      "priority": "P3"
+    },
+    {
+      "type": "clean",
+      "item": "useMemo for ApiFetch",
+      "location": "`App.tsx:30-37`",
+      "reason": "Properly memoized on `[port, apiToken]`",
+      "priority": "P3"
+    }
+  ],
+  "flagCounts": {
+    "dead": 0,
+    "hardcoded": 0,
+    "coupled": 0,
+    "incomplete": 0,
+    "stale": 0,
+    "suspect": 3,
+    "clean": 3
+  },
+  "deps": {
+    "inbound": [
+      "Every view module depends on `types.ts` (all TypeScript interfaces/types)",
+      "`App.tsx` imports every view, component, and hook module"
+    ],
+    "outbound": []
+  },
+  "assessment": "### `src/App.tsx`\n1. **Does this file need to exist?** Yes \u2014 root component is the single entry point for the app.\n2. **Does it do what it claims?** Yes \u2014 `App` component manages app state and renders views.\n3. **Is it the right place for this logic?** Partially \u2014 the 8 action callbacks (`onScan`, `onStopScan`, etc.) are tightly coupled to App.tsx; some could be extracted to a custom hook, but the current pattern is acceptable for a single-page desktop app.\n4. **What would break if deleted?** The entire app \u2014 no other module creates the React root or owns the state hub.\n\n### `src/main.tsx`\n1. **Does this file need to exist?** Yes \u2014 standard React entry point.\n2. **Does it do what it claims?** Yes \u2014 mounts the app.\n3. **Is it the right place for this logic?** Yes.\n4. **What would break if deleted?** Nothing would render \u2014 no DOM mount point.\n\n### `src/types.ts`\n1. **Does this file need to exist?** Yes \u2014 central type definitions avoid circular imports and duplication.\n2. **Does it do what it claims?** Yes \u2014 provides all shared types.\n3. **Is it the right place for this logic?** Yes.\n4. **What would break if deleted?** Every frontend file that imports from `./types` \u2014 compilation would fail everywhere.\n\n### `src/SettingsModal.tsx`\n1. **Does this file need to exist?** Yes \u2014 settings UI is a distinct modal component.\n2. **Does it do what it claims?** Yes \u2014 fetches, displays, and saves settings.\n3. **Is it the right place for this logic?** Yes.\n4. **What would break if deleted?** Settings modal would not appear; `App.tsx` line 213 would fail.\n\n### `src/index.css`\n1. **Does this file need to exist?** Yes \u2014 all visual styling.\n2. **Does it do what it claims?** Yes \u2014 provides global styles and design tokens.\n3. **Is it the right place for this logic?** Yes \u2014 single stylesheet is appropriate for this scale; CSS custom properties provide theme consistency.\n4. **What would break if deleted?** Entire app would be unstyled (no layout, no colors, no component styling)."
+}

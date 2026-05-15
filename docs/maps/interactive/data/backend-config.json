@@ -1,0 +1,179 @@
+{
+  "slug": "backend-config",
+  "name": "Config",
+  "group": "BACKEND",
+  "summary": "The `backend/config/` package is the typed configuration layer for the JustHireMe backend. It owns all hardcoded constants extracted from `main.py`, agent modules, and LLM glue \u2014 organized into domain-aligned Pydantic `BaseModel` schemas. It exposes a `settings` `SimpleNamespace` (the primary consumer interface), a `validate_all()` startup validator called by `main.py`, config-directory resolution via `resolver.py`, and a `resolve_secret()` helper that resolves secrets with env-var-first / SQLite-fallback semantics. Every domain module (`llm`, `scraping`, `scoring`, `generator`, `contact`, `app`, `logging`) exports a module-level `config` instance. The package depends on `pydantic` (schemas), `db.client` (secrets fallback), and the standard library. It is consumed by virtually every backend module: `main.py`, `llm.py`, `logger.py`, all agents, all services, and the settings route.\n\n---",
+  "fileCount": 10,
+  "files": [
+    {
+      "#": "1",
+      "File": "`config/__init__.py`",
+      "Lines": "51",
+      "Purpose": "Package init: exports `settings`, `validate_all()`, `init_config_dir()`, `get_config_dir()`",
+      "Overall flag": "\ud83d\udfe2 CLEAN"
+    },
+    {
+      "#": "2",
+      "File": "`config/app.py`",
+      "Lines": "227",
+      "Purpose": "Application-domain settings (ports, CORS, tokens, scan limits, env key names, ghost mode, etc.)",
+      "Overall flag": "\ud83d\udfe2 CLEAN"
+    },
+    {
+      "#": "3",
+      "File": "`config/contact.py`",
+      "Lines": "93",
+      "Purpose": "Hunter.io / Proxycurl API settings, ATS host list, contact priority roles, manager name regexes",
+      "Overall flag": "\ud83d\udfe2 CLEAN"
+    },
+    {
+      "#": "4",
+      "File": "`config/generator.py`",
+      "Lines": "102",
+      "Purpose": "PDF generator defaults (colors, sizing, word limits, font sizes, scale values)",
+      "Overall flag": "\ud83d\udfe2 CLEAN"
+    },
+    {
+      "#": "5",
+      "File": "`config/llm.py`",
+      "Lines": "114",
+      "Purpose": "LLM provider models, endpoints, key names, timeouts, probe URLs",
+      "Overall flag": "\ud83d\udfe2 CLEAN"
+    },
+    {
+      "#": "6",
+      "File": "`config/logging.py`",
+      "Lines": "25",
+      "Purpose": "Log level, format string, output stream, file rotation",
+      "Overall flag": "\ud83d\udfe2 CLEAN"
+    },
+    {
+      "#": "7",
+      "File": "`config/resolver.py`",
+      "Lines": "61",
+      "Purpose": "Config directory resolution (CLI \u2192 env \u2192 XDG \u2192 local fallback)",
+      "Overall flag": "\ud83d\udfe2 CLEAN"
+    },
+    {
+      "#": "8",
+      "File": "`config/scoring.py`",
+      "Lines": "294",
+      "Purpose": "Rubric weights, quality-gate thresholds, seniority config, full tech taxonomy & categories",
+      "Overall flag": "\ud83d\udfe2 CLEAN"
+    },
+    {
+      "#": "9",
+      "File": "`config/scraping.py`",
+      "Lines": "156",
+      "Purpose": "Scraper timeouts, retry config, per-source caps, API URLs, ATS endpoints, user agents",
+      "Overall flag": "\ud83d\udfe2 CLEAN"
+    },
+    {
+      "#": "10",
+      "File": "`config/secrets.py`",
+      "Lines": "53",
+      "Purpose": "`resolve_secret()` \u2014 env var with SQLite deprecation fallback",
+      "Overall flag": "\ud83d\udfe2 CLEAN"
+    }
+  ],
+  "flags": [
+    {
+      "type": "clean",
+      "item": "All files and structures",
+      "location": "various",
+      "reason": "Well-structured, typed, documented with source comments, actively used",
+      "priority": "P3"
+    },
+    {
+      "type": "suspect",
+      "item": "`Literal` import",
+      "location": "`app.py:10`",
+      "reason": "Imported but never used in the file",
+      "priority": "P2"
+    },
+    {
+      "type": "suspect",
+      "item": "`Literal` import",
+      "location": "`llm.py:2`",
+      "reason": "Imported but never used in the file",
+      "priority": "P2"
+    },
+    {
+      "type": "suspect",
+      "item": "`Literal` import",
+      "location": "`logging.py:2`",
+      "reason": "Imported but never used in the file",
+      "priority": "P2"
+    },
+    {
+      "type": "suspect",
+      "item": "`Literal` import",
+      "location": "`scoring.py:4`",
+      "reason": "Imported but never used in the file",
+      "priority": "P2"
+    },
+    {
+      "type": "suspect",
+      "item": "`Literal` import",
+      "location": "`scraping.py:2`",
+      "reason": "Imported but never used in the file",
+      "priority": "P2"
+    },
+    {
+      "type": "suspect",
+      "item": "`init_config_dir`",
+      "location": "`__init__.py:10`",
+      "reason": "No external callers found in codebase \u2014 may be dead",
+      "priority": "P2"
+    },
+    {
+      "type": "suspect",
+      "item": "`get_config_dir`",
+      "location": "`__init__.py:17`",
+      "reason": "No external callers found in codebase \u2014 may be dead",
+      "priority": "P2"
+    },
+    {
+      "type": "coupled",
+      "item": "`from db.client import get_setting`",
+      "location": "`secrets.py:6`",
+      "reason": "Config module depends on `db.client`; `db.client` depends on `config` for settings \u2014 potential circular dependency",
+      "priority": "P2"
+    }
+  ],
+  "flagCounts": {
+    "dead": 0,
+    "hardcoded": 0,
+    "coupled": 1,
+    "incomplete": 0,
+    "stale": 0,
+    "suspect": 7,
+    "clean": 1
+  },
+  "deps": {
+    "inbound": [
+      "`main.py` \u2014 imports `validate_all`, `resolve_secret`, and the `settings` namespace extensively",
+      "`llm.py` \u2014 imports `settings` and `resolve_secret`; reads `settings.llm.*` heavily",
+      "`logger.py` \u2014 imports `settings`; reads `settings.logging.*`",
+      "`services/scout.py` \u2014 imports `settings` and `resolve_secret`",
+      "`services/scanner.py` \u2014 imports `settings` and `resolve_secret`",
+      "`services/job_targets.py` \u2014 imports `settings` and `resolve_secret`",
+      "`services/ghost.py` \u2014 imports `settings` and `resolve_secret`",
+      "`services/provider_probe.py` \u2014 imports `settings`",
+      "`routes/settings.py` \u2014 imports `settings` and `resolve_secret`",
+      "`routes/misc.py` \u2014 imports `settings`",
+      "`agents/actuator.py` \u2014 imports `settings`",
+      "`agents/x_scout.py` \u2014 imports `settings` and `resolve_secret`",
+      "`agents/free_scout.py` \u2014 imports `settings` and `resolve_secret`",
+      "`agents/contact_lookup.py` \u2014 imports `config` (whole module) and `resolve_secret`",
+      "`agents/browser_runtime.py` \u2014 imports `settings`",
+      "`db/client.py` \u2014 imports `settings` (lazy, inside function)",
+      "`tests/test_secrets.py` \u2014 imports `resolve_secret`, `_warn_sqlite_fallback`",
+      "`tests/test_log_context.py` \u2014 imports `settings`"
+    ],
+    "outbound": [
+      "`db.client` \u2014 `secrets.py` imports `get_setting` for SQLite fallback"
+    ]
+  },
+  "assessment": "### `config/__init__.py`\n1. **Does this file need to exist?** Yes \u2014 it's the package entry point.\n2. **Does it do what it claims?** Yes \u2014 imports and re-exports domain configs, provides validation and config-dir resolution.\n3. **Is it the right place for this logic?** Yes.\n4. **What would break if deleted?** Everything \u2014 every backend module imports from here.\n\n### `config/app.py`\n1. **Does this file need to exist?** Yes \u2014 application-domain configs.\n2. **Does it do what it claims?** Yes \u2014 name matches content.\n3. **Is it the right place for this logic?** Yes \u2014 well-separated from scraping, scoring, etc.\n4. **What would break if deleted?** `config/__init__.py` import fails; any code using `settings.app.*`.\n\n### `config/contact.py`\n1. **Does this file need to exist?** Yes \u2014 contact lookup config.\n2. **Does it do what it claims?** Yes \u2014 name matches content.\n3. **Is it the right place for this logic?** Yes.\n4. **What would break if deleted?** `config/__init__.py` import fails; `contact_lookup.py` references.\n\n### `config/generator.py`\n1. **Does this file need to exist?** Yes \u2014 PDF generator config.\n2. **Does it do what it claims?** Yes \u2014 name matches content.\n3. **Is it the right place for this logic?** Yes.\n4. **What would break if deleted?** `config/__init__.py` import fails; `generator.py` references.\n\n### `config/llm.py`\n1. **Does this file need to exist?** Yes \u2014 LLM provider config.\n2. **Does it do what it claims?** Yes \u2014 name matches content.\n3. **Is it the right place for this logic?** Yes.\n4. **What would break if deleted?** `config/__init__.py` import fails; `llm.py` heavily references.\n\n### `config/logging.py`\n1. **Does this file need to exist?** Yes \u2014 logging config.\n2. **Does it do what it claims?** Yes \u2014 name matches content.\n3. **Is it the right place for this logic?** Yes.\n4. **What would break if deleted?** `config/__init__.py` import fails; `logger.py` references.\n\n### `config/resolver.py`\n1. **Does this file need to exist?** Yes \u2014 separate concern from config schemas.\n2. **Does it do what it claims?** Yes \u2014 name matches content.\n3. **Is it the right place for this logic?** Yes \u2014 but note: it's currently only consumed internally by `__init__.py`, and `get_config_dir`/`init_config_dir` have no external callers.\n4. **What would break if deleted?** `config/__init__.py` import fails; config directory resolution would be impossible.\n\n### `config/scoring.py`\n1. **Does this file need to exist?** Yes \u2014 scoring/rubric config.\n2. **Does it do what it claims?** Yes \u2014 name matches content.\n3. **Is it the right place for this logic?** Yes \u2014 the tech taxonomy and category mapping are well-placed here.\n4. **What would break if deleted?** `config/__init__.py` import fails; scoring engine and quality gate references.\n\n### `config/scraping.py`\n1. **Does this file need to exist?** Yes \u2014 scraping config.\n2. **Does it do what it claims?** Yes \u2014 name matches content.\n3. **Is it the right place for this logic?** Yes.\n4. **What would break if deleted?** `config/__init__.py` import fails; scout/scanner references.\n\n### `config/secrets.py`\n1. **Does this file need to exist?** Yes \u2014 critical for secure secret resolution.\n2. **Does it do what it claims?** Yes \u2014 name matches content.\n3. **Is it the right place for this logic?** Partially \u2014 the `db.client` dependency creates a potential circular dependency. Consider moving to a lower-level utility or using an injected resolver.\n4. **What would break if deleted?** Secret resolution across the entire backend; `test_secrets.py` tests."
+}

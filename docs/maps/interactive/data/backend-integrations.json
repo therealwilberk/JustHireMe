@@ -1,0 +1,329 @@
+{
+  "slug": "backend-integrations",
+  "name": "Integrations",
+  "group": "BACKEND",
+  "summary": "The backend-integrations unit owns all third-party integration agents in the justHireMe sidecar backend: browser automation (Playwright), contact enrichment (Hunter.io/Proxycurl), in-app help (LLM + hardcoded guides), form-field selectors (OTA), Chromium runtime management, and data ingestion from GitHub, LinkedIn exports, and personal portfolio sites. It depends on `config` for settings, `llm` for LLM calls, `db.client` for settings storage, and `logger` for structured logging. Other units (routes, services) consume it via lazy imports \u2014 every public function is imported inline to avoid circular imports at module load time.\n\n---",
+  "fileCount": 9,
+  "files": [
+    {
+      "#": "1",
+      "File": "`agents/__init__.py`",
+      "Lines": "0",
+      "Purpose": "empty package marker",
+      "Overall flag": "\ud83d\udfe2 CLEAN"
+    },
+    {
+      "#": "2",
+      "File": "`agents/actuator.py`",
+      "Lines": "455",
+      "Purpose": "experimental auto-apply browser automation with vision fallback",
+      "Overall flag": "\ud83d\udfe0 STALE \u2014 experimental, gated, heavily hardcoded"
+    },
+    {
+      "#": "3",
+      "File": "`agents/contact_lookup.py`",
+      "Lines": "218",
+      "Purpose": "Hunter.io + Proxycurl company contact enrichment",
+      "Overall flag": "\ud83d\udfe2 CLEAN \u2014 well-structured, config-driven"
+    },
+    {
+      "#": "4",
+      "File": "`agents/help_agent.py`",
+      "Lines": "466",
+      "Purpose": "in-app help system with LLM + deterministic fallback",
+      "Overall flag": "\ud83d\udfe0 STALE \u2014 300+ lines hardcoded guide text, model lists will stale"
+    },
+    {
+      "#": "5",
+      "File": "`agents/selectors.py`",
+      "Lines": "84",
+      "Purpose": "OTA form selectors with remote\u2192cache\u2192bundled fallback",
+      "Overall flag": "\ud83d\udfe2 CLEAN \u2014 well-layered fallback, reasonable TTL"
+    },
+    {
+      "#": "6",
+      "File": "`agents/browser_runtime.py`",
+      "Lines": "164",
+      "Purpose": "cross-platform Chromium discovery + download",
+      "Overall flag": "\ud83d\udfe2 CLEAN \u2014 well-structured, tested"
+    },
+    {
+      "#": "7",
+      "File": "`agents/github_ingestor.py`",
+      "Lines": "189",
+      "Purpose": "GitHub profile/project ingestion via API + LLM",
+      "Overall flag": "\ud83d\udfe2 CLEAN \u2014 well-scoped, typed extraction"
+    },
+    {
+      "#": "8",
+      "File": "`agents/linkedin_parser.py`",
+      "Lines": "131",
+      "Purpose": "LinkedIn data export ZIP parser",
+      "Overall flag": "\ud83d\udfe2 CLEAN \u2014 focused, deterministic CSV parsing"
+    },
+    {
+      "#": "9",
+      "File": "`agents/portfolio_ingestor.py`",
+      "Lines": "165",
+      "Purpose": "personal portfolio ingestion via Playwright\u2192HTTP\u2192raw",
+      "Overall flag": "\ud83d\udfe1 SUSPECT \u2014 nested imports, regex HTML stripping, brittle"
+    }
+  ],
+  "flags": [
+    {
+      "type": "dead",
+      "item": "`import sys`",
+      "location": "`actuator.py:5`",
+      "reason": "Unused import",
+      "priority": "P0"
+    },
+    {
+      "type": "suspect",
+      "item": "`_knowledge()`",
+      "location": "`help_agent.py:275`",
+      "reason": "Defined but not called \u2014 superseded by `_focused_knowledge`, verify",
+      "priority": "P2"
+    },
+    {
+      "type": "hardcoded",
+      "item": "`_DOM_MAP` selectors",
+      "location": "`actuator.py:144-162`",
+      "reason": "18 hardcoded CSS selectors, should come from selectors.json",
+      "priority": "P1"
+    },
+    {
+      "type": "hardcoded",
+      "item": "`_FILL_DELAY = 500`",
+      "location": "`actuator.py:164`",
+      "reason": "Should be configurable",
+      "priority": "P1"
+    },
+    {
+      "type": "hardcoded",
+      "item": "`_VISION_SYSTEM` prompt",
+      "location": "`actuator.py:216-227`",
+      "reason": "8-line hardcoded prompt",
+      "priority": "P1"
+    },
+    {
+      "type": "hardcoded",
+      "item": "Provider base URLs",
+      "location": "`actuator.py:268-273`",
+      "reason": "Groq/NVIDIA/Ollama URLs baked in",
+      "priority": "P1"
+    },
+    {
+      "type": "hardcoded",
+      "item": "Submit button selectors",
+      "location": "`actuator.py:346-353`",
+      "reason": "6 CSS/text selectors, should be in config",
+      "priority": "P1"
+    },
+    {
+      "type": "hardcoded",
+      "item": "Viewport, UA strings, timeouts",
+      "location": "`actuator.py:68-73, 378-383`",
+      "reason": "Multiple baked-in browser config values",
+      "priority": "P2"
+    },
+    {
+      "type": "hardcoded",
+      "item": "`_TTL = 86400`",
+      "location": "`selectors.py:12`",
+      "reason": "Cache TTL should be configurable",
+      "priority": "P2"
+    },
+    {
+      "type": "hardcoded",
+      "item": "`_RELEASE_DOWNLOAD_BASE`",
+      "location": "`browser_runtime.py:16`",
+      "reason": "GitHub URL baked in, has env override",
+      "priority": "P2"
+    },
+    {
+      "type": "hardcoded",
+      "item": "Browser binary names/paths",
+      "location": "`browser_runtime.py:70-89`",
+      "reason": "Hardcoded OS-specific paths",
+      "priority": "P2"
+    },
+    {
+      "type": "hardcoded",
+      "item": "`GITHUB_API`",
+      "location": "`github_ingestor.py:10`",
+      "reason": "Static API URL",
+      "priority": "P2"
+    },
+    {
+      "type": "hardcoded",
+      "item": "HTTP timeout 10s",
+      "location": "`github_ingestor.py:35`",
+      "reason": "Should be configurable",
+      "priority": "P2"
+    },
+    {
+      "type": "hardcoded",
+      "item": "max_repos=12, fork threshold=10",
+      "location": "`github_ingestor.py:132-133`",
+      "reason": "Magic numbers",
+      "priority": "P2"
+    },
+    {
+      "type": "hardcoded",
+      "item": "CSV column names",
+      "location": "`linkedin_parser.py:39-114`",
+      "reason": "20+ LinkedIn-format-specific column names",
+      "priority": "P2"
+    },
+    {
+      "type": "hardcoded",
+      "item": "Model names in guides",
+      "location": "`help_agent.py:177-194, 362-370`",
+      "reason": "Will stale as providers release new models",
+      "priority": "P2"
+    },
+    {
+      "type": "hardcoded",
+      "item": "`\"ci/cd\"` normalization",
+      "location": "`contact_lookup.py:150`",
+      "reason": "Special case for CI/CD casing",
+      "priority": "P3"
+    },
+    {
+      "type": "coupled",
+      "item": "`_run()` state machine",
+      "location": "`actuator.py:363-451`",
+      "reason": "Deeply coupled to Playwright lifecycle, 3-tier fill\u2192vision\u2192submit",
+      "priority": "P2"
+    },
+    {
+      "type": "coupled",
+      "item": "`asyncio.run()` in `run()`",
+      "location": "`actuator.py:454`",
+      "reason": "May conflict with running event loop in FastAPI",
+      "priority": "P2"
+    },
+    {
+      "type": "suspect",
+      "item": "Cover letter 1500-char truncation",
+      "location": "`actuator.py:330`",
+      "reason": "Silently truncates in vision context",
+      "priority": "P2"
+    },
+    {
+      "type": "suspect",
+      "item": "`_focused_knowledge` string-slicing",
+      "location": "`help_agent.py:336-341`",
+      "reason": "Uses `str.find()` to slice guides, fragile",
+      "priority": "P2"
+    },
+    {
+      "type": "suspect",
+      "item": "`_resolve` import bypass",
+      "location": "`portfolio_ingestor.py:80-81`",
+      "reason": "Uses private `llm._resolve` instead of `llm.resolve_config`",
+      "priority": "P2"
+    },
+    {
+      "type": "suspect",
+      "item": "Regex HTML stripping",
+      "location": "`portfolio_ingestor.py:160-163`",
+      "reason": "`re.sub(r\"<[^>]+>\", \" \")` is a well-known antipattern",
+      "priority": "P2"
+    },
+    {
+      "type": "suspect",
+      "item": "Nested lazy imports",
+      "location": "`portfolio_ingestor.py:46, 80, 98`",
+      "reason": "Multiple inline imports inside function body",
+      "priority": "P2"
+    },
+    {
+      "type": "stale",
+      "item": "`_USER_GUIDE` India market section",
+      "location": "`help_agent.py:75, 209`",
+      "reason": "India market hardcoded in inline string",
+      "priority": "P3"
+    },
+    {
+      "type": "stale",
+      "item": "`_PROVIDER_GUIDE` model list",
+      "location": "`help_agent.py:177-194`",
+      "reason": "Model names will go out of date",
+      "priority": "P3"
+    },
+    {
+      "type": "stale",
+      "item": "`_fallback` model list",
+      "location": "`help_agent.py:362-370`",
+      "reason": "Duplicate stale model references",
+      "priority": "P3"
+    },
+    {
+      "type": "clean",
+      "item": "`contact_lookup.py`",
+      "location": "\u2014",
+      "reason": "Well-factored, config-driven, clean pipeline",
+      "priority": "P3"
+    },
+    {
+      "type": "clean",
+      "item": "`selectors.py`",
+      "location": "\u2014",
+      "reason": "Clean fallback chain, never raises",
+      "priority": "P3"
+    },
+    {
+      "type": "clean",
+      "item": "`browser_runtime.py`",
+      "location": "\u2014",
+      "reason": "Well-structured multi-tier discovery",
+      "priority": "P3"
+    },
+    {
+      "type": "clean",
+      "item": "`github_ingestor.py`",
+      "location": "\u2014",
+      "reason": "Clean async design, typed output",
+      "priority": "P3"
+    },
+    {
+      "type": "clean",
+      "item": "`linkedin_parser.py`",
+      "location": "\u2014",
+      "reason": "Deterministic, no external deps",
+      "priority": "P3"
+    }
+  ],
+  "flagCounts": {
+    "dead": 1,
+    "hardcoded": 15,
+    "coupled": 2,
+    "incomplete": 0,
+    "stale": 3,
+    "suspect": 6,
+    "clean": 5
+  },
+  "deps": {
+    "inbound": [
+      "`routes/actions.py` \u2192 `actuator.read_form`, `actuator.run`, `selectors.get_selectors`",
+      "`routes/scan.py` \u2192 `help_agent.answer`",
+      "`routes/misc.py` \u2192 `browser_runtime.chromium_executable`, `help_agent.answer`",
+      "`routes/ingest.py` \u2192 `linkedin_parser.parse_linkedin_export`, `github_ingestor.ingest_github`, `portfolio_ingestor.ingest_portfolio_url`",
+      "`services/generator.py` \u2192 `contact_lookup.run`, `actuator.run`",
+      "`services/ghost.py` \u2192 `actuator.run`",
+      "`tests/test_regressions.py` \u2192 `help_agent.answer`, `actuator._ready_to_submit`, `browser_runtime.browser_runtime_ready`",
+      "`tests/test_observability.py` \u2192 `selectors.get_selectors`",
+      "`tests/test_paths.py` \u2192 `browser_runtime.chromium_executable`"
+    ],
+    "outbound": [
+      "`config` \u2014 all files reference `config` or `settings`",
+      "`config.secrets` \u2014 `contact_lookup.py` (lazy import)",
+      "`llm` \u2014 `help_agent.py`, `github_ingestor.py`, `portfolio_ingestor.py`, `actuator.py` (lazy import)",
+      "`db.client` \u2014 `contact_lookup.py` (`get_profile`, `get_settings`), `selectors.py` (`get_setting`, `save_settings`), `actuator.py` (`get_setting`, lazy)",
+      "`logger` \u2014 all files",
+      "3rd-party libs (Playwright, httpx, anthropic, openai, pydantic)"
+    ]
+  },
+  "assessment": "### `actuator.py`\n1. **Does this file need to exist?** Partially \u2014 `read_form` is used by routes; `run` is experimental and gated. The vision fallback and DOM fill logic are complex but fragile.\n2. **Does it do what it claims?** Yes \u2014 reads forms and auto-applies when enabled.\n3. **Is it the right place for this logic?** Partially \u2014 browser lifecycle management should probably be shared with `browser_runtime.py` (it already imports `launch_chromium`), but the fill/vision/submit pipeline is cohesive here.\n4. **What would break if deleted?** `routes/actions.py` (read_form, run), `services/generator.py` (run), `services/ghost.py` (run) \u2014 would lose all auto-apply functionality.\n\n### `contact_lookup.py`\n1. **Does this file need to exist?** Yes \u2014 Contact enrichment is a core workflow step.\n2. **Does it do what it claims?** Yes \u2014 name matches behavior.\n3. **Is it the right place for this logic?** Yes \u2014 well-scoped to contact enrichment.\n4. **What would break if deleted?** `services/generator.py` would lose personalized email generation.\n\n### `help_agent.py`\n1. **Does this file need to exist?** Yes \u2014 in-app help is a user-facing feature.\n2. **Does it do what it claims?** Partially \u2014 India market references baked into global guide text drift from current market focus config (which only supports \"global\" as valid focus value in `config/app.py:100`).\n3. **Is it the right place for this logic?** Yes \u2014 it's a self-contained help agent.\n4. **What would break if deleted?** `routes/scan.py`, `routes/misc.py` \u2014 both routes serve help endpoints.\n\n### `selectors.py`\n1. **Does this file need to exist?** Yes \u2014 provides the selector config layer for form reading.\n2. **Does it do what it claims?** Yes \u2014 name matches.\n3. **Is it the right place for this logic?** Yes \u2014 clean abstraction.\n4. **What would break if deleted?** `actuator.py.read_form` and `routes/actions.py` selector endpoint.\n\n### `browser_runtime.py`\n1. **Does this file need to exist?** Yes \u2014 centralizes cross-platform browser management.\n2. **Does it do what it claims?** Yes \u2014 name matches.\n3. **Is it the right place for this logic?** Yes \u2014 well-contained.\n4. **What would break if deleted?** `actuator.py`, `portfolio_ingestor.py`, `scout.py`, `routes/misc.py` \u2014 all use `launch_chromium` or `chromium_executable`.\n\n### `github_ingestor.py`\n1. **Does this file need to exist?** Yes \u2014 GitHub profile ingestion is a user-facing feature.\n2. **Does it do what it claims?** Yes \u2014 name matches.\n3. **Is it the right place for this logic?** Yes.\n4. **What would break if deleted?** `routes/ingest.py` \u2014 GitHub import endpoint.\n\n### `linkedin_parser.py`\n1. **Does this file need to exist?** Yes \u2014 LinkedIn export import is a user-facing feature.\n2. **Does it do what it claims?** Yes \u2014 name matches.\n3. **Is it the right place for this logic?** Yes \u2014 deterministic parsing is clean.\n4. **What would break if deleted?** `routes/ingest.py` \u2014 LinkedIn import endpoint.\n\n### `portfolio_ingestor.py`\n1. **Does this file need to exist?** Partially \u2014 web scraping via Playwright plus regex fallback is fragile.\n2. **Does it do what it claims?** Yes \u2014 name matches.\n3. **Is it the right place for this logic?** Maybe \u2014 could live in a `scrapers/` package alongside other HTTP scrapers.\n4. **What would break if deleted?** `routes/ingest.py` \u2014 portfolio import endpoint."
+}

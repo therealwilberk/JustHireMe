@@ -1,0 +1,176 @@
+{
+  "slug": "frontend-hooks",
+  "name": "Hooks",
+  "group": "FRONTEND",
+  "summary": "The frontend hooks layer provides React state management and side-effect orchestration for the JustHireMe desktop app. `useWS` owns the WebSocket connection lifecycle (connect, heartbeat, reconnect, Tauri sidecar bridge) and dispatches custom DOM events consumed by sibling hooks. `useLeads` maintains the canonical lead list via hybrid polling (5s background) + real-time WS events, with Tauri desktop notifications for high-scoring leads. `useDueFollowups` and `useGraphStats` are simple polling hooks with hardcoded intervals. `useKeyboardShortcuts` registers global keyboard shortcuts. All hooks are consumed exclusively by `App.tsx`, which wires the WebSocket-derived `addLog` callback into `useLeads` to correlate backend agent logs with lead state.\n\n---",
+  "fileCount": 5,
+  "files": [
+    {
+      "#": "1",
+      "File": "`src/hooks/useWS.ts`",
+      "Lines": "133",
+      "Purpose": "WebSocket lifecycle, sidecar bridge, event dispatch, log accumulator",
+      "Overall flag": "\ud83d\udfe0 \u2014 complex state machine with hardcoded retry/reconnect values"
+    },
+    {
+      "#": "2",
+      "File": "`src/hooks/useLeads.ts`",
+      "Lines": "95",
+      "Purpose": "Lead CRUD via polling + WS custom events, desktop notifications",
+      "Overall flag": "\ud83d\udfe0 \u2014 dual-path state management, several hardcoded thresholds"
+    },
+    {
+      "#": "3",
+      "File": "`src/hooks/useDueFollowups.ts`",
+      "Lines": "17",
+      "Purpose": "60s polling for due followups",
+      "Overall flag": "\ud83d\udfe1 \u2014 trivially simple, hardcoded interval and limit"
+    },
+    {
+      "#": "4",
+      "File": "`src/hooks/useGraphStats.ts`",
+      "Lines": "12",
+      "Purpose": "10s polling for graph statistics",
+      "Overall flag": "\ud83d\udfe1 \u2014 trivially simple, hardcoded interval"
+    },
+    {
+      "#": "5",
+      "File": "`src/hooks/useKeyboardShortcuts.ts`",
+      "Lines": "28",
+      "Purpose": "Global keyboard shortcut registration",
+      "Overall flag": "\ud83d\udfe2 \u2014 clean, well-contained, configurable via params"
+    }
+  ],
+  "flags": [
+    {
+      "type": "hardcoded",
+      "item": "`MAX_SIDECAR_RETRIES = 30`",
+      "location": "`useWS.ts:6`",
+      "reason": "Sidecar timeout baked in, not configurable",
+      "priority": "P1"
+    },
+    {
+      "type": "hardcoded",
+      "item": "`ws://127.0.0.1:${p}/ws?token=...`",
+      "location": "`useWS.ts:28`",
+      "reason": "WS URL structure assumes backend routing",
+      "priority": "P1"
+    },
+    {
+      "type": "hardcoded",
+      "item": "3s reconnect delay",
+      "location": "`useWS.ts:61`",
+      "reason": "Reconnect interval not configurable",
+      "priority": "P1"
+    },
+    {
+      "type": "hardcoded",
+      "item": "5s lead polling interval",
+      "location": "`useLeads.ts:86`",
+      "reason": "No way to tune without editing source",
+      "priority": "P1"
+    },
+    {
+      "type": "hardcoded",
+      "item": "Score \u2265 80 notification threshold",
+      "location": "`useLeads.ts:15`",
+      "reason": "Business rule baked in",
+      "priority": "P1"
+    },
+    {
+      "type": "hardcoded",
+      "item": "60s followup polling",
+      "location": "`useDueFollowups.ts:13`",
+      "reason": "No configuration path",
+      "priority": "P1"
+    },
+    {
+      "type": "hardcoded",
+      "item": "10s graph polling",
+      "location": "`useGraphStats.ts:9`",
+      "reason": "No configuration path",
+      "priority": "P1"
+    },
+    {
+      "type": "hardcoded",
+      "item": "API endpoint paths",
+      "location": "multiple",
+      "reason": "All hooks bake `v1` paths",
+      "priority": "P1"
+    },
+    {
+      "type": "suspect",
+      "item": "`retryCount` ignores success/failure",
+      "location": "`useWS.ts:98`",
+      "reason": "Increments every 1s regardless of syncSidecar result",
+      "priority": "P2"
+    },
+    {
+      "type": "suspect",
+      "item": "`d.uptime_seconds` assumed present",
+      "location": "`useWS.ts:37`",
+      "reason": "Heartbeat without uptime would crash",
+      "priority": "P2"
+    },
+    {
+      "type": "suspect",
+      "item": "Freelance filter inline",
+      "location": "`useLeads.ts:37`",
+      "reason": "Business logic in hook, should be backend or config",
+      "priority": "P2"
+    },
+    {
+      "type": "suspect",
+      "item": "`setLeads` externally exposed",
+      "location": "`useLeads.ts`",
+      "reason": "Returned from hook, `App.tsx` can mutate directly",
+      "priority": "P2"
+    },
+    {
+      "type": "suspect",
+      "item": "Silent error swallow",
+      "location": "`useDueFollowups.ts:11`",
+      "reason": "`.catch(() => {})` drops all errors",
+      "priority": "P2"
+    },
+    {
+      "type": "clean",
+      "item": "`useKeyboardShortcuts`",
+      "location": "`useKeyboardShortcuts.ts`",
+      "reason": "Well-abstracted, no hardcodes, proper cleanup",
+      "priority": "P3"
+    },
+    {
+      "type": "clean",
+      "item": "`alive` flag pattern",
+      "location": "`useLeads.ts:29`",
+      "reason": "Correct async cleanup guard",
+      "priority": "P3"
+    },
+    {
+      "type": "clean",
+      "item": "Connection dedup guard",
+      "location": "`useWS.ts:26`",
+      "reason": "Prevent duplicate WS connections",
+      "priority": "P3"
+    }
+  ],
+  "flagCounts": {
+    "dead": 0,
+    "hardcoded": 8,
+    "coupled": 0,
+    "incomplete": 0,
+    "stale": 0,
+    "suspect": 5,
+    "clean": 3
+  },
+  "deps": {
+    "inbound": [
+      "`src/App.tsx` \u2014 imports all 5 hooks"
+    ],
+    "outbound": [
+      "`src/types.ts` \u2014 imports `Lead`, `ApiFetch`, `LogLine`, `GraphStats`, `ConnSt`"
+    ]
+  },
+  "assessment": "### `src/hooks/useWS.ts`\n1. **Does this file need to exist?** Yes \u2014 the WebSocket + sidecar bridge is a distinct concern requiring persistent state, retry logic, and event dispatch.\n2. **Does it do what it claims?** Yes \u2014 manages WebSocket lifecycle, reconnection, heartbeat logging, and Tauri bridge.\n3. **Is it the right place for this logic?** Partially \u2014 event dispatch for `lead-updated`, `hot-x-lead`, etc. bridges WS and hooks layers, but creates an implicit coupling through `window` CustomEvents that could be replaced by a shared store or context.\n4. **What would break if deleted?** Everything \u2014 `useLeads` depends on `lead-updated` and `leads-refresh` events; `App.tsx` depends on `conn`, `port`, `apiToken`, `logs`; sidecar orchestration would be lost.\n\n### `src/hooks/useLeads.ts`\n1. **Does this file need to exist?** Yes \u2014 lead state is the core data model and requires polling + real-time updates.\n2. **Does it do what it claims?** Yes \u2014 fetches, updates, and exposes leads with loading/error states.\n3. **Is it the right place for this logic?** Partially \u2014 the freelance filter (`kind !== \"freelance\"`) and score notification threshold (\u226580) are business rules that belong in backend or config, not a React hook.\n4. **What would break if deleted?** All lead-dependent views (InboxView, PipelineView, ApplyJobView, etc.) via `App.tsx`.\n\n### `src/hooks/useDueFollowups.ts`\n1. **Does this file need to exist?** Yes \u2014 due followups is a distinct endpoint with different polling cadence than leads.\n2. **Does it do what it claims?** Yes \u2014 polls and returns due followup leads.\n3. **Is it the right place for this logic?** Yes \u2014 but it could share a generic polling hook given its simplicity.\n4. **What would break if deleted?** The followup indicator in the UI (consumed by `App.tsx`).\n\n### `src/hooks/useGraphStats.ts`\n1. **Does this file need to exist?** Yes \u2014 graph statistics is a distinct visualization concern.\n2. **Does it do what it claims?** Yes \u2014 polls and returns graph entity counts.\n3. **Is it the right place for this logic?** Yes \u2014 but arguably could be in a generic polling utility given near-identical pattern to `useDueFollowups`.\n4. **What would break if deleted?** GraphView stats display (via `App.tsx`).\n\n### `src/hooks/useKeyboardShortcuts.ts`\n1. **Does this file need to exist?** Yes \u2014 keyboard shortcuts are a self-contained concern with specific cleanup requirements.\n2. **Does it do what it claims?** Yes \u2014 registers and unregisters global keyboard handlers.\n3. **Is it the right place for this logic?** Yes \u2014 properly abstracted from presentation.\n4. **What would break if deleted?** Escape-to-close-drawer, Cmd+K-to-apply, and Cmd+, -to-settings shortcuts."
+}

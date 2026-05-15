@@ -1,0 +1,291 @@
+{
+  "slug": "backend-evaluators",
+  "name": "Evaluators",
+  "group": "BACKEND",
+  "summary": "The evaluators unit owns job-lead scoring, candidate profiling, and lead intelligence for JustHireMe. It spans five modules: a deterministic rubric engine (`scoring_engine.py`) that does the heavy lifting with keyword matching and weighted criteria; an LLM-led wrapper (`evaluator.py`) that can override or calibrate against the rubric; a lightweight feedback-rank learner (`feedback_ranker.py`) that adjusts signal scores from user labels; a semantic similarity module (`semantic.py`) that queries LanceDB vectors; and a lead-intel module (`lead_intel.py`) that classifies raw text into structured leads. The evaluator is the public face consumed by scanners, the ghost mode scheduler, graph workflows, and the MCP server. The scoring engine is the dependency backbone \u2014 it pulls from semantic and is pulled by evaluator, generator, and query_gen. Lead_intel is the other major export, consumed by scouts, the MCP server, routes, and quality_gate.\n\n---",
+  "fileCount": 5,
+  "files": [
+    {
+      "#": "1",
+      "File": "`agents/evaluator.py`",
+      "Lines": "321",
+      "Purpose": "LLM-led scoring with deterministic fallback",
+      "Overall flag": "\ud83d\udfe2 mostly clean, minor dead code"
+    },
+    {
+      "#": "2",
+      "File": "`agents/scoring_engine.py`",
+      "Lines": "1,097",
+      "Purpose": "Deterministic rubric scoring engine",
+      "Overall flag": "\ud83d\udfe2 well-factored, many hardcoded values"
+    },
+    {
+      "#": "3",
+      "File": "`agents/feedback_ranker.py`",
+      "Lines": "176",
+      "Purpose": "User-feedback-driven signal adjustment",
+      "Overall flag": "\ud83d\udfe2 focused and clean"
+    },
+    {
+      "#": "4",
+      "File": "`agents/semantic.py`",
+      "Lines": "278",
+      "Purpose": "Embedding-based semantic similarity",
+      "Overall flag": "\ud83d\udfe2 graceful degradation, hardcoded stretch params"
+    },
+    {
+      "#": "5",
+      "File": "`agents/lead_intel.py`",
+      "Lines": "314",
+      "Purpose": "Raw text to structured lead conversion",
+      "Overall flag": "\ud83d\udfe0 has a bug, several unused params"
+    }
+  ],
+  "flags": [
+    {
+      "type": "dead",
+      "item": "`_SYSTEM_PROMPT` 1st definition",
+      "location": "`evaluator.py:34-82`",
+      "reason": "Immediately overwritten by 2nd definition at line 84",
+      "priority": "P0"
+    },
+    {
+      "type": "dead",
+      "item": "`classify_kind` 2nd branch",
+      "location": "`lead_intel.py:143`",
+      "reason": "Always returns \"job\"; second `return` is unreachable \u2014 this is a bug (non-job leads never classified)",
+      "priority": "P0"
+    },
+    {
+      "type": "hardcoded",
+      "item": "`TECH_TAXONOMY` (84 entries)",
+      "location": "`scoring_engine.py:87-171`",
+      "reason": "Full tech taxonomy baked into Python module",
+      "priority": "P1"
+    },
+    {
+      "type": "hardcoded",
+      "item": "`TECH_CATEGORY` (84 mappings)",
+      "location": "`scoring_engine.py:174-258`",
+      "reason": "Category mapping baked in",
+      "priority": "P1"
+    },
+    {
+      "type": "hardcoded",
+      "item": "Rubric weights in `score_job_lead`",
+      "location": "`scoring_engine.py:1073-1089`",
+      "reason": "Weight values for role/stack/proof/seniority/constraints/semantic baked in",
+      "priority": "P1"
+    },
+    {
+      "type": "hardcoded",
+      "item": "Seniority cap thresholds",
+      "location": "`scoring_engine.py:919-940`",
+      "reason": "All threshold values (6mo/3y/5y/7y) and cap scores (30/38/45/48) baked in",
+      "priority": "P1"
+    },
+    {
+      "type": "hardcoded",
+      "item": "Criterion score constants",
+      "location": "`scoring_engine.py:756-911`",
+      "reason": "_role_alignment, _stack_overlap, _proof_strength, _seniority_fit, _job_constraints all have hardcoded score values",
+      "priority": "P1"
+    },
+    {
+      "type": "hardcoded",
+      "item": "`all-MiniLM-L6-v2` model",
+      "location": "`semantic.py:5` (docstring)",
+      "reason": "Embedding model name referenced in docstring, hardcoded in `agents.ingestor._emb`",
+      "priority": "P1"
+    },
+    {
+      "type": "hardcoded",
+      "item": "Semantic stretch parameters",
+      "location": "`semantic.py:264`",
+      "reason": "Lower bound 0.15, range 0.55 \u2014 makes scoring sensitive to this calibration",
+      "priority": "P1"
+    },
+    {
+      "type": "hardcoded",
+      "item": "Semantic blend weights",
+      "location": "`semantic.py:250-259`",
+      "reason": "Skill/project signal blend (0.40/0.60) and avg/peak blend (0.60/0.40)",
+      "priority": "P1"
+    },
+    {
+      "type": "hardcoded",
+      "item": "Feedback ranker constants",
+      "location": "`feedback_ranker.py:8-35`",
+      "reason": "POSITIVE_LABELS, NEGATIVE_LABELS, FEATURE_WEIGHTS all baked in; \"not_ai\" at -1.1 is opinionated",
+      "priority": "P1"
+    },
+    {
+      "type": "hardcoded",
+      "item": "Feedback delta cap & thresholds",
+      "location": "`feedback_ranker.py:125,141,144`",
+      "reason": "max_delta=18, confidence/5, contribution>=0.35",
+      "priority": "P1"
+    },
+    {
+      "type": "hardcoded",
+      "item": "Evaluator truncation limits",
+      "location": "`evaluator.py:214,220,223`",
+      "reason": "JD 9000, proof 7000, baseline 5000 char limits baked in",
+      "priority": "P1"
+    },
+    {
+      "type": "hardcoded",
+      "item": "`lead_intel.py` term lists",
+      "location": "`lead_intel.py:9-59`",
+      "reason": "TECH_TERMS, TECH_LABELS, INTENT_TERMS, JOB_TERMS, URGENCY_TERMS, NOISE_TERMS all baked in",
+      "priority": "P1"
+    },
+    {
+      "type": "hardcoded",
+      "item": "Lead intel scoring values",
+      "location": "`lead_intel.py:156-180`",
+      "reason": "signal_quality base/bonus/penalty values baked in",
+      "priority": "P1"
+    },
+    {
+      "type": "hardcoded",
+      "item": "Lead intel regex patterns",
+      "location": "`lead_intel.py:79-82,115-117,127-131`",
+      "reason": "budget_from_text, location_from_text, company_from_text regexes baked in",
+      "priority": "P1"
+    },
+    {
+      "type": "hardcoded",
+      "item": "Lead intel city list",
+      "location": "`lead_intel.py:116`",
+      "reason": "Hardcoded city list includes India cities (Bengaluru, Bangalore, Mumbai, Delhi)",
+      "priority": "P1"
+    },
+    {
+      "type": "hardcoded",
+      "item": "Outreach templates",
+      "location": "`lead_intel.py:236-256`",
+      "reason": "Hardcoded reply/DM/email/proposal text",
+      "priority": "P1"
+    },
+    {
+      "type": "hardcoded",
+      "item": "`_candidate_location` India reference",
+      "location": "`scoring_engine.py:509`",
+      "reason": "\"india\" explicitly listed as a location match candidate",
+      "priority": "P1"
+    },
+    {
+      "type": "coupled",
+      "item": "`_evaluator_llm_requested` lazy import",
+      "location": "`evaluator.py:193`",
+      "reason": "Imports `db.client.get_setting` inside function body",
+      "priority": "P1"
+    },
+    {
+      "type": "coupled",
+      "item": "`_semantic_criterion` lazy import",
+      "location": "`scoring_engine.py:1037`",
+      "reason": "Imports `agents.semantic.semantic_fit` inside function body",
+      "priority": "P1"
+    },
+    {
+      "type": "coupled",
+      "item": "`_embed_jd` lazy import",
+      "location": "`semantic.py:33`",
+      "reason": "Imports private `_emb` from `agents.ingestor`",
+      "priority": "P1"
+    },
+    {
+      "type": "coupled",
+      "item": "`_vec_store` lazy import",
+      "location": "`semantic.py:56`",
+      "reason": "Imports `db.client.vec` inside function body",
+      "priority": "P1"
+    },
+    {
+      "type": "coupled",
+      "item": "`_hard_cap` string matching",
+      "location": "`evaluator.py:248-252`",
+      "reason": "Reads gap strings by prefix \u2014 fragile coupling to scoring_engine gap format",
+      "priority": "P1"
+    },
+    {
+      "type": "suspect",
+      "item": "`_build_proof` wrapper",
+      "location": "`evaluator.py:134`",
+      "reason": "Compatibility wrapper \u2014 verify if still called externally",
+      "priority": "P2"
+    },
+    {
+      "type": "suspect",
+      "item": "`_infer_experience_level` wrapper",
+      "location": "`evaluator.py:139`",
+      "reason": "Compatibility wrapper \u2014 verify if still called externally",
+      "priority": "P2"
+    },
+    {
+      "type": "suspect",
+      "item": "Unused function params",
+      "location": "`lead_intel.py:194,210,219,228`",
+      "reason": "`fit_bullets.title`, `proof_snippet.kind`, `followup_sequence.kind`, `outreach_drafts.kind/budget`",
+      "priority": "P2"
+    },
+    {
+      "type": "suspect",
+      "item": "`classify_kind.default` param",
+      "location": "`lead_intel.py:139`",
+      "reason": "`default` parameter is accepted but never used before the early return",
+      "priority": "P2"
+    },
+    {
+      "type": "clean",
+      "item": "`score()` entry point",
+      "location": "`evaluator.py:308`",
+      "reason": "Well-factored public interface",
+      "priority": "P3"
+    },
+    {
+      "type": "clean",
+      "item": "`score_job_lead()`",
+      "location": "`scoring_engine.py:1066`",
+      "reason": "Well-structured deterministic scoring pipeline",
+      "priority": "P3"
+    },
+    {
+      "type": "clean",
+      "item": "`semantic_fit()` graceful fallback",
+      "location": "`semantic.py:189`",
+      "reason": "Never throws, returns None on any failure",
+      "priority": "P3"
+    },
+    {
+      "type": "clean",
+      "item": "`apply_feedback_learning()`",
+      "location": "`feedback_ranker.py:125`",
+      "reason": "Self-contained, single-responsibility",
+      "priority": "P3"
+    },
+    {
+      "type": "clean",
+      "item": "`manual_lead_from_text()`",
+      "location": "`lead_intel.py:272`",
+      "reason": "Clean orchestration of extraction functions",
+      "priority": "P3"
+    }
+  ],
+  "flagCounts": {
+    "dead": 2,
+    "hardcoded": 17,
+    "coupled": 5,
+    "incomplete": 0,
+    "stale": 0,
+    "suspect": 4,
+    "clean": 5
+  },
+  "deps": {
+    "inbound": [],
+    "outbound": []
+  },
+  "assessment": "### `agents/evaluator.py`\n\n1. **Does this file need to exist?** Yes \u2014 provides the LLM-led scoring path and decouples callers from the deterministic engine internals.\n2. **Does it do what it claims?** Yes \u2014 consistently implements \"LLM-led with deterministic fallback\".\n3. **Is it the right place for this logic?** Yes \u2014 the evaluator/fallback pattern is appropriately separated from the rubric engine.\n4. **What would break if deleted?** `services/scanner.py`, `services/ghost.py`, `graph/__init__.py`, `mcp_server.py` \u2014 all import `score`. Tests also directly test this module.\n\n### `agents/scoring_engine.py`\n\n1. **Does this file need to exist?** Yes \u2014 this is the core scoring logic for the entire app.\n2. **Does it do what it claims?** Yes \u2014 \"Deterministic scoring engine\" is accurate.\n3. **Is it the right place for this logic?** Partially \u2014 the massive hardcoded taxonomies (TECH_TAXONOMY, ROLE_KEYWORDS, WRONG_FIELD_TERMS) might be better as data files loaded at startup. The rubric weights belong in config.\n4. **What would break if deleted?** `evaluator.py` (imports 3 functions), `generator.py` (imports TECH_TAXONOMY), `query_gen.py` (imports infer_experience_level), plus all tests.\n\n### `agents/feedback_ranker.py`\n\n1. **Does this file need to exist?** Yes \u2014 small, focused, single-responsibility.\n2. **Does it do what it claims?** Yes \u2014 applies feedback-based signal adjustment.\n3. **Is it the right place for this logic?** Yes \u2014 it is correctly separated from the deterministic scoring engine.\n4. **What would break if deleted?** `db/client.py` lines 754, 771 \u2014 feedback learning in lead storage would be lost. Tests.\n\n### `agents/semantic.py`\n\n1. **Does this file need to exist?** Yes \u2014 provides embedding-based similarity as a separate concern.\n2. **Does it do what it claims?** Yes \u2014 \"fail-soft semantic fit that returns None on failure\".\n3. **Is it the right place for this logic?** Yes \u2014 separated from the scoring engine where it's consumed.\n4. **What would break if deleted?** `scoring_engine.py:_semantic_criterion` returns None (which it already handles), so scoring degrades cleanly to keyword-only. Tests.\n\n### `agents/lead_intel.py`\n\n1. **Does this file need to exist?** Yes \u2014 central text-to-lead conversion used by scouts, routes, MCP server.\n2. **Does it do what it claims?** Partially \u2014 the `classify_kind` function has a confirmed bug (always returns \"job\"). Name is accurate otherwise.\n3. **Is it the right place for this logic?** Yes \u2014 it's a conversion/enrichment layer between raw scraped text and structured lead dicts.\n4. **What would break if deleted?** `routes/leads.py`, `agents/x_scout.py`, `agents/free_scout.py`, `mcp_server.py`, `agents/quality_gate.py` \u2014 all heavily depend on this module."
+}

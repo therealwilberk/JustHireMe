@@ -1,0 +1,230 @@
+{
+  "slug": "backend-tests",
+  "name": "Tests",
+  "group": "BACKEND",
+  "summary": "The backend test suite lives entirely in `backend/tests/` and contains 328 deterministic tests designed to run in CI without external service dependencies. It covers the FastAPI HTTP routes (`test_api.py`), WebSocket connection manager concurrency (`test_websocket.py`), LangGraph evaluation graph happy-path and fault-tolerant failure modes (`test_graph.py`, `test_graph_failures.py`), MCP JSON-RPC protocol (`test_mcp_server.py`), SQLite pragma application and multi-connection contention (`test_sqlite.py`, `test_sqlite_reliability.py`), path/platform resolution (`test_paths.py`), secret resolution priority (`test_secrets.py`), structured logging observability (`test_observability.py`, `test_log_context.py`), domain logic regressions (`test_regressions.py`), startup smoke tests (`test_startup.py`), ScanManager state machine (`test_scan_manager.py`), GhostService phase contracts (`test_ghost_service.py`), and response-model completeness (`test_response_contracts.py`). Shared infrastructure lives in `conftest.py` (assertion helpers), `fakes.py` (storage backends), and `api_contracts.py` (per-endpoint contract schemas). `TEST_DOCS.md` is documentation, not code.\n\n---",
+  "fileCount": 20,
+  "files": [
+    {
+      "#": "1",
+      "File": "`TEST_DOCS.md`",
+      "Lines": "358",
+      "Purpose": "Test suite documentation \u2014 overview, pyramid, markers, contracts philosophy",
+      "Overall flag": "\ud83d\udfe2 Comprehensive docs"
+    },
+    {
+      "#": "2",
+      "File": "`conftest.py`",
+      "Lines": "273",
+      "Purpose": "Shared assertion helpers (API + MCP contracts), path setup, ignore glob",
+      "Overall flag": "\ud83d\udfe2 Clean, well-organized"
+    },
+    {
+      "#": "3",
+      "File": "`api_contracts.py`",
+      "Lines": "214",
+      "Purpose": "Per-endpoint response contract schemas (TypedDict-style classes)",
+      "Overall flag": "\ud83d\udfe2 Single source of truth"
+    },
+    {
+      "#": "4",
+      "File": "`fakes.py`",
+      "Lines": "128",
+      "Purpose": "In-memory fakes for Kuzu, SQLite, LanceDB; `_install_storage_fakes()`",
+      "Overall flag": "\ud83d\udfe2 Clean, well-factored"
+    },
+    {
+      "#": "5",
+      "File": "`test_api.py`",
+      "Lines": "551",
+      "Purpose": "FastAPI route behavior: auth, health, leads CRUD, settings, ingest",
+      "Overall flag": "\ud83d\udfe2 Strong coverage"
+    },
+    {
+      "#": "6",
+      "File": "`test_graph.py`",
+      "Lines": "142",
+      "Purpose": "LangGraph happy path: compiles, invokes, score range, skip logic",
+      "Overall flag": "\ud83d\udfe2 Adequate"
+    },
+    {
+      "#": "7",
+      "File": "`test_graph_failures.py`",
+      "Lines": "1290",
+      "Purpose": "Graph fault-tolerant failure modes: 16 guarantee-classes",
+      "Overall flag": "\ud83d\udfe2 Excellent coverage"
+    },
+    {
+      "#": "8",
+      "File": "`test_mcp_server.py`",
+      "Lines": "166",
+      "Purpose": "JSON-RPC MCP protocol: initialize, tools/list, tools/call, errors",
+      "Overall flag": "\ud83d\udfe2 Clean coverage"
+    },
+    {
+      "#": "9",
+      "File": "`test_paths.py`",
+      "Lines": "135",
+      "Purpose": "Cross-platform path resolution, browser binary detection",
+      "Overall flag": "\ud83d\udfe2 Good edge case coverage"
+    },
+    {
+      "#": "10",
+      "File": "`test_regressions.py`",
+      "Lines": "1205",
+      "Purpose": "Domain logic regression prevention \u2014 scoring, quality, HN, targets",
+      "Overall flag": "\ud83d\udfe0 Largest file, mixes concerns"
+    },
+    {
+      "#": "11",
+      "File": "`test_secrets.py`",
+      "Lines": "80",
+      "Purpose": "Secret resolution priority chain, warning deduplication",
+      "Overall flag": "\ud83d\udfe2 Focused"
+    },
+    {
+      "#": "12",
+      "File": "`test_websocket.py`",
+      "Lines": "515",
+      "Purpose": "_CM concurrency: async-safety, controlled/deterministic tests",
+      "Overall flag": "\ud83d\udfe2 Excellent"
+    },
+    {
+      "#": "13",
+      "File": "`test_sqlite.py`",
+      "Lines": "123",
+      "Purpose": "SQLite pragma verification (WAL, FK, busy_timeout)",
+      "Overall flag": "\ud83d\udfe2 Focused"
+    },
+    {
+      "#": "14",
+      "File": "`test_sqlite_reliability.py`",
+      "Lines": "539",
+      "Purpose": "SQLite contention, WAL isolation, FK enforcement, AST audit",
+      "Overall flag": "\ud83d\udfe2 Thorough"
+    },
+    {
+      "#": "15",
+      "File": "`test_observability.py`",
+      "Lines": "429",
+      "Purpose": "except:pass replacement verification \u2014 severity, context",
+      "Overall flag": "\ud83d\udfe2 Strong"
+    },
+    {
+      "#": "16",
+      "File": "`test_log_context.py`",
+      "Lines": "287",
+      "Purpose": "Correlation context API, filter, formatter, middleware",
+      "Overall flag": "\ud83d\udfe2 Clean"
+    },
+    {
+      "#": "17",
+      "File": "`test_startup.py`",
+      "Lines": "55",
+      "Purpose": "Smoke tests: token/port emission, port binding",
+      "Overall flag": "\ud83d\udfe2 Minimal but adequate"
+    },
+    {
+      "#": "18",
+      "File": "`test_scan_manager.py`",
+      "Lines": "43",
+      "Purpose": "ScanManager lifecycle: start/stop/idle, ghost lock guard",
+      "Overall flag": "\ud83d\udfe2 Concise"
+    },
+    {
+      "#": "19",
+      "File": "`test_ghost_service.py`",
+      "Lines": "30",
+      "Purpose": "GhostService phase contract: preflight skip/return",
+      "Overall flag": "\ud83d\udfe2 Concise"
+    },
+    {
+      "#": "20",
+      "File": "`test_response_contracts.py`",
+      "Lines": "113",
+      "Purpose": "response_model= completeness + job target CRUD",
+      "Overall flag": "\ud83d\udfe2 Important cross-check"
+    }
+  ],
+  "flags": [
+    {
+      "type": "stale",
+      "item": "`RegressionTests` monolithic class",
+      "location": "`test_regressions.py:62`",
+      "reason": "435 lines, 35+ unrelated tests in one class \u2014 should be split by domain",
+      "priority": "P2"
+    },
+    {
+      "type": "suspect",
+      "item": "`api_contracts.py` predicate functions",
+      "location": "`api_contracts.py:18-39`",
+      "reason": "Defined but only referenced by TEST_DOCS.md, not actual tests",
+      "priority": "P2"
+    },
+    {
+      "type": "suspect",
+      "item": "`_has_x_token` import from ghost service test",
+      "location": "`test_ghost_service.py:22`",
+      "reason": "Mocked but never actually called in `_phase_preflight` \u2014 verify if code path still exists",
+      "priority": "P2"
+    },
+    {
+      "type": "clean",
+      "item": "Conftest assertion helpers",
+      "location": "`conftest.py`",
+      "reason": "Well-factored, single-responsibility, used across test files",
+      "priority": "P3"
+    },
+    {
+      "type": "clean",
+      "item": "`fakes.py` design",
+      "location": "`fakes.py`",
+      "reason": "Clean abstraction with `use_real_sqlite` toggle",
+      "priority": "P3"
+    },
+    {
+      "type": "clean",
+      "item": "`test_websocket.py` controlled concurrency",
+      "location": "`test_websocket.py:257-515`",
+      "reason": "Best-practice deterministic concurrency testing",
+      "priority": "P3"
+    },
+    {
+      "type": "clean",
+      "item": "`test_graph_failures.py` guarantee-classes",
+      "location": "`test_graph_failures.py`",
+      "reason": "Excellent structured failure characterization",
+      "priority": "P3"
+    },
+    {
+      "type": "clean",
+      "item": "`test_sqlite_reliability.py` AST audit",
+      "location": "`test_sqlite_reliability.py:435`",
+      "reason": "Clever architectural enforcement",
+      "priority": "P3"
+    },
+    {
+      "type": "clean",
+      "item": "`test_observability.py` logger capture",
+      "location": "`test_observability.py:32-48`",
+      "reason": "Correct pattern for propagate=False loggers",
+      "priority": "P3"
+    }
+  ],
+  "flagCounts": {
+    "dead": 0,
+    "hardcoded": 0,
+    "coupled": 0,
+    "incomplete": 0,
+    "stale": 1,
+    "suspect": 2,
+    "clean": 6
+  },
+  "deps": {
+    "inbound": [
+      "None \u2014 this is a leaf unit providing test coverage for all other units."
+    ],
+    "outbound": []
+  },
+  "assessment": "| File | Need to exist? | Does what it claims? | Right place? | Breaks if deleted? |\n|------|---------------|---------------------|-------------|-------------------|\n| `TEST_DOCS.md` | Yes | Yes \u2014 comprehensive documentation | Yes | No code breaks, but team loses reference |\n| `conftest.py` | Yes | Yes | Yes | Every test file breaks \u2014 assertion helpers gone |\n| `api_contracts.py` | Partially \u2014 tests mostly inline key sets | Yes | Yes | Minor \u2014 tests would inline contracts |\n| `fakes.py` | Yes | Yes | Yes | Every integration test breaks \u2014 storage fakes gone |\n| `test_api.py` | Yes | Yes | Yes | No API route coverage |\n| `test_graph.py` | Yes | Yes | Yes | No graph happy-path coverage |\n| `test_graph_failures.py` | Yes | Yes | Yes | No graph fault-tolerance coverage |\n| `test_mcp_server.py` | Yes | Yes | Yes | No MCP protocol coverage |\n| `test_paths.py` | Yes | Yes | Yes | No path resolution tests |\n| `test_regressions.py` | Yes \u2014 but should be split | Yes | Partially \u2014 too many concerns in one file | Many domain regression tests lost |\n| `test_secrets.py` | Yes | Yes | Yes | No secret resolution tests |\n| `test_websocket.py` | Yes | Yes | Yes | No WS concurrency tests |\n| `test_sqlite.py` | Yes | Yes | Yes | No SQLite pragma tests |\n| `test_sqlite_reliability.py` | Yes | Yes | Yes | No contention/AST audit tests |\n| `test_observability.py` | Yes | Yes | Yes | No observability regression tests |\n| `test_log_context.py` | Yes | Yes | Yes | No correlation context tests |\n| `test_startup.py` | Yes | Yes | Yes | Minor \u2014 startup smoke tests lost |\n| `test_scan_manager.py` | Yes | Yes | Yes | No ScanManager lifecycle tests |\n| `test_ghost_service.py` | Yes | Yes | Yes | No GhostService phase tests |\n| `test_response_contracts.py` | Yes | Yes | Yes | Silent field dropping goes undetected |"
+}

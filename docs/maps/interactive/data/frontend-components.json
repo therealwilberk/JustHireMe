@@ -1,0 +1,194 @@
+{
+  "slug": "frontend-components",
+  "name": "Components",
+  "group": "FRONTEND",
+  "summary": "Collection of 11 React TSX components forming the top-level UI building blocks of the Tauri desktop app. Owns the sidebar navigation, topbar, job lead detail drawer, onboarding wizard, help chat, icon library, error boundary, update prompt, and filtering/list controls for the pipeline view. Depends on `src/types.ts` for shared types (`Lead`, `ApiFetch`, `View`, `LeadSort`, etc.) and `src/lib/leadUtils.ts` for display helpers. Consumed primarily by `src/App.tsx` and `src/views/PipelineView.tsx`.\n\n---",
+  "fileCount": 11,
+  "files": [
+    {
+      "#": "1",
+      "File": "`ApprovalDrawer.tsx`",
+      "Lines": "642",
+      "Purpose": "Full lead detail modal: PDF preview, versioning, feedback, outreach drafts, score display, auto-apply trigger",
+      "Flag": "\ud83d\udfe0"
+    },
+    {
+      "#": "2",
+      "File": "`ErrorBoundary.tsx`",
+      "Lines": "38",
+      "Purpose": "Class-based React error boundary with retry button",
+      "Flag": "\ud83d\udfe2"
+    },
+    {
+      "#": "3",
+      "File": "`FormReader.tsx`",
+      "Lines": "279",
+      "Purpose": "Reads ATS form fields from a job URL, shows extracted fields with confidence dots",
+      "Flag": "\ud83d\udfe2"
+    },
+    {
+      "#": "4",
+      "File": "`HelpChat.tsx`",
+      "Lines": "90",
+      "Purpose": "In-app chat panel that POSTs questions to `/api/v1/help/chat`",
+      "Flag": "\ud83d\udfe2"
+    },
+    {
+      "#": "5",
+      "File": "`Icon.tsx`",
+      "Lines": "249",
+      "Purpose": "SVG icon library: 30 icons rendered via a `switch` on `name` prop",
+      "Flag": "\ud83d\udfe2"
+    },
+    {
+      "#": "6",
+      "File": "`JobCard.tsx`",
+      "Lines": "256",
+      "Purpose": "Three exports: `JobCard` (unused), `PipelineJobCard`, `PipelineSkeleton`",
+      "Flag": "\ud83d\udfe0"
+    },
+    {
+      "#": "7",
+      "File": "`LeadFilterBar.tsx`",
+      "Lines": "105",
+      "Purpose": "Filter bar for pipeline view: search, platform, seniority, sort, signal/match thresholds",
+      "Flag": "\ud83d\udfe2"
+    },
+    {
+      "#": "8",
+      "File": "`OnboardingWizard.tsx`",
+      "Lines": "345",
+      "Purpose": "Multi-step first-run wizard: resume import, AI setup, tour, demo job",
+      "Flag": "\ud83d\udfe2"
+    },
+    {
+      "#": "9",
+      "File": "`Sidebar.tsx`",
+      "Lines": "109",
+      "Purpose": "Left nav with workspace links, lead count snapshot, online status",
+      "Flag": "\ud83d\udfe2"
+    },
+    {
+      "#": "10",
+      "File": "`Topbar.tsx`",
+      "Lines": "65",
+      "Purpose": "View title/subtitle header, plus `StatCard` (unused)",
+      "Flag": "\ud83d\udfe0"
+    },
+    {
+      "#": "11",
+      "File": "`UpdatePrompt.tsx`",
+      "Lines": "110",
+      "Purpose": "Tauri updater toast: checks, downloads, installs, dismisses",
+      "Flag": "\ud83d\udfe2"
+    }
+  ],
+  "flags": [
+    {
+      "type": "dead",
+      "item": "`JobCard`",
+      "location": "JobCard.tsx:7",
+      "reason": "Never imported anywhere in codebase",
+      "priority": "P0"
+    },
+    {
+      "type": "dead",
+      "item": "`StatCard`",
+      "location": "Topbar.tsx:44",
+      "reason": "Never imported anywhere \u2014 typed `any`, likely leftover",
+      "priority": "P0"
+    },
+    {
+      "type": "hardcoded",
+      "item": "Provider/field/hint data",
+      "location": "OnboardingWizard.tsx:22-90",
+      "reason": "3 lookup tables with 16 providers each \u2014 should be fetched from backend",
+      "priority": "P1"
+    },
+    {
+      "type": "suspect",
+      "item": "`pipelineRunning` 3s timeout",
+      "location": "ApprovalDrawer.tsx:163",
+      "reason": "Race condition \u2014 pipeline may finish before/after 3s",
+      "priority": "P1"
+    },
+    {
+      "type": "stale",
+      "item": "18 useState calls",
+      "location": "ApprovalDrawer.tsx:14-30",
+      "reason": "Cascading re-renders on every interaction; no sub-component isolation",
+      "priority": "P2"
+    },
+    {
+      "type": "suspect",
+      "item": "`feedbackBusy` typed as `string`",
+      "location": "ApprovalDrawer.tsx:24",
+      "reason": "Used as surrogate per-button busy flag but could be boolean",
+      "priority": "P2"
+    },
+    {
+      "type": "clean",
+      "item": "ErrorBoundary",
+      "location": "ErrorBoundary.tsx",
+      "reason": "Well-structured, minimal, does exactly one thing",
+      "priority": "P3"
+    },
+    {
+      "type": "clean",
+      "item": "Icon.tsx",
+      "location": "Icon.tsx",
+      "reason": "Straightforward switch-based SVG library, alias handled for external/external-link",
+      "priority": "P3"
+    },
+    {
+      "type": "clean",
+      "item": "HelpChat",
+      "location": "HelpChat.tsx",
+      "reason": "Focused scope, clean state management",
+      "priority": "P3"
+    },
+    {
+      "type": "clean",
+      "item": "UpdatePrompt",
+      "location": "UpdatePrompt.tsx",
+      "reason": "Clean lifecycle, proper cleanup on unmount, dismiss persistence via localStorage",
+      "priority": "P3"
+    },
+    {
+      "type": "clean",
+      "item": "FormReader",
+      "location": "FormReader.tsx",
+      "reason": "Focused responsibility, clean loading/error/result states",
+      "priority": "P3"
+    }
+  ],
+  "flagCounts": {
+    "dead": 2,
+    "hardcoded": 1,
+    "coupled": 0,
+    "incomplete": 0,
+    "stale": 1,
+    "suspect": 2,
+    "clean": 5
+  },
+  "deps": {
+    "inbound": [
+      "`src/App.tsx` \u2014 imports `Sidebar`, `Topbar`, `ErrorBoundary`, `ApprovalDrawer`, `OnboardingWizard`, `HelpChat`, `UpdatePrompt`",
+      "`src/views/PipelineView.tsx` \u2014 imports `LeadFilterBar`, `PipelineJobCard`, `PipelineSkeleton`",
+      "`src/views/DashboardView.tsx` \u2014 imports `Icon`",
+      "`src/views/ApplyJobView.tsx` \u2014 imports `Icon`",
+      "`src/views/LeadInboxView.tsx` \u2014 imports `Icon`",
+      "`src/views/PipelineView.tsx` \u2014 imports `Icon`",
+      "`src/views/GraphView.tsx` \u2014 imports `Icon`",
+      "`src/views/IngestionView.tsx` \u2014 imports `Icon`",
+      "`src/views/ProfileView.tsx` \u2014 imports `Icon`",
+      "`src/SettingsModal.tsx` \u2014 imports `Icon`",
+      "`src/settings/shared.tsx` \u2014 imports `Icon`"
+    ],
+    "outbound": [
+      "`src/types.ts` \u2014 `ApiFetch`, `Lead`, `View`, `KeywordCoverage`, `LeadSort`, `SeniorityFilter`, `FormField`, `FormReadResult`",
+      "`src/lib/leadUtils.ts` \u2014 `cleanLeadText`, `getTone`, `leadDisplayHeading`, `getMark`, `leadSeniority`, `seniorityLabel`, `seniorityTone`, `DEMO_JOB_DRAFT`"
+    ]
+  },
+  "assessment": "### `ApprovalDrawer.tsx`\n1. **Does it need to exist?** Yes \u2014 it's the primary detail view for lead review.\n2. **Does it do what it claims?** Yes \u2014 draws a modal with all lead detail sections.\n3. **Is it the right place?** Partially \u2014 642 lines is too large. PDF pane, score/feedback sections, and version selector should be extracted.\n4. **What would break if deleted?** Lead detail modal would be missing from App.tsx.\n\n### `ErrorBoundary.tsx`\n1. **Does it need to exist?** Yes.\n2. **Does it do what it claims?** Yes.\n3. **Is it the right place?** Yes.\n4. **What would break if deleted?** Uncaught render errors would crash entire app with no fallback UI.\n\n### `FormReader.tsx`\n1. **Does it need to exist?** Yes.\n2. **Does it do what it claims?** Yes.\n3. **Is it the right place?** Yes \u2014 embedded inside ApprovalDrawer makes sense contextually.\n4. **What would break if deleted?** Form reader section in ApprovalDrawer would be missing.\n\n### `HelpChat.tsx`\n1. **Does it need to exist?** Yes.\n2. **Does it do what it claims?** Yes.\n3. **Is it the right place?** Yes.\n4. **What would break if deleted?** Help chat widget would be removed.\n\n### `Icon.tsx`\n1. **Does it need to exist?** Yes.\n2. **Does it do what it claims?** Yes \u2014 name matches purpose as SVG icon library.\n3. **Is it the right place?** Yes \u2014 centralized single file for all icons.\n4. **What would break if deleted?** Nearly every UI component across the app.\n\n### `JobCard.tsx`\n1. **Does it need to exist?** Yes \u2014 `PipelineJobCard` and `PipelineSkeleton` are used. But `JobCard` is dead code.\n2. **Does it do what it claims?** Partially \u2014 only `PipelineJobCard` and `PipelineSkeleton` are actually consumed.\n3. **Is it the right place?** Yes \u2014 co-locating related card variants is reasonable.\n4. **What would break if deleted?** PipelineView would lose `PipelineJobCard` and `PipelineSkeleton`; `JobCard` removal would affect nothing.\n\n### `LeadFilterBar.tsx`\n1. **Does it need to exist?** Yes.\n2. **Does it do what it claims?** Yes.\n3. **Is it the right place?** Yes \u2014 pure presentational component.\n4. **What would break if deleted?** PipelineView filter bar would be missing.\n\n### `OnboardingWizard.tsx`\n1. **Does it need to exist?** Yes \u2014 provides the first-run onboarding flow.\n2. **Does it do what it claims?** Yes.\n3. **Is it the right place?** Partially \u2014 3 hardcoded provider lookup tables should be fetched from backend.\n4. **What would break if deleted?** No first-run setup flow.\n\n### `Sidebar.tsx`\n1. **Does it need to exist?** Yes.\n2. **Does it do what it claims?** Yes.\n3. **Is it the right place?** Yes.\n4. **What would break if deleted?** No navigation or status display.\n\n### `Topbar.tsx`\n1. **Does it need to exist?** Yes \u2014 `Topbar` is consumed. But `StatCard` is dead code.\n2. **Does it do what it claims?** Yes for `Topbar`, no for `StatCard` (unused and untyped).\n3. **Is it the right place?** `StatCard` co-location with `Topbar` is questionable \u2014 should be in DashboardView or a shared cards component.\n4. **What would break if deleted?** `Topbar` removal breaks App.tsx header; `StatCard` removal affects nothing.\n\n### `UpdatePrompt.tsx`\n1. **Does it need to exist?** Yes.\n2. **Does it do what it claims?** Yes.\n3. **Is it the right place?** Yes \u2014 self-contained toast component.\n4. **What would break if deleted?** No update notification UI."
+}
