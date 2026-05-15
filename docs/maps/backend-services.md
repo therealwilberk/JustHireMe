@@ -533,7 +533,7 @@ The `backend/services/` package is the orchestration layer between API routes (H
 |----------|------|------|-----------|--------|
 | P1 | ✅ RESOLVED | X query templates | `job_targets.py:302-304` | Wired to `settings.scraping.limits.x_query_template` / `x_query_alt_template` |
 | P1 | ✅ RESOLVED | Free source query templates | `job_targets.py:281-285` | Wired to `settings.scraping.limits.free_source_query_template` |
-| P1 | 🟢 DOMAIN DATA | Anthropic model name | `provider_probe.py:46` | Dated model name for probe; not user-facing config |
+| P1 | ✅ RESOLVED | Anthropic API URL + probe model | `provider_probe.py:38-46` | URL wired to `api_urls.anthropic_api_base`, model to `limits.probe_anthropic_model` |
 | P1 | ✅ RESOLVED | Probe timeout | `provider_probe.py:35` | Wired to `settings.scraping.timeouts.default_http` |
 | P1 | 🟣 COUPLED | `_fire_blocker` circular import | `ghost.py:243` | Deferred to structural refactor |
 | P1 | 🟣 COUPLED | `scan_manager._ghost_lock` direct access | `ghost.py:268` | Deferred to structural refactor |

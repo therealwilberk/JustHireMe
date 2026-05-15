@@ -34,18 +34,16 @@ async def _probe_provider_key(provider: str, key: str) -> dict:
     try:
         async with httpx.AsyncClient(timeout=settings.scraping.timeouts.default_http) as client:
             if provider == "anthropic":
+                url = f"{settings.scraping.api_urls.anthropic_api_base}/v1/messages"
+                model = settings.scraping.limits.probe_anthropic_model
                 r = await client.post(
-                    "https://api.anthropic.com/v1/messages",
+                    url,
                     headers={
                         "x-api-key": key,
                         "anthropic-version": "2023-06-01",
                         "content-type": "application/json",
                     },
-                    json={
-                        "model": "claude-haiku-4-5-20251001",
-                        "max_tokens": 1,
-                        "messages": [{"role": "user", "content": "ping"}],
-                    },
+                    json={"model": model, "max_tokens": 1, "messages": [{"role": "user", "content": "ping"}]},
                 )
                 status = "ok" if r.status_code in {200, 400} else "invalid_key" if r.status_code == 401 else "unreachable"
             elif provider == "openai":
