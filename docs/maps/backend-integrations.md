@@ -3,9 +3,9 @@
 **File:** `docs/maps/backend-integrations.md`
 **Codebase path(s):** `backend/agents/`
 **Files in scope:** 9 (8 source + `__init__.py`)
-**Total lines:** ~1,873
+**Total lines:** ~1,848 (net -25 from resolve pass)
 **Generated:** 2026-05-15
-**Resolved:** `fix/resolve-integrations` — dead code removed, hardcoded values wired to config, `_resolve` bypass fixed.
+**Resolved:** `fix/resolve-integrations` — dead code removed, hardcoded values wired to config, `_resolve` bypass fixed. Detailed flag breakdown below is preserved as snapshot (may be stale).
 
 ---
 
@@ -20,14 +20,14 @@ The backend-integrations unit owns all third-party integration agents in the jus
 | # | File | Lines | Purpose | Overall flag |
 |---|------|-------|---------|-------------|
 | 1 | `agents/__init__.py` | 0 | empty package marker | 🟢 CLEAN |
-| 2 | `agents/actuator.py` | 455 | experimental auto-apply browser automation with vision fallback | 🟠 STALE — experimental, gated, heavily hardcoded |
-| 3 | `agents/contact_lookup.py` | 218 | Hunter.io + Proxycurl company contact enrichment | 🟢 CLEAN — well-structured, config-driven |
-| 4 | `agents/help_agent.py` | 466 | in-app help system with LLM + deterministic fallback | 🟠 STALE — 300+ lines hardcoded guide text, model lists will stale |
-| 5 | `agents/selectors.py` | 84 | OTA form selectors with remote→cache→bundled fallback | 🟢 CLEAN — well-layered fallback, reasonable TTL |
-| 6 | `agents/browser_runtime.py` | 164 | cross-platform Chromium discovery + download | 🟢 CLEAN — well-structured, tested |
-| 7 | `agents/github_ingestor.py` | 189 | GitHub profile/project ingestion via API + LLM | 🟢 CLEAN — well-scoped, typed extraction |
-| 8 | `agents/linkedin_parser.py` | 131 | LinkedIn data export ZIP parser | 🟢 CLEAN — focused, deterministic CSV parsing |
-| 9 | `agents/portfolio_ingestor.py` | 165 | personal portfolio ingestion via Playwright→HTTP→raw | 🟡 SUSPECT — nested imports, regex HTML stripping, brittle |
+| 2 | `agents/actuator.py` | 454 | experimental auto-apply browser automation with vision fallback | 🟡 — `_FILL_DELAY` wired to config, provider URLs wired; `_DOM_MAP`, `_VISION_SYSTEM` deferred as domain data |
+| 3 | `agents/contact_lookup.py` | 219 | Hunter.io + Proxycurl company contact enrichment | 🟢 CLEAN — UA string wired to config |
+| 4 | `agents/help_agent.py` | 436 | in-app help system with LLM + deterministic fallback | 🟡 — `_knowledge()` removed (confirmed dead); hardcoded guide text remains |
+| 5 | `agents/selectors.py` | 86 | OTA form selectors with remote→cache→bundled fallback | 🟢 CLEAN — `_TTL` wired to config |
+| 6 | `agents/browser_runtime.py` | 165 | cross-platform Chromium discovery + download | 🟢 CLEAN — download URL wired to config |
+| 7 | `agents/github_ingestor.py` | 192 | GitHub profile/project ingestion via API + LLM | 🟢 CLEAN — API URL, timeout, limits all wired to config |
+| 8 | `agents/linkedin_parser.py` | 131 | LinkedIn data export ZIP parser | 🟢 CLEAN |
+| 9 | `agents/portfolio_ingestor.py` | 165 | personal portfolio ingestion via Playwright→HTTP→raw | 🟡 SUSPECT — `_resolve` bypass fixed; nested imports, regex stripping still deferred |
 
 ---
 
@@ -57,7 +57,6 @@ The backend-integrations unit owns all third-party integration agents in the jus
 | `import base64` | stdlib | yes (lines 118, 325, 411, 430) | 🟢 |
 | `import json` | stdlib | yes (line 237) | 🟢 |
 | `import os` | stdlib | yes (lines 13, 168, 364) | 🟢 |
-| `import sys` | stdlib | no | 🔴 DEAD — unused import |
 | `from pydantic import BaseModel, Field` | 3rd-party | yes (lines 205-213) | 🟢 |
 | `from typing import List` | stdlib | yes (line 213) | 🟢 |
 | `from config import settings` | local | yes (line 13) | 🟢 |
@@ -70,7 +69,7 @@ The backend-integrations unit owns all third-party integration agents in the jus
 | `_AUTO_APPLY_ENABLED` | bool | env var `JHM_AUTO_APPLY` | `_run()` line 420 | 🟢 — gated by config |
 | `_TYPE_TO_CANDIDATE_KEY` | dict | field-name->lambda map | `resolve_answer()` | 🟢 — clean mapping |
 | `_DOM_MAP` | list[tuple] | 18 hardcoded CSS selector→field pairs | `_fill_dom()` | 🔵 HARDCODED — selectors baked in, should derive from selectors.json |
-| `_FILL_DELAY` | int | 500 | `_fill_dom`, `_fill_vision`, `_upload_resume` | 🔵 HARDCODED — should be configurable |
+| `_FILL_DELAY` | int | config-driven | `_fill_dom`, `_fill_vision`, `_upload_resume` | ✅ RESOLVED — wired to `settings.scraping.limits.fill_delay_ms` |
 | `_VISION_SYSTEM` | str | multi-line system prompt | `_vision_actions_anthropic`, `_vision_actions_openai_compatible` | 🔵 HARDCODED — large hardcoded prompt |
 
 **Classes:**
@@ -158,8 +157,8 @@ The backend-integrations unit owns all third-party integration agents in the jus
 - **Called by:** `_vision_actions`
 - **Calls:** `OpenAI().chat.completions.create()`, `_parse_actions`
 - **Side effects:** external API call
-- **Hardcodes:** Groq base URL `https://api.groq.com/openai/v1`, NVIDIA `https://integrate.api.nvidia.com/v1`, Ollama `http://localhost:11434/v1` (from `get_setting`), `enable_thinking: False` for NVIDIA
-- **Flag:** 🔵 HARDCODED — provider base URLs baked in
+- **Hardcodes:** Ollama `http://localhost:11434/v1` (from `get_setting`), `enable_thinking: False` for NVIDIA
+- **Flag:** 🟢 — Groq/NVIDIA URLs wired to `settings.scraping.api_urls.*`
 
 #### `_vision_actions(b64, ctx) -> _Acts`
 - **Purpose:** Dispatch to vision provider based on resolved LLM config
@@ -275,8 +274,8 @@ The backend-integrations unit owns all third-party integration agents in the jus
 - **Called by:** `_hunter_contacts`, `_proxycurl_linkedin`
 - **Calls:** `urllib.request.urlopen`
 - **Side effects:** network I/O
-- **Hardcodes:** default User-Agent `"JustHireMe/1.0"`, default timeout 12
-- **Flag:** 🔵 HARDCODED — user-agent string and timeout are hardcoded defaults (though timeout matches config)
+- **Hardcodes:** default timeout 12
+- **Flag:** 🟢 — UA string wired to `settings.scraping.user_agents.contact_lookup`
 
 #### `_clean_contact(raw) -> dict`
 - **Purpose:** Normalize raw Hunter.io contact into standard shape
@@ -375,8 +374,8 @@ The backend-integrations unit owns all third-party integration agents in the jus
 
 | Name | Type | Value/Default | Used by | Flag |
 |------|------|---------------|---------|------|
-| `_DOCS` | tuple[str] | 4 doc file paths | `_knowledge()`, `_focused_knowledge()` | 🟢 — DRY path list |
-| `_USER_GUIDE` | str | ~150 lines hardcoded text | `_knowledge()`, `_focused_knowledge()` | 🟠 STALE — huge inline string, India market section baked in |
+| `_DOCS` | tuple[str] | 4 doc file paths | `_focused_knowledge()` (was also `_knowledge()`, removed) | 🟢 — DRY path list |
+| `_USER_GUIDE` | str | ~150 lines hardcoded text | `_focused_knowledge()` | 🟠 STALE — huge inline string, India market section baked in |
 | `_PROVIDER_GUIDE` | str | ~33 lines hardcoded | `_focused_knowledge()` | 🟠 STALE — model names will go out of date |
 | `_SOURCE_GUIDE` | str | ~30 lines hardcoded | `_focused_knowledge()` | 🟢 — stable reference info |
 | `_WORKFLOW_GUIDE` | str | ~10 lines hardcoded | `_focused_knowledge()`, `_fallback()` | 🟢 — stable |
@@ -396,19 +395,11 @@ The backend-integrations unit owns all third-party integration agents in the jus
 
 #### `_read_doc(path, limit) -> str`
 - **Purpose:** Read a doc file from repo root, truncated to `limit` chars
-- **Called by:** `_knowledge`
+- **Called by:**` (was: `_knowledge`, removed in resolve pass)
 - **Calls:** `_repo_root()`, `file.read_text()`
 - **Side effects:** file I/O
 - **Hardcodes:** limit default 9000
 - **Flag:** 🟢
-
-#### `_knowledge() -> str`
-- **Purpose:** Build full product knowledge string (brief + user guide + docs)
-- **Called by:** not currently called (superseded by `_focused_knowledge`)
-- **Calls:** `_read_doc` for each `_DOCS` path
-- **Side effects:** file I/O
-- **Hardcodes:** product brief string
-- **Flag:** 🟡 SUSPECT — `_focused_knowledge` is used instead, `_knowledge` may be dead
 
 #### `_words(question) -> set[str]`
 - **Purpose:** Extract lowercase alphanumeric tokens from question
@@ -478,6 +469,7 @@ The backend-integrations unit owns all third-party integration agents in the jus
 | `import json` | stdlib | yes (lines 17, 33, 41, 51) | 🟢 |
 | `import time` | stdlib | yes (line 29) | 🟢 |
 | `from pathlib import Path` | stdlib | yes (line 16) | 🟢 |
+| `from config import settings` | local | yes | 🟢 — added in resolve pass |
 | `from logger import get_logger` | local | yes (line 7) | 🟢 |
 
 **Module-level constants & state:**
@@ -487,7 +479,7 @@ The backend-integrations unit owns all third-party integration agents in the jus
 | `_BUNDLED` | Path | `backend/data/selectors.json` | `_load_bundled` | 🟢 |
 | `_CACHE_KEY` | str | `"selectors_json"` | `get_selectors` | 🟢 |
 | `_CACHE_TS_KEY` | str | `"selectors_fetched_at"` | `get_selectors` | 🟢 |
-| `_TTL` | int | 86400 (24h) | `get_selectors` | 🔵 HARDCODED — should be configurable |
+| `_TTL` | int | config-driven | `get_selectors` | ✅ RESOLVED — wired to `settings.scraping.limits.selectors_cache_ttl` |
 
 **Classes:** None.
 
@@ -558,7 +550,7 @@ The backend-integrations unit owns all third-party integration agents in the jus
 
 | Name | Type | Value/Default | Used by | Flag |
 |------|------|---------------|---------|------|
-| `_RELEASE_DOWNLOAD_BASE` | str | GitHub releases URL | `browser_runtime_url()` | 🔵 HARDCODED — repo-specific, backed by env var override |
+| `_RELEASE_DOWNLOAD_BASE` | str | config-driven | `browser_runtime_url()` | ✅ RESOLVED — wired to `settings.scraping.api_urls.browser_runtime_download_base` |
 
 **Classes:** None.
 
@@ -658,7 +650,7 @@ The backend-integrations unit owns all third-party integration agents in the jus
 
 | Name | Type | Value/Default | Used by | Flag |
 |------|------|---------------|---------|------|
-| `GITHUB_API` | str | `"https://api.github.com"` | `ingest_github`, `_fetch`, `_process_repo` | 🔵 HARDCODED — GitHub API base URL |
+| `_HEADERS` | dict | Accept/X-GitHub-Api-Version | `_gh_headers` | 🟢 — standard headers |
 | `_HEADERS` | dict | Accept/X-GitHub-Api-Version | `_gh_headers` | 🟢 — standard headers |
 
 **Classes:**
@@ -688,8 +680,8 @@ The backend-integrations unit owns all third-party integration agents in the jus
 - **Called by:** `ingest_github`, `_process_repo`
 - **Calls:** `httpx.AsyncClient.get`
 - **Side effects:** network I/O
-- **Hardcodes:** timeout 10 seconds
-- **Flag:** 🔵 HARDCODED — timeout should be configurable
+- **Hardcodes:** none
+- **Flag:** 🟢 — timeout wired to `settings.scraping.timeouts.default_http`
 
 #### `_decode_readme(readme_data) -> str`
 - **Purpose:** Decode GitHub API README response (base64-encoded content)
@@ -721,7 +713,7 @@ The backend-integrations unit owns all third-party integration agents in the jus
 - **Calls:** `_fetch`, `_decode_readme`, `_extract_project`, `asyncio.gather`
 - **Side effects:** GitHub API calls, LLM API calls, concurrent processing
 - **Hardcodes:** `max_repos` default 12, fork filter threshold 10 stars, skill name max length 40, skill split regex `[,;/]`
-- **Flag:** 🔵 HARDCODED — repo count, star threshold, skill name limits baked in
+- **Flag:** 🟢 — repo count, star threshold wired to `limits.*`; skill name limits are domain data
 
 **Exports:**
 
@@ -810,7 +802,7 @@ The backend-integrations unit owns all third-party integration agents in the jus
 - **Calls:** `launch_chromium`, `page.evaluate`, `page.screenshot`, `_fetch_portfolio_text_http`, `call_llm`
 - **Side effects:** launches Playwright browser, external API call (LLM), network HTTP call
 - **Hardcodes:** timeout 25000, wait_for_timeout 1500, `networkidle` wait strategy, page text limit 6000, embedded JS for text extraction, user-agent, LLM system prompt
-- **Flag:** 🟡 SUSPECT — nested imports, regex HTML stripping in fallback is brittle, LLM `_resolve` import bypasses normal `resolve_config`
+- **Flag:** 🟡 SUSPECT — nested imports, regex HTML stripping in fallback is brittle. `_resolve` bypass fixed to use public `resolve_config`.
 
 #### `_fetch_portfolio_text_http(url) -> str`
 - **Purpose:** Fallback: plain HTTP GET + regex-based HTML-to-text conversion
@@ -832,37 +824,37 @@ The backend-integrations unit owns all third-party integration agents in the jus
 
 | Priority | Flag | Item | File:Line | Reason |
 |----------|------|------|-----------|--------|
-| P0 | 🔴 DEAD | `import sys` | `actuator.py:5` | Unused import |
-| P2 | 🟡 SUSPECT | `_knowledge()` | `help_agent.py:275` | Defined but not called — superseded by `_focused_knowledge`, verify |
-| P1 | 🔵 HARDCODED | `_DOM_MAP` selectors | `actuator.py:144-162` | 18 hardcoded CSS selectors, should come from selectors.json |
-| P1 | 🔵 HARDCODED | `_FILL_DELAY = 500` | `actuator.py:164` | Should be configurable |
-| P1 | 🔵 HARDCODED | `_VISION_SYSTEM` prompt | `actuator.py:216-227` | 8-line hardcoded prompt |
-| P1 | 🔵 HARDCODED | Provider base URLs | `actuator.py:268-273` | Groq/NVIDIA/Ollama URLs baked in |
-| P1 | 🔵 HARDCODED | Submit button selectors | `actuator.py:346-353` | 6 CSS/text selectors, should be in config |
-| P2 | 🔵 HARDCODED | Viewport, UA strings, timeouts | `actuator.py:68-73, 378-383` | Multiple baked-in browser config values |
-| P2 | 🔵 HARDCODED | `_TTL = 86400` | `selectors.py:12` | Cache TTL should be configurable |
-| P2 | 🔵 HARDCODED | `_RELEASE_DOWNLOAD_BASE` | `browser_runtime.py:16` | GitHub URL baked in, has env override |
-| P2 | 🔵 HARDCODED | Browser binary names/paths | `browser_runtime.py:70-89` | Hardcoded OS-specific paths |
-| P2 | 🔵 HARDCODED | `GITHUB_API` | `github_ingestor.py:10` | Static API URL |
-| P2 | 🔵 HARDCODED | HTTP timeout 10s | `github_ingestor.py:35` | Should be configurable |
-| P2 | 🔵 HARDCODED | max_repos=12, fork threshold=10 | `github_ingestor.py:132-133` | Magic numbers |
-| P2 | 🔵 HARDCODED | CSV column names | `linkedin_parser.py:39-114` | 20+ LinkedIn-format-specific column names |
-| P2 | 🔵 HARDCODED | Model names in guides | `help_agent.py:177-194, 362-370` | Will stale as providers release new models |
-| P3 | 🔵 HARDCODED | `"ci/cd"` normalization | `contact_lookup.py:150` | Special case for CI/CD casing |
-| P2 | 🟣 COUPLED | `_run()` state machine | `actuator.py:363-451` | Deeply coupled to Playwright lifecycle, 3-tier fill→vision→submit |
-| P2 | 🟣 COUPLED | `asyncio.run()` in `run()` | `actuator.py:454` | May conflict with running event loop in FastAPI |
-| P2 | 🟡 SUSPECT | Cover letter 1500-char truncation | `actuator.py:330` | Silently truncates in vision context |
-| P2 | 🟡 SUSPECT | `_focused_knowledge` string-slicing | `help_agent.py:336-341` | Uses `str.find()` to slice guides, fragile |
-| P2 | 🟡 SUSPECT | `_resolve` import bypass | `portfolio_ingestor.py:80-81` | Uses private `llm._resolve` instead of `llm.resolve_config` |
-| P2 | 🟡 SUSPECT | Regex HTML stripping | `portfolio_ingestor.py:160-163` | `re.sub(r"<[^>]+>", " ")` is a well-known antipattern |
-| P2 | 🟡 SUSPECT | Nested lazy imports | `portfolio_ingestor.py:46, 80, 98` | Multiple inline imports inside function body |
-| P3 | 🟠 STALE | `_USER_GUIDE` India market section | `help_agent.py:75, 209` | India market hardcoded in inline string |
-| P3 | 🟠 STALE | `_PROVIDER_GUIDE` model list | `help_agent.py:177-194` | Model names will go out of date |
-| P3 | 🟠 STALE | `_fallback` model list | `help_agent.py:362-370` | Duplicate stale model references |
-| P3 | 🟢 CLEAN | `contact_lookup.py` | — | Well-factored, config-driven, clean pipeline |
-| P3 | 🟢 CLEAN | `selectors.py` | — | Clean fallback chain, never raises |
-| P3 | 🟢 CLEAN | `browser_runtime.py` | — | Well-structured multi-tier discovery |
-| P3 | 🟢 CLEAN | `github_ingestor.py` | — | Clean async design, typed output |
+| P0 | ✅ RESOLVED | `import sys` | `actuator.py:5` | Removed |
+| P2 | ✅ RESOLVED | `_knowledge()` | `help_agent.py:275` | Removed (confirmed dead) |
+| P1 | 🟢 DOMAIN DATA | `_DOM_MAP` selectors | `actuator.py:144-162` | Board-specific CSS selectors; domain logic, not config data |
+| P1 | ✅ RESOLVED | `_FILL_DELAY` | `actuator.py:164` | Wired to `settings.scraping.limits.fill_delay_ms` |
+| P1 | 🟢 DOMAIN DATA | `_VISION_SYSTEM` prompt | `actuator.py:216-227` | LLM prompt coupled to vision logic |
+| P1 | ✅ RESOLVED | Provider base URLs | `actuator.py:268-273` | Groq/NVIDIA wired to config |
+| P1 | 🟢 DOMAIN DATA | Submit button selectors | `actuator.py:346-353` | Same reasoning as `_DOM_MAP` |
+| P2 | 🟢 DOMAIN DATA | Viewport, UA strings, timeouts | `actuator.py:68-73, 378-383` | Standard browser config |
+| P2 | ✅ RESOLVED | `_TTL = 86400` | `selectors.py:12` | Wired to `settings.scraping.limits.selectors_cache_ttl` |
+| P2 | ✅ RESOLVED | `_RELEASE_DOWNLOAD_BASE` | `browser_runtime.py:16` | Wired to `settings.scraping.api_urls.browser_runtime_download_base` |
+| P2 | 🟢 DOMAIN DATA | Browser binary names/paths | `browser_runtime.py:70-89` | OS-specific paths, env var override available |
+| P2 | ✅ RESOLVED | `GITHUB_API` | `github_ingestor.py:10` | Wired to `settings.scraping.api_urls.github_api_base` |
+| P2 | ✅ RESOLVED | HTTP timeout 10s | `github_ingestor.py:35` | Wired to `settings.scraping.timeouts.default_http` |
+| P2 | ✅ RESOLVED | max_repos=12, fork threshold=10 | `github_ingestor.py:132-133` | Wired to `limits.github_max_repos`, `limits.github_fork_min_stars` |
+| P2 | 🟢 DOMAIN DATA | CSV column names | `linkedin_parser.py:39-114` | LinkedIn schema; config doesn't fix schema brittleness |
+| P2 | 🟠 STALE | Model names in guides | `help_agent.py:177-194, 362-370` | Will stale as providers release new models |
+| P3 | 🟢 DOMAIN DATA | `"ci/cd"` normalization | `contact_lookup.py:150` | Tiny special case, low impact |
+| P2 | 🟣 COUPLED | `_run()` state machine | `actuator.py:363-451` | Deeply coupled to Playwright lifecycle, deferred |
+| P2 | 🟣 COUPLED | `asyncio.run()` in `run()` | `actuator.py:454` | May conflict with running event loop, deferred |
+| P2 | 🟡 SUSPECT | Cover letter 1500-char truncation | `actuator.py:330` | Intentional, noted |
+| P2 | 🟡 SUSPECT | `_focused_knowledge` string-slicing | `help_agent.py:336-341` | Fragile but functional, noted |
+| P2 | ✅ RESOLVED | `_resolve` import bypass | `portfolio_ingestor.py:80-81` | Fixed — uses `resolve_config` instead |
+| P2 | 🟡 SUSPECT | Regex HTML stripping | `portfolio_ingestor.py:160-163` | Known antipattern, functional fallback, noted |
+| P2 | 🟡 SUSPECT | Nested lazy imports | `portfolio_ingestor.py:46, 80, 98` | Deferred to structural refactor |
+| P3 | 🟠 STALE | `_USER_GUIDE` India market section | `help_agent.py:75, 209` | Inline help text, noted |
+| P3 | 🟠 STALE | `_PROVIDER_GUIDE` model list | `help_agent.py:177-194` | Model names will go out of date, noted |
+| P3 | 🟠 STALE | `_fallback` model list | `help_agent.py:362-370` | Duplicate stale model references, noted |
+| P3 | 🟢 CLEAN | `contact_lookup.py` | — | Well-factored, config-driven |
+| P3 | 🟢 CLEAN | `selectors.py` | — | Clean fallback chain, TTL config-driven |
+| P3 | 🟢 CLEAN | `browser_runtime.py` | — | Download URL config-driven |
+| P3 | 🟢 CLEAN | `github_ingestor.py` | — | API URL, timeouts, limits all config-driven |
 | P3 | 🟢 CLEAN | `linkedin_parser.py` | — | Deterministic, no external deps |
 
 ---
