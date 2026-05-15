@@ -59,6 +59,9 @@ class ScraperLimits(BaseModel):
     selectors_cache_ttl: int = 86400  # selectors.py:12
     github_max_repos: int = 12  # github_ingestor.py:100
     github_fork_min_stars: int = 10  # github_ingestor.py:132
+    free_source_query_template: str = "github:{role} hiring help wanted\nhn:{role} remote hiring\nreddit:forhire:{role} hiring job remote"
+    x_query_template: str = '("hiring" OR "job opening" OR "open role") ({role}) {location} lang:en -is:retweet'
+    x_query_alt_template: str = '("we are hiring" OR "is hiring" OR "apply") ({role}) lang:en -is:retweet'
 
 
 class SourceCaps(BaseModel):

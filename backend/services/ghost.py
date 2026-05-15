@@ -74,7 +74,7 @@ class GhostService:
             return None
 
         profile = _profile_for_discovery(await asyncio.to_thread(get_profile), cfg)
-        boards = _job_targets(cfg.get("job_boards", ""), cfg.get("job_market_focus", "global"))
+        boards = _job_targets(cfg.get("job_boards", ""))
         has_x = _has_x_token(cfg)
         has_free = _free_sources_enabled(cfg)
         if not boards and not has_x and not has_free:
@@ -91,17 +91,9 @@ class GhostService:
             profile: Enriched user profile dictionary.
         """
         if _has_x_token(cfg):
-            await _run_x_signal_scan(cfg, "job", profile)
+            await _run_x_signal_scan(cfg, profile)
 
-    async def _phase_free_scan(self, cfg: dict, profile: dict) -> None:
-        """Run the free-source signal scan if it is enabled in settings.
-
-        Args:
-            cfg: Application settings dictionary.
-            profile: Enriched user profile dictionary.
-        """
-        if _free_sources_enabled(cfg):
-            await _run_free_source_scan(cfg, "job", profile)
+            await _run_free_source_scan(cfg, profile)
 
     async def _phase_scout(self, cfg: dict, profile: dict, boards: list[str]) -> None:
         """Generate profile-tailored search queries and scrape job boards.
