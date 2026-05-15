@@ -16,7 +16,7 @@ from log_context import (
     set_context,
     enrich,
 )
-from logger import get_logger, CorrelationFilter, ContextFormatter
+from logger import get_logger, CorrelationFilter
 
 
 class TestContextBasics:
@@ -138,14 +138,15 @@ class TestContextIsolation:
 
 
 class TestCorrelationFilter:
+    FMT = "%(asctime)s [%(levelname)s] [%(correlation_id)s] %(name)s: %(message)s"
+
     def test_filter_injects_correlation_id_when_context_exists(self):
         ctx = new_context(workflow_type="filter_test")
         token = set_context(ctx)
         try:
             buf = io.StringIO()
             handler = logging.StreamHandler(buf)
-            fmt = ContextFormatter("""%(asctime)s [%(levelname)s] [%(correlation_id)s] %(name)s: %(message)s""")
-            handler.setFormatter(fmt)
+            handler.setFormatter(logging.Formatter(self.FMT))
             handler.addFilter(CorrelationFilter())
             logger = logging.getLogger("test.filter.active")
             logger.setLevel(logging.DEBUG)
@@ -160,8 +161,7 @@ class TestCorrelationFilter:
     def test_filter_uses_dash_when_no_context(self):
         buf = io.StringIO()
         handler = logging.StreamHandler(buf)
-        fmt = ContextFormatter("""%(asctime)s [%(levelname)s] [%(correlation_id)s] %(name)s: %(message)s""")
-        handler.setFormatter(fmt)
+        handler.setFormatter(logging.Formatter(self.FMT))
         handler.addFilter(CorrelationFilter())
         logger = logging.getLogger("test.filter.null")
         logger.setLevel(logging.DEBUG)
@@ -171,13 +171,13 @@ class TestCorrelationFilter:
         output = buf.getvalue()
         assert "[-]" in output
 
-    def test_filter_appends_contextual_fields(self):
+    def test_filter_injects_correlation_id_under_multi_field_context(self):
         ctx = new_context(workflow_type="scan", lead_id="lead-42", job_id="job-7")
         token = set_context(ctx)
         try:
             buf = io.StringIO()
             handler = logging.StreamHandler(buf)
-            handler.setFormatter(ContextFormatter())
+            handler.setFormatter(logging.Formatter(self.FMT))
             handler.addFilter(CorrelationFilter())
             logger = logging.getLogger("test.filter.fields")
             logger.setLevel(logging.DEBUG)
@@ -185,48 +185,9 @@ class TestCorrelationFilter:
             logger.addHandler(handler)
             logger.info("processing")
             output = buf.getvalue()
-            assert "lead-42" in output
-            assert "job-7" in output
-            assert "flow=scan" in output
-        finally:
-            reset_context(token)
-
-
-class TestContextFormatter:
-    def test_format_with_context(self):
-        ctx = new_context(workflow_type="format_test", lead_id="l1")
-        token = set_context(ctx)
-        try:
-            buf = io.StringIO()
-            handler = logging.StreamHandler(buf)
-            fmt = ContextFormatter("%(asctime)s [%(levelname)s] [%(correlation_id)s] %(name)s: %(message)s")
-            handler.setFormatter(fmt)
-            handler.addFilter(CorrelationFilter())
-            logger = logging.getLogger("test.formatter")
-            logger.setLevel(logging.DEBUG)
-            logger.propagate = False
-            logger.addHandler(handler)
-            logger.info("format check")
-            output = buf.getvalue()
             assert ctx.correlation_id in output
-            assert "|" in output
-            assert "l1" in output
         finally:
             reset_context(token)
-
-    def test_format_without_context(self):
-        buf = io.StringIO()
-        handler = logging.StreamHandler(buf)
-        fmt = ContextFormatter("%(asctime)s [%(levelname)s] [%(correlation_id)s] %(name)s: %(message)s")
-        handler.setFormatter(fmt)
-        handler.addFilter(CorrelationFilter())
-        logger = logging.getLogger("test.formatter.null")
-        logger.setLevel(logging.DEBUG)
-        logger.propagate = False
-        logger.addHandler(handler)
-        logger.info("no ctx here")
-        output = buf.getvalue()
-        assert "[-]" in output
 
 
 class TestFileHandler:

@@ -28,6 +28,7 @@ class QualityGateThresholds(BaseModel):
     min_quality_score: int = 60
     hot_lead_threshold: int = 80
     auto_approve_score: int = 85  # backend/main.py:542
+    default_target_level: str = "beginner"  # mcp_server.py (MCP tool fallback)
 
 
 class QualityGatePenalties(BaseModel):

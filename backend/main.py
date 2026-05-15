@@ -4,6 +4,10 @@ The first ``if __name__ == "__main__"`` block emits the API token
 and bound port to stdout before slow imports load, so Tauri's sidecar
 can read them quickly. The second ``if __name__ == "__main__"`` block
 starts uvicorn after all imports are ready.
+
+Ghost scheduler interval is driven by ``settings.app.ghost_mode.interval_hours``.
+All secret diagnostic keys are read from config schema. No hardcoded
+re-exports remain — imports go directly to source modules.
 """
 
 import secrets
@@ -48,7 +52,6 @@ from fastapi import FastAPI, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from logger import get_logger
 from config import settings
 from log_context import new_context, set_context, reset_context
 from core.config_constants import _log, _sched, _LOCAL_ORIGIN_RE, _bearer
@@ -109,7 +112,7 @@ async def lifespan(app: FastAPI):
     _log_startup_secret_diagnostics()
     if _sched.get_job("ghost"):
         _sched.remove_job("ghost")
-    _sched.add_job(_ghost_tick, "interval", hours=6, id="ghost")
+    _sched.add_job(_ghost_tick, "interval", hours=settings.app.ghost_mode.interval_hours, id="ghost")
     _sched.start()
     _log.info("FastAPI live.")
     yield
@@ -179,14 +182,6 @@ app.include_router(ingest.router)
 app.include_router(actions.router)
 app.include_router(ws.router)
 
-
-# Backward-compatible re-exports for tests (remove after test imports updated)
-from core.ws_manager import _agent_event_action
-from services.job_targets import _job_targets, _profile_for_discovery
-from services.scanner import _should_preserve_job_status, _job_eval_document
-from services.generator import _fire_blocker, _generate_one
-from services.provider_probe import _sensitive
-from schemas.requests import FeedbackBody, SettingsBody, ExperienceBody, ProjectBody, ProfileImportBody
 
 if __name__ == "__main__":
     import uvicorn

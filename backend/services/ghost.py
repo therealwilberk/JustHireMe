@@ -240,7 +240,7 @@ class GhostService:
         for item in generated:
             try:
                 lead, asset = await asyncio.to_thread(get_lead_for_fire, item["job_id"])
-                from main import _fire_blocker  # lazy: avoids circular import
+                from services.generator import _fire_blocker  # lazy: avoids circular import
                 _status, detail = _fire_blocker(lead, asset)
                 if detail:
                     await cm.broadcast({"type": "agent", "event": "ghost_error",
