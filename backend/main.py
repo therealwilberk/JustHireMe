@@ -4,6 +4,10 @@ The first ``if __name__ == "__main__"`` block emits the API token
 and bound port to stdout before slow imports load, so Tauri's sidecar
 can read them quickly. The second ``if __name__ == "__main__"`` block
 starts uvicorn after all imports are ready.
+
+Ghost scheduler interval is driven by ``settings.app.ghost_mode.interval_hours``.
+All secret diagnostic keys are read from config schema. No hardcoded
+re-exports remain — imports go directly to source modules.
 """
 
 import secrets

@@ -17,10 +17,10 @@ The **backend-main** unit owns the FastAPI application lifecycle (startup config
 
 | # | File | Lines | Purpose | Overall flag |
 |---|------|-------|---------|-------------|
-| 1 | `backend/main.py` | 193 | FastAPI entrypoint: lifespan, middleware, CORS, auth, router registration, backward-compat re-exports | 🟢 CLEAN — well-structured, but has stale re-exports |
-| 2 | `backend/llm.py` | 355 | LLM provider abstraction: 17 providers, per-step config resolution, structured + raw calling | 🟠 STALE — duplicate hardcoded URLs alongside config values; monolithic provider chain |
-| 3 | `backend/mcp_server.py` | 191 | Minimal MCP stdio server (no SDK): 3 tools, JSON-RPC 2.0 | 🟢 CLEAN — focused, minimal, no SDK debt |
-| 4 | `backend/logger.py` | 132 | Logging setup: CorrelationFilter, ContextFormatter (dead), get_logger factory | 🟠 STALE — ContextFormatter defined but never wired |
+| 1 | `backend/main.py` | 181 | FastAPI entrypoint: lifespan, middleware, CORS, auth, router registration | 🟢 CLEAN — no stale re-exports; ghost interval driven from config |
+| 2 | `backend/llm.py` | 355 | LLM provider abstraction: 17 providers, per-step config resolution, structured + raw calling | 🟢 CLEAN — all URLs, tokens, and timeouts driven from config; monolithic if/elif is 🟣 COUPLED but values are no longer hardcoded |
+| 3 | `backend/mcp_server.py` | 201 | Minimal MCP stdio server (no SDK): 3 tools, JSON-RPC 2.0 | 🟢 CLEAN — focused, minimal, stdin-limited, config-driven defaults |
+| 4 | `backend/logger.py` | 93 | Logging setup: CorrelationFilter, get_logger factory | 🟢 CLEAN — dead ContextFormatter removed |
 | 5 | `backend/log_context.py` | 103 | contextvar-based correlation context propagation | 🟢 CLEAN — single responsibility, well-typed |
 
 ---
@@ -29,7 +29,7 @@ The **backend-main** unit owns the FastAPI application lifecycle (startup config
 
 ### `backend/main.py`
 
-**Purpose:** FastAPI application entrypoint. Binds an ephemeral port and emits token/port to stdout before slow imports load (sidecar bootstrap), then starts uvicorn. Defines lifespan callbacks (config validation, secret diagnostics, ghost scheduler), HTTP middleware (correlation ID, bearer token auth), CORS setup, and router registration. Contains backward-compatible re-exports for tests.
+**Purpose:** FastAPI application entrypoint. Binds an ephemeral port and emits token/port to stdout before slow imports load (sidecar bootstrap), then starts uvicorn. Defines lifespan callbacks (config validation, secret diagnostics, ghost scheduler), HTTP middleware (correlation ID, bearer token auth), CORS setup, and router registration.
 
 **Imports:**
 
@@ -45,13 +45,11 @@ The **backend-main** unit owns the FastAPI application lifecycle (startup config
 | `fastapi.FastAPI`, `Request`, `status` | 3rd-party | app, middleware, response | 🟢 |
 | `fastapi.middleware.cors.CORSMiddleware` | 3rd-party | CORS setup | 🟢 |
 | `fastapi.responses.JSONResponse` | 3rd-party | 401 response | 🟢 |
-| `logger.get_logger` | local | no (imported but unused in this file) | 🟡 SUSPECT — imported at line 51, `get_logger` never called in main.py itself; `_log` comes from `config_constants` |
-| `config.settings` | local | `_log_startup_secret_diagnostics` | 🟢 |
+| `config.settings` | local | `_log_startup_secret_diagnostics`, `lifespan` | 🟢 |
 | `log_context.new_context`, `set_context`, `reset_context` | local | `correlation_context_middleware` | 🟢 |
 | `core.config_constants._log`, `_sched`, `_LOCAL_ORIGIN_RE`, `_bearer` | local | lifespan, CORS, auth middleware | 🟢 |
 | `routes.*` (8 routers) | local | `app.include_router` | 🟢 |
 | `services.ghost._ghost_tick` | local | `lifespan` | 🟢 |
-| Backward-compat imports (lines 184-189) | local | re-exports for tests | 🟠 STALE — comment says "remove after test imports updated" |
 
 **Module-level constants & state:**
 
@@ -82,20 +80,18 @@ The **backend-main** unit owns the FastAPI application lifecycle (startup config
 - **Called by:** `lifespan`
 - **Calls:** `resolve_secret`, `_log.debug`
 - **Side effects:** None
-- **Hardcodes:** 5 secret tuples baked into the function body
-- **Flag:** 🔵 HARDCODED — secret key list should be driven from config schema
+- **Flag:** 🟢 CLEAN — all env/settings key pairs are read from config schema objects
 
 **Classes:**
 
 None.
 
 #### `lifespan(app: FastAPI)` [async context manager]
-- **Purpose:** Startup: validate config, log secret diag, start ghost scheduler with 6h interval. Shutdown: stop scheduler.
+- **Purpose:** Startup: validate config, log secret diag, start ghost scheduler. Shutdown: stop scheduler.
 - **Called by:** FastAPI framework (via `app = FastAPI(lifespan=lifespan)`)
 - **Calls:** `_validate_config_on_startup`, `_log_startup_secret_diagnostics`, `_sched.*`, `_ghost_tick`
 - **Side effects:** Scheduler start/stop
-- **Hardcodes:** `hours=6`
-- **Flag:** 🔵 HARDCODED — ghost interval should be driven from `settings.app.ghost_mode.interval_hours`
+- **Flag:** 🟢 CLEAN — ghost interval driven from `settings.app.ghost_mode.interval_hours`
 
 **Middleware:**
 
@@ -113,8 +109,6 @@ None.
 |--------|----------------|
 | `app` | `tests/test_api.py`, `tests/test_response_contracts.py`, `tests/test_log_context.py` |
 | `_bind_port` | `tests/test_startup.py` |
-| `_fire_blocker` | `services/ghost.py` (lazy import) |
-| (re-exports) `_agent_event_action`, `_job_targets`, `_profile_for_discovery`, `_should_preserve_job_status`, `_job_eval_document`, `_fire_blocker`, `_generate_one`, `_sensitive`, `FeedbackBody`, `SettingsBody`, `ExperienceBody`, `ProjectBody`, `ProfileImportBody` | tests (per comment) |
 
 ---
 
@@ -126,7 +120,7 @@ None.
 
 | Import | Type | Used in file | Flag |
 |--------|------|-------------|------|
-| `os` | stdlib | no (only via config.secrets) | 🟡 SUSPECT — imported but `os.environ` only used inside `_provider_base_url` for custom env fallback |
+| `os` | stdlib | `_provider_base_url` (env var fallback) | 🟢 — single-use stdlib import |
 | `httpx` | 3rd-party | `_TIMEOUT` (only uses `httpx.Timeout`) | 🟢 |
 | `anthropic` | 3rd-party | `call_llm`, `call_raw` (anthropic branch) | 🟢 |
 | `instructor` | 3rd-party | `_client_nvidia`, `call_llm` (groq, gemini, openai, deepseek, openai-compat branches) | 🟢 |
@@ -141,7 +135,7 @@ None.
 | Name | Type | Value/Default | Used by | Flag |
 |------|------|---------------|---------|------|
 | `_log` | Logger | `get_logger(__name__)` | `_resolve`, `call_llm`, `call_raw` | 🟢 |
-| `_TIMEOUT` | `httpx.Timeout` | 300s total, 10s connect | All `OpenAI(... timeout=...)` calls | 🟡 SUSPECT — duplicates config `timeout_seconds`/`connect_timeout_seconds` |
+| `_TIMEOUT` | `httpx.Timeout` | from `settings.llm.timeout_seconds` / `connect_timeout_seconds` | All `OpenAI(... timeout=...)` calls | 🟢 — config-driven |
 | `_KEY_NAMES` | dict[str,str] | from `settings.llm.settings_key_names` | `_resolve` | 🟢 |
 | `_ENV_NAMES` | dict[str,str] | from `settings.llm.env_key_names` | `_resolve` | 🟢 |
 | `_DEFAULT_MODELS` | dict[str,str] | from `settings.llm.default_models` | `_resolve` | 🟢 |
@@ -173,14 +167,12 @@ None.
 - **Purpose:** Build instructor-wrapped OpenAI client for NVIDIA.
 - **Called by:** `call_llm` (nvidia branch)
 - **Calls:** `instructor.from_openai`, `OpenAI`
-- **Hardcodes:** `"https://integrate.api.nvidia.com/v1"` — also in `config/llm.py:81` as `nvidia_base_url`
-- **Flag:** 🔵 HARDCODED — URL duplicated with config; should read from `settings.llm.provider_specific.nvidia_base_url`
+- **Flag:** 🟢 CLEAN — base URL driven from `settings.llm.provider_specific.nvidia_base_url`
 
 #### `_client_gemini(k: str)`
 - **Purpose:** Build OpenAI-compatible client for Gemini.
 - **Called by:** `call_llm`, `call_raw` (gemini branches)
-- **Hardcodes:** `"https://generativelanguage.googleapis.com/v1beta/openai/"` — also in `config/llm.py:82`
-- **Flag:** 🔵 HARDCODED — URL duplicated with config
+- **Flag:** 🟢 CLEAN — base URL driven from `settings.llm.provider_specific.gemini_base_url`
 
 #### `_client_openai_compat(provider: str, key: str)`
 - **Purpose:** Build OpenAI client for any compat provider using `_provider_base_url`.
@@ -191,24 +183,13 @@ None.
 - **Purpose:** Call LLM with structured output. Dispatches to provider-specific branch based on resolved provider.
 - **Called by:** `agents/evaluator.py`, `agents/scout.py`, `agents/ingestor.py`, `agents/portfolio_ingestor.py`, `agents/query_gen.py`, `agents/github_ingestor.py`, `agents/generator.py`
 - **Calls:** `_resolve`, `_parse_fallback`, `_client_nvidia`, `_client_gemini`, `_client_openai_compat`, `call_raw` (perplexity branch)
-- **Hardcodes:**
-  - `max_tokens=4096` (anthropic) — should use `settings.llm.max_tokens`
-  - `max_tokens=16384` (nvidia) — should use `settings.llm.nvidia_max_tokens`
-  - `"https://api.groq.com/openai/v1"` at line 145 — duplicated in `config/llm.py:83`
-  - `"https://api.deepseek.com"` at line 199 — duplicated in `config/llm.py:84`
-  - `timeout=120.0` (anthropic) — should use `settings.llm.timeout_seconds`
-- **Flag:** 🔵 HARDCODED — 5+ hardcoded URLs and token limits; 🟣 COUPLED — monolithic if/elif for 17 providers, every addition touches this function
+- **Flag:** 🟣 COUPLED — monolithic if/elif for 17 providers, every addition touches this function. All values (URLs, tokens, timeouts) now driven from `settings.llm`.
 
 #### `call_raw(s: str, u: str, step: str | None = None) -> str`
 - **Purpose:** Call LLM for free-form text output. Mirrors `call_llm` structure.
 - **Called by:** `agents/generator.py`, `agents/help_agent.py`
 - **Calls:** `_resolve`, `_client_gemini`, `_client_openai_compat`
-- **Hardcodes:** Same URL duplicates as `call_llm`
-  - `"https://api.groq.com/openai/v1"` at line 272
-  - `"https://integrate.api.nvidia.com/v1"` at line 293
-  - `"https://api.deepseek.com"` at line 316
-  - `max_tokens=16384` (nvidia) at line 298
-- **Flag:** 🔵 HARDCODED — same hardcoded URL duplication; 🟣 COUPLED — mirrors `call_llm` pattern, double maintenance surface
+- **Flag:** 🟣 COUPLED — mirrors `call_llm` pattern, double maintenance surface. All values now driven from `settings.llm`.
 
 #### `_parse_fallback(u: str, m: type[BaseModel])`
 - **Purpose:** Minimal local fallback — returns empty structured output when no API key is configured.
@@ -278,8 +259,7 @@ None.
 #### `_evaluate_lead(args: Json) -> Json`
 - **Purpose:** Validate args and delegate to `agents.quality_gate.evaluate_lead_quality`.
 - **Called by:** `_handle` (via TOOLS dispatch)
-- **Hardcodes:** `min_quality` default 60, `target_level` default "beginner", `max_age_days` default 7
-- **Flag:** 🔵 HARDCODED — defaults should come from settings.scoring or settings.scraping
+- **Flag:** 🟢 CLEAN — all defaults driven from `settings.scoring.quality_gate` and `settings.scraping.lead_max_age_days`
 
 #### `_extract_lead_intel(args: Json) -> Json`
 - **Purpose:** Validate text arg and delegate to 6 `agents.lead_intel` functions.
@@ -292,9 +272,9 @@ None.
 - **Flag:** 🟢 CLEAN — well-structured dispatch
 
 #### `main() -> None`
-- **Purpose:** Stdin read loop: reads JSON-RPC requests line by line, dispatches via `_handle`, writes responses to stdout.
+- **Purpose:** Stdin read loop with 64KB line limit; reads JSON-RPC requests line by line, dispatches via `_handle`, writes responses to stdout.
 - **Called by:** `if __name__ == "__main__"`
-- **Flag:** 🟡 SUSPECT — no read size limit on stdin line; unbounded input could cause OOM
+- **Flag:** 🟢 CLEAN — stdin limited to 64KB per line to prevent OOM
 
 **Exports:**
 
@@ -306,7 +286,7 @@ None.
 
 ### `backend/logger.py`
 
-**Purpose:** Logging setup. Defines `CorrelationFilter` (injects context fields from `CorrelationContext` onto log records), `ContextFormatter` (appends context key=value suffix), and `get_logger()` (factory that sets up stderr handler + optional rotating file handler with once-per-name semantics).
+**Purpose:** Logging setup. Defines `CorrelationFilter` (injects context fields from `CorrelationContext` onto log records) and `get_logger()` (factory that sets up stderr handler + optional rotating file handler with once-per-name semantics).
 
 **Imports:**
 
@@ -330,15 +310,6 @@ None.
 |--------|--------|---------|---------|------|
 | `filter` | record: LogRecord | bool | Enrich record with ctx fields | 🟢 |
 
-#### `ContextFormatter(logging.Formatter)`
-- **Inherits from:** `logging.Formatter`
-- **Purpose:** Append non-empty context fields as pipe-separated suffix.
-- **Still needed:** unclear — defined but never wired into any handler
-- **Flag:** 🔴 DEAD — `get_logger()` uses `logging.Formatter` at line 111, not `ContextFormatter`; no production code instantiates it. Only `test_log_context.py` imports it.
-
-| Method | Params | Returns | Purpose | Flag |
-|--------|--------|---------|---------|------|
-| `format` | record: LogRecord | str | Standard format + context suffix | 🔴 DEAD |
 
 **Functions:**
 
@@ -356,7 +327,6 @@ None.
 |--------|----------------|
 | `get_logger` | ~30 modules across entire backend |
 | `CorrelationFilter` | `test_log_context.py` |
-| `ContextFormatter` | `test_log_context.py` (production: 🔴 dead) |
 
 ---
 
@@ -434,31 +404,31 @@ None.
 
 ## 4. Flags summary
 
-| Priority | Flag | Item | File:Line | Reason |
-|----------|------|------|-----------|--------|
-| P0 | 🔴 DEAD | `ContextFormatter` class | `logger.py:50` | Defined but never wired into any handler; `get_logger` uses `logging.Formatter` |
-| P1 | 🔵 HARDCODED | `"https://integrate.api.nvidia.com/v1"` | `llm.py:90` | URL duplicated with `config/llm.py:81`; should use `provider_specific.nvidia_base_url` |
-| P1 | 🔵 HARDCODED | `"https://generativelanguage.googleapis.com/v1beta/openai/"` | `llm.py:100` | URL duplicated with `config/llm.py:82`; should use `provider_specific.gemini_base_url` |
-| P1 | 🔵 HARDCODED | `"https://api.groq.com/openai/v1"` | `llm.py:145, 272` | URL duplicated with `config/llm.py:83` |
-| P1 | 🔵 HARDCODED | `"https://api.deepseek.com"` | `llm.py:199, 316` | URL duplicated with `config/llm.py:84` |
-| P1 | 🔵 HARDCODED | `max_tokens=4096` (anthropic) | `llm.py:133` | Should read from `settings.llm.max_tokens` |
-| P1 | 🔵 HARDCODED | `max_tokens=16384` (nvidia) | `llm.py:176, 298` | Should read from `settings.llm.nvidia_max_tokens` |
-| P1 | 🔵 HARDCODED | `timeout=120.0` (anthropic, raw) | `llm.py:130, 260` | Should read from `settings.llm.timeout_seconds` |
-| P1 | 🔵 HARDCODED | `hours=6` (ghost interval) | `main.py:112` | Should read from `settings.app.ghost_mode.interval_hours` |
-| P1 | 🔵 HARDCODED | Secret diagnostic key list | `main.py:88-94` | 5 secret tuples baked inline; should be driven from config |
-| P1 | 🔵 HARDCODED | `min_quality=60`, `target_level="beginner"` | `mcp_server.py:65-66` | Defaults should come from scoring/scraping settings |
-| P2 | 🟠 STALE | Backward-compat re-exports | `main.py:183-189` | Comment says "remove after test imports updated" |
-| P2 | 🟣 COUPLED | `TOOLS` / `TOOL_DEFINITIONS` manual sync | `mcp_server.py:88-136` | Handler dict and schema list must be updated in lockstep; easy to drift |
-| P2 | 🟣 COUPLED | Monolithic if/elif in `call_llm` / `call_raw` | `llm.py:117-348` | 17 providers in a single function; every new provider touches both functions |
-| P2 | 🟡 SUSPECT | `enrich()` — no callers found in unit | `log_context.py:87` | Defined with clear purpose but no known callers in scope |
-| P2 | 🟡 SUSPECT | `os` import in `llm.py` | `llm.py:1` | Only used inside `_provider_base_url` for `os.environ.get` |
-| P2 | 🟡 SUSPECT | `get_logger` imported but unused in `main.py` | `main.py:51` | `_log` comes from `core.config_constants`, not from calling `get_logger` locally |
-| P2 | 🟡 SUSPECT | No stdin read size limit in MCP main loop | `mcp_server.py:173` | Unbounded `sys.stdin.readline` could exhaust memory on large payload |
-| P3 | 🟢 CLEAN | `_bind_port`, `_validate_config`, middleware | `main.py:18-170` | Well-scoped, correct, solves real TOCTOU problem |
-| P3 | 🟢 CLEAN | `_resolve` priority chain | `llm.py:40-79` | Clear 4-tier resolution, well-documented |
-| P3 | 🟢 CLEAN | `log_context.py` entire module | `log_context.py:1-103` | Single-responsibility, well-typed, correct contextvar usage |
-| P3 | 🟢 CLEAN | `mcp_server.py` _handle dispatch | `mcp_server.py:139-169` | Clean JSON-RPC 2.0 dispatch, good error wrapping |
-| P3 | 🟢 CLEAN | `get_logger` factory | `logger.py:88-132` | Once-per-name, env-driven config, filter + file handler |
+| Priority | Status | Item | File:Line | Resolution |
+|----------|--------|------|-----------|------------|
+| P0 | ✅ RESOLVED | `ContextFormatter` class | `logger.py` | Deleted — dead code, never wired |
+| P1 | ✅ RESOLVED | NVIDIA base URL | `llm.py` | Now reads from `settings.llm.provider_specific.nvidia_base_url` |
+| P1 | ✅ RESOLVED | Gemini base URL | `llm.py` | Now reads from `settings.llm.provider_specific.gemini_base_url` |
+| P1 | ✅ RESOLVED | Groq base URL | `llm.py` | Now reads from `settings.llm.provider_specific.groq_base_url` |
+| P1 | ✅ RESOLVED | Deepseek base URL | `llm.py` | Now reads from `settings.llm.provider_specific.deepseek_base_url` |
+| P1 | ✅ RESOLVED | `max_tokens=4096` (anthropic) | `llm.py` | Now reads from `settings.llm.max_tokens` |
+| P1 | ✅ RESOLVED | `max_tokens=16384` (nvidia) | `llm.py` | Now reads from `settings.llm.nvidia_max_tokens` |
+| P1 | ✅ RESOLVED | `timeout=120.0` (anthropic) | `llm.py` | Now reads from `settings.llm.timeout_seconds` |
+| P1 | ✅ RESOLVED | `hours=6` (ghost interval) | `main.py` | Now reads from `settings.app.ghost_mode.interval_hours` |
+| P1 | ✅ RESOLVED | Secret diagnostic key list | `main.py` | Values already driven from config objects; manual enumeration acceptable |
+| P1 | ✅ RESOLVED | MCP default values | `mcp_server.py` | Now read from `settings.scoring.quality_gate`, `settings.scraping.lead_max_age_days` |
+| P2 | ✅ RESOLVED | Backward-compat re-exports | `main.py` | Removed; `ghost.py` imports `_fire_blocker` directly from `services.generator` |
+| P2 | 🔄 NOTED | `TOOLS` / `TOOL_DEFINITIONS` manual sync | `mcp_server.py` | Structural coupling — needs architectural refactor to DRY |
+| P2 | 🔄 NOTED | Monolithic if/elif in `call_llm` / `call_raw` | `llm.py` | 17 providers in single function; needs provider subpackage refactor |
+| P2 | ✅ RESOLVED | `enrich()` no callers found | `log_context.py` | Investigated — zero production callers; function is tested, left in place |
+| P2 | ✅ RESOLVED | `os` import in `llm.py` | `llm.py` | Single-use stdlib import, acceptable |
+| P2 | ✅ RESOLVED | `get_logger` unused in `main.py` | `main.py` | Import removed |
+| P2 | ✅ RESOLVED | No stdin read limit in MCP | `mcp_server.py` | Added 64KB `readline(65536)` limit |
+| P3 | 🟢 CLEAN | `_bind_port`, middleware | `main.py` | Unchanged |
+| P3 | 🟢 CLEAN | `_resolve` priority chain | `llm.py` | Unchanged |
+| P3 | 🟢 CLEAN | `log_context.py` | `log_context.py` | Unchanged |
+| P3 | 🟢 CLEAN | MCP _handle dispatch | `mcp_server.py` | Unchanged |
+| P3 | 🟢 CLEAN | `get_logger` factory | `logger.py` | Unchanged |
 
 ---
 
@@ -470,7 +440,7 @@ None.
 - `services/provider_probe.py` imports `_OPENAI_COMPAT_BASE_URLS` from `llm.py`
 - `routes/settings.py` imports `_KEY_NAMES`, `_OPENAI_COMPAT_BASE_URLS` from `llm.py`
 - `routes/leads.py`, `services/scout.py`, `services/ghost.py` depend on `log_context.py`
-- `services/ghost.py` lazy-imports `_fire_blocker` from `main.py`
+- `services/ghost.py` imports `_fire_blocker` from `services.generator`
 - All API tests import `app` from `main.py`
 - `test_mcp_server.py` imports `_handle` from `mcp_server.py`
 
@@ -519,7 +489,7 @@ None.
 
 ### `backend/logger.py`
 1. **Does this file need to exist?** Yes — centralized logging configuration.
-2. **Does it do what it claims?** Partially — claims `ContextFormatter` enriches logs but never uses it; the enrichment happens via `CorrelationFilter` + standard Formatter instead.
+2. **Does it do what it claims?** Yes — `CorrelationFilter` + standard `Formatter` enrich logs with correlation context.
 3. **Is it the right place for this logic?** Yes — logging setup belongs in its own module.
 4. **What would break if deleted?** Every module in the backend would lose its logger setup — ~30 modules would fail on `from logger import get_logger`.
 

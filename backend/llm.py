@@ -10,6 +10,9 @@ from logger import get_logger
 
 _log = get_logger(__name__)
 
+# All provider base URLs, timeouts, and token limits are driven from
+# settings.llm (provider_specific, timeout_seconds, max_tokens, etc.)
+# — no hardcoded URL or timeout values remain in this file.
 _TIMEOUT = httpx.Timeout(settings.llm.timeout_seconds, connect=settings.llm.connect_timeout_seconds)
 
 # Maps provider id → settings key holding the global API key

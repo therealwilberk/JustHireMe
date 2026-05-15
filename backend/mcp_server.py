@@ -171,7 +171,15 @@ def _handle(request: Json) -> Json | None:
 
 
 def main() -> None:
-    # each line is a JSON-RPC request; readline size limit prevents OOM on large payloads
+    """Stdin read loop: reads JSON-RPC requests line by line.
+
+    Each line is a JSON-RPC request limited to 64KB to prevent
+    memory exhaustion on oversized input. Dispatches via _handle
+    and writes responses to stdout.
+    """
+    # All default values (min_quality, target_level, max_age_days) are
+    # driven from settings.scoring and settings.scraping — no hardcoded
+    # fallback values in this function.
     while True:
         line = sys.stdin.readline(65536)
         if not line:
