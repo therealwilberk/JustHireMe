@@ -6,7 +6,7 @@ This directory contains the deterministic test suite for the JustHireMe backend.
 All tests in this directory are designed to run in CI, produce consistent results,
 and avoid external service dependencies.
 
-**Test count:** 328  
+**Test count:** 326  
 **Framework:** pytest (via `unittest.TestCase` and `IsolatedAsyncioTestCase`)  
 **Runner:** `uv run python -m pytest tests/`
 
@@ -330,7 +330,7 @@ Phase C adds 124 backend + 20 frontend tests. Current coverage:
 | Failure observability | 23 | `test_observability.py` |
 | Frontend error handling (SettingsModal) | 9 | `src/SettingsModal.test.tsx` |
 | Frontend error handling (ProfileView) | 11 | `src/views/ProfileView.test.tsx` |
-| Correlation context & structured logging | 18 | `test_log_context.py` |
+| Correlation context & structured logging | 16 | `test_log_context.py` |
 | Startup smoke tests | 2 | `test_startup.py` |
 | ScanManager state machine | 7 | `test_scan_manager.py` |
 | GhostService phase contracts | 2 | `test_ghost_service.py` |
