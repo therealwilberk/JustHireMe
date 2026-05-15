@@ -5,6 +5,7 @@
 **Files in scope:** 9 (8 source + `__init__.py`)
 **Total lines:** ~1,873
 **Generated:** 2026-05-15
+**Resolved:** `fix/resolve-integrations` — dead code removed, hardcoded values wired to config, `_resolve` bypass fixed.
 
 ---
 

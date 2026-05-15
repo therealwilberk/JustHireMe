@@ -57,7 +57,8 @@ def _infer_company_domain(lead: dict, settings: dict) -> str:
 
 
 def _json_get(url: str, headers: dict | None = None, timeout: int = 12) -> dict:
-    req = urllib.request.Request(url, headers=headers or {"User-Agent": "JustHireMe/1.0"})
+    ua = cfg.settings.scraping.user_agents.contact_lookup
+    req = urllib.request.Request(url, headers=headers or {"User-Agent": ua})
     with urllib.request.urlopen(req, timeout=timeout) as resp:
         raw = resp.read().decode("utf-8", errors="replace")
     return json.loads(raw or "{}")

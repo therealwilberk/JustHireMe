@@ -9,11 +9,12 @@ import urllib.request
 import zipfile
 from pathlib import Path
 
+from config import settings
 from logger import get_logger
 
 _log = get_logger(__name__)
 
-_RELEASE_DOWNLOAD_BASE = "https://github.com/vasu-devs/JustHireMe/releases/latest/download"
+_RELEASE_DOWNLOAD_BASE = settings.scraping.api_urls.browser_runtime_download_base
 
 
 def browser_runtime_dir() -> Path:

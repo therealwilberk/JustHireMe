@@ -33,6 +33,11 @@ flowchart LR
    - Update first principles assessment
 8. **Merge & clean** — merge to `linux-base`, delete branch, `git rm docs/maps/resolve/<module>.md`
 9. **App boots** — after every change: `uv run python -c "from main import app; print(len(app.routes))"`
+10. **Verify plan against source first** — read actual code files before touching anything. Confirm every flagged item is real.
+11. **Re-check every change** — test viability (tests actually run, not idle), ripple effects, comment/doc updates.
+12. **No false "domain data" dismissal** — hardcoded URLs are NOT domain data. URLs are config-viable.
+13. **No-code review before merge** — review pass over all changes, then update map file, delete resolve file, merge & delete branch.
+
 
 ---
 

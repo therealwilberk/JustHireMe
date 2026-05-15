@@ -272,36 +272,6 @@ def _read_doc(path: str, limit: int = 9000) -> str:
     return f"\n\n## {path}\n{text[:limit]}"
 
 
-def _knowledge() -> str:
-    docs = "".join(_read_doc(path) for path in _DOCS)
-    product_brief = """
-## Product brief
-JustHireMe is a local-first Tauri desktop workbench for job search intelligence.
-The frontend is React/TypeScript. The backend is a local FastAPI sidecar.
-Core workflows: import profile/resume, scrape job leads, quality-gate noisy rows,
-rank fit, review leads, generate tailored resume PDF, cover letter PDF, and
-outreach drafts. Data stays local by default.
-
-Main pages:
-- Dashboard: command center, scans, activity, pipeline snapshot.
-- Customize: paste a job URL/text and generate the application package.
-- Leads: review matching leads.
-- Job Pipeline: track statuses and follow-ups.
-- Knowledge: local profile graph/vector context.
-- Activity: event trail for scans, scoring, generation, and failures.
-- Profile: candidate identity, skills, projects, experience, links.
-- Add Context: ingest resume, GitHub, portfolio, notes, and extra profile context.
-- Settings: LLM provider, API keys, discovery sources, automation lab settings.
-
-Important behavior:
-- Browser automation/auto-apply is experimental and opt-in.
-- API keys are stored in local settings for now; OS keychain is planned.
-- The app uses the user's configured LLM provider/model when a backend agent calls llm.call_raw/call_llm.
-- If a model or key is missing, some agents use deterministic fallbacks and should explain that limitation.
-"""
-    return product_brief + _USER_GUIDE + docs
-
-
 def _words(question: str) -> set[str]:
     return set(re.findall(r"[a-z0-9]+", question.lower()))
 

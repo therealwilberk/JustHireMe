@@ -5,9 +5,9 @@ import re
 from pydantic import BaseModel, Field
 from logger import get_logger
 
-_log = get_logger(__name__)
+from config import settings
 
-GITHUB_API = "https://api.github.com"
+_log = get_logger(__name__)
 _HEADERS = {
     "Accept": "application/vnd.github+json",
     "X-GitHub-Api-Version": "2022-11-28",
@@ -31,7 +31,7 @@ def _gh_headers(token: str | None = None) -> dict:
 async def _fetch(url: str, token: str | None) -> dict | list | None:
     import httpx
     try:
-        async with httpx.AsyncClient(timeout=10) as client:
+        async with httpx.AsyncClient(timeout=settings.scraping.timeouts.default_http) as client:
             r = await client.get(url, headers=_gh_headers(token))
             if r.status_code == 404:
                 return None
@@ -97,14 +97,16 @@ async def _extract_project(repo: dict, readme: str) -> _RepoExtract | None:
         return None
 
 
-async def ingest_github(username: str, token: str | None = None, max_repos: int = 12) -> dict:
+async def ingest_github(username: str, token: str | None = None, max_repos: int = None) -> dict:
+    if max_repos is None:
+        max_repos = settings.scraping.limits.github_max_repos
     """
     Fetch a GitHub user's top repos by stars, extract project data via LLM
     from each README, and return structured profile additions.
     """
     errors: list[str] = []
 
-    user = await _fetch(f"{GITHUB_API}/users/{username}", token)
+    user = await _fetch(f"{settings.scraping.api_urls.github_api_base}/users/{username}", token)
     if not user:
         return {"error": f"GitHub user '{username}' not found"}
 
@@ -117,7 +119,7 @@ async def ingest_github(username: str, token: str | None = None, max_repos: int 
     }
 
     repos_data = await _fetch(
-        f"{GITHUB_API}/users/{username}/repos?sort=stars&per_page={max_repos}&type=owner",
+        f"{settings.scraping.api_urls.github_api_base}/users/{username}/repos?sort=stars&per_page={max_repos}&type=owner",
         token,
     )
     if not repos_data or not isinstance(repos_data, list):
@@ -129,7 +131,8 @@ async def ingest_github(username: str, token: str | None = None, max_repos: int 
             "errors": errors,
         }
 
-    repos = [r for r in repos_data if not r.get("fork") or r.get("stargazers_count", 0) >= 10]
+    min_stars = settings.scraping.limits.github_fork_min_stars
+    repos = [r for r in repos_data if not r.get("fork") or r.get("stargazers_count", 0) >= min_stars]
     repos = repos[:max_repos]
 
     projects: list[dict] = []
@@ -143,7 +146,7 @@ async def ingest_github(username: str, token: str | None = None, max_repos: int 
         url       = repo.get("html_url", "")
         lang      = repo.get("language") or ""
 
-        readme_data = await _fetch(f"{GITHUB_API}/repos/{full_name}/readme", token)
+        readme_data = await _fetch(f"{settings.scraping.api_urls.github_api_base}/repos/{full_name}/readme", token)
         readme      = _decode_readme(readme_data)
         extract     = await _extract_project(repo, readme)
 

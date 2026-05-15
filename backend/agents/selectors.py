@@ -4,12 +4,14 @@ import time
 from pathlib import Path
 from logger import get_logger
 
+from config import settings
+
 _log = get_logger(__name__)
 
 _BUNDLED = Path(__file__).parent.parent / "data" / "selectors.json"
 _CACHE_KEY = "selectors_json"
 _CACHE_TS_KEY = "selectors_fetched_at"
-_TTL = 86400  # 24 hours
+_TTL = settings.scraping.limits.selectors_cache_ttl
 
 
 def _load_bundled() -> dict:
