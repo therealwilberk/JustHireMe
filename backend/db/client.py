@@ -4,6 +4,7 @@ import sqlite3 as _sq
 import json
 from datetime import UTC, datetime, timedelta
 from logger import get_logger
+from config.scoring import LEAD_STATUSES, VALID_FEEDBACK, FEEDBACK_DISCARDED
 
 try:
     import kuzu
@@ -39,8 +40,6 @@ def data_base() -> str:
 
 
 _b = data_base()
-_g, _v = os.path.join(_b, "graph"), os.path.join(_b, "vector")
-sql = os.path.join(_b, "crm.db")
 
 
 def _utc_timestamp(offset: timedelta | None = None) -> str:
@@ -84,6 +83,7 @@ def _ensure_dir(path: str) -> str:
 _b = _ensure_dir(_b)
 _g, _v = os.path.join(_b, "graph"), os.path.join(_b, "vector")
 _v = _ensure_dir(_v)
+sql = os.path.join(_b, "crm.db")
 
 _GRAPH_ERROR = ""
 try:
@@ -129,14 +129,6 @@ def _init():
         conn.execute(s)
 
 _init()
-
-
-def graph_available() -> bool:
-    return db is not None and conn is not None
-
-
-def graph_error() -> str:
-    return _GRAPH_ERROR
 
 
 def graph_counts() -> dict:
@@ -367,6 +359,9 @@ def update_lead_score(
     gaps: list | None = None,
     preserve_status: bool = False,
 ):
+    from config import settings
+
+    threshold = settings.scoring.quality_gate.score_threshold_matched
     c = get_sql_connection()
     row = c.execute("SELECT kind,status FROM leads WHERE job_id=?", (jid,)).fetchone()
     kind = row[0] if row else "job"
@@ -375,9 +370,9 @@ def update_lead_score(
     if preserve_status:
         status = current_status
     elif kind == "freelance":
-        status = "matched" if s >= 76 else "discarded"
+        status = "matched" if s >= threshold else "discarded"
     else:
-        status = "tailoring" if s >= 76 else "discarded"
+        status = "tailoring" if s >= threshold else "discarded"
 
     mp  = _json_dumps_list(match_points)
     gps = _json_dumps_list(gaps)
@@ -518,15 +513,6 @@ def _lead_row_dict(r) -> dict:
         "created_at": r[37] or "",
         "resume_version": r[38] or 0,
     }
-
-
-def get_all_freelance_leads() -> list:
-    c = get_sql_connection()
-    rows = c.execute(
-        f"SELECT {_LEAD_SELECT_COLUMNS} FROM leads WHERE kind='freelance' ORDER BY created_at DESC"
-    ).fetchall()
-    c.close()
-    return [_lead_row_dict(r) for r in rows]
 
 
 def get_job_leads_for_evaluation() -> list:
@@ -985,12 +971,7 @@ def delete_lead(jid: str):
 
 
 def update_lead_status(jid: str, status: str):
-    valid = {
-        "discovered", "evaluating", "tailoring", "approved",
-        "applied", "interviewing", "rejected", "accepted", "discarded",
-        "matched", "bidding", "proposal_sent", "awarded", "completed",
-    }
-    if status not in valid:
+    if status not in LEAD_STATUSES:
         raise ValueError(f"Invalid status: {status}")
     c = get_sql_connection()
     cur = c.execute("UPDATE leads SET status=? WHERE job_id=?", (status, jid))
@@ -1006,13 +987,7 @@ def update_lead_status(jid: str, status: str):
 
 
 def save_lead_feedback(jid: str, feedback: str, note: str = "") -> dict:
-    valid = {
-        "good", "trash", "too_generic", "not_ai",
-        "not_freelance", "already_contacted",
-        "relevant", "not_relevant", "duplicate",
-        "low_quality", "incorrect_category",
-    }
-    if feedback not in valid:
+    if feedback not in VALID_FEEDBACK:
         raise ValueError(f"Invalid feedback: {feedback}")
 
     c = get_sql_connection()
@@ -1026,10 +1001,7 @@ def save_lead_feedback(jid: str, feedback: str, note: str = "") -> dict:
     new_status = status
     now = ""
     due = ""
-    if feedback in {
-        "trash", "too_generic", "not_ai", "not_freelance",
-        "not_relevant", "duplicate", "low_quality", "incorrect_category",
-    }:
+    if feedback in FEEDBACK_DISCARDED:
         new_status = "discarded"
     elif feedback == "already_contacted":
         now = _utc_timestamp()
@@ -1109,22 +1081,6 @@ def get_discovered_leads() -> list:
     ).fetchall()
     c.close()
     return [{"job_id": r[0], "title": r[1], "company": r[2], "url": r[3], "platform": r[4], "description": r[5] or ""} for r in rows]
-
-
-def get_discovered_freelance_leads() -> list:
-    c = get_sql_connection()
-    rows = c.execute(
-        "SELECT job_id,title,company,url,platform,description,budget FROM leads WHERE status='discovered' AND kind='freelance'"
-    ).fetchall()
-    c.close()
-    return [
-        {
-            "job_id": r[0], "title": r[1], "company": r[2],
-            "url": r[3], "platform": r[4],
-            "description": r[5] or "", "budget": r[6] or "",
-        }
-        for r in rows
-    ]
 
 
 def _h(t: str) -> str:

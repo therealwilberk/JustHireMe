@@ -29,6 +29,7 @@ class QualityGateThresholds(BaseModel):
     hot_lead_threshold: int = 80
     auto_approve_score: int = 85  # backend/main.py:542
     default_target_level: str = "beginner"  # mcp_server.py (MCP tool fallback)
+    score_threshold_matched: int = 76  # db/client.py:update_lead_score — threshold for "matched"/"tailoring" vs "discarded"
 
 
 class QualityGatePenalties(BaseModel):
@@ -302,3 +303,25 @@ class ScoringConfig(BaseModel):
 
 
 config = ScoringConfig()
+
+# Domain constants — not user-configurable, but centralized for consistency.
+# Source: db/client.py update_lead_status(), save_lead_feedback()
+
+LEAD_STATUSES: set[str] = {
+    "discovered", "evaluating", "tailoring", "approved",
+    "applied", "interviewing", "rejected", "accepted", "discarded",
+    "matched", "bidding", "proposal_sent", "awarded", "completed",
+}
+
+VALID_FEEDBACK: set[str] = {
+    "good", "trash", "too_generic", "not_ai",
+    "not_freelance", "already_contacted",
+    "relevant", "not_relevant", "duplicate",
+    "low_quality", "incorrect_category",
+}
+
+# Feedback values that map to "discarded" status
+FEEDBACK_DISCARDED: set[str] = {
+    "trash", "too_generic", "not_ai", "not_freelance",
+    "not_relevant", "duplicate", "low_quality", "incorrect_category",
+}
