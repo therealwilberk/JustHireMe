@@ -10,7 +10,7 @@ from logger import get_logger
 
 _log = get_logger(__name__)
 
-_TIMEOUT = httpx.Timeout(300.0, connect=10.0)
+_TIMEOUT = httpx.Timeout(settings.llm.timeout_seconds, connect=settings.llm.connect_timeout_seconds)
 
 # Maps provider id → settings key holding the global API key
 _KEY_NAMES: dict[str, str] = settings.llm.settings_key_names.model_dump()
@@ -127,10 +127,10 @@ def call_llm(s: str, u: str, m: type[BaseModel], step: str | None = None):
         if not k:
             _log.warning("anthropic — no key (step=%s) — falling back", step)
             return _parse_fallback(u, m)
-        c = anthropic.Anthropic(api_key=k, timeout=120.0)
+        c = anthropic.Anthropic(api_key=k, timeout=settings.llm.timeout_seconds)
         r = c.messages.parse(
             model=model,
-            max_tokens=4096,
+            max_tokens=settings.llm.max_tokens,
             system=s,
             messages=[{"role": "user", "content": u}],
             output_format=m,
@@ -173,7 +173,7 @@ def call_llm(s: str, u: str, m: type[BaseModel], step: str | None = None):
             model=model,
             response_model=m,
             max_retries=1,
-            max_tokens=16384,
+            max_tokens=settings.llm.nvidia_max_tokens,
             messages=[{"role": "system", "content": s}, {"role": "user", "content": u}],
             extra_body={"chat_template_kwargs": {"enable_thinking": False}},
         )
@@ -257,10 +257,10 @@ def call_raw(s: str, u: str, step: str | None = None) -> str:
     if p == "anthropic":
         if not k:
             return ""
-        c = anthropic.Anthropic(api_key=k, timeout=120.0)
+        c = anthropic.Anthropic(api_key=k, timeout=settings.llm.timeout_seconds)
         r = c.messages.create(
             model=model,
-            max_tokens=4096,
+            max_tokens=settings.llm.max_tokens,
             system=s,
             messages=[{"role": "user", "content": u}],
         )
@@ -295,7 +295,7 @@ def call_raw(s: str, u: str, step: str | None = None) -> str:
         r = c.chat.completions.create(
             model=model,
             messages=[{"role": "system", "content": s}, {"role": "user", "content": u}],
-            max_tokens=16384,
+            max_tokens=settings.llm.nvidia_max_tokens,
             extra_body={"chat_template_kwargs": {"enable_thinking": False}},
         )
         return r.choices[0].message.content or ""
