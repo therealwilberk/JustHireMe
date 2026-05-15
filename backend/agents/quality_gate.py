@@ -7,17 +7,14 @@ to the evaluator and semantic ranker.
 
 from __future__ import annotations
 
-import re
 from datetime import datetime, timedelta, timezone
-from email.utils import parsedate_to_datetime
 
-from agents.lead_intel import clean_text, signal_quality
+from agents.lead_intel import signal_quality
 from logger import get_logger
 
 _log = get_logger(__name__)
 
 MIN_DEFAULT_QUALITY = 60
-HOT_LEAD_THRESHOLD = 80
 
 _RED_FLAGS = (
     "unpaid",
@@ -59,55 +56,8 @@ _BEGINNER_FLAGS = (
 )
 
 
-def _lead_text(lead: dict) -> str:
-    meta = lead.get("source_meta") or {}
-    meta_text = ""
-    if isinstance(meta, dict):
-        meta_text = " ".join(str(v) for v in meta.values() if isinstance(v, (str, int, float)))
-    return clean_text(
-        "\n".join(
-            str(lead.get(key, "") or "")
-            for key in ("title", "company", "platform", "description", "location", "posted_date")
-        )
-        + "\n"
-        + meta_text
-    )
-
-
-def _parse_date(value: str) -> datetime | None:
-    raw = str(value or "").strip()
-    if not raw:
-        return None
-    lower = raw.lower()
-    now = datetime.now(timezone.utc)
-    if lower in {"today", "just now", "moments ago"}:
-        return now
-    if lower == "yesterday":
-        return now - timedelta(days=1)
-    match = re.search(r"(\d+)\s*(hour|day|week|month|year)s?\s*ago", lower)
-    if match:
-        amount = int(match.group(1))
-        unit = match.group(2)
-        days = {"hour": 0, "day": amount, "week": amount * 7, "month": amount * 30, "year": amount * 365}[unit]
-        if unit == "hour":
-            return now - timedelta(hours=amount)
-        return now - timedelta(days=days)
-    try:
-        parsed = parsedate_to_datetime(raw)
-        if parsed.tzinfo is None:
-            parsed = parsed.replace(tzinfo=timezone.utc)
-        return parsed
-    except Exception:
-        _log.debug("date parse failed for %s", raw)
-    for fmt in ("%Y-%m-%dT%H:%M:%SZ", "%Y-%m-%d", "%d/%m/%Y", "%m/%d/%Y", "%b %d, %Y", "%d %b %Y"):
-        try:
-            return datetime.strptime(raw, fmt).replace(tzinfo=timezone.utc)
-        except ValueError:
-            continue
-    return None
-
-
 def _freshness(lead: dict, max_age_days: int = 7) -> tuple[bool, str]:
+    from agents.scout import _parse_date
     values = [
         lead.get("posted_date"),
         (lead.get("source_meta") or {}).get("posted_date") if isinstance(lead.get("source_meta"), dict) else "",
@@ -143,6 +93,7 @@ def evaluate_lead_quality(
     target_level: str = "beginner",
     max_age_days: int = 7,
 ) -> dict:
+    from agents.scout import _lead_text
     text = _lead_text(lead)
     reasons: list[str] = []
     penalties = 0

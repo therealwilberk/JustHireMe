@@ -1,13 +1,14 @@
 import asyncio
 import hashlib
 import re
-import sys
 from datetime import datetime, timezone, timedelta
 from typing import List, Optional
 from urllib.parse import urlparse
 
 import httpx
 from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_exponential
+
+from config import settings
 
 from pydantic import BaseModel, Field
 from agents.browser_runtime import launch_chromium
@@ -17,20 +18,8 @@ from logger import get_logger
 
 _log = get_logger(__name__)
 
-_MAX_AGE_DAYS = 7
-
 LAST_ERRORS: list[str] = []
 LAST_USAGE: dict = {}
-
-_SOURCE_CAPS = {
-    "hn_hiring": 25,
-    "hn": 20,
-    "remoteok": 45,
-    "remotive": 45,
-    "jobicy": 45,
-    "weworkremotely": 40,
-    "rss": 35,
-}
 
 _FRESHER_TERMS = (
     "fresher", "new grad", "new graduate", "graduate", "intern",
@@ -65,7 +54,7 @@ _SENIOR_TERMS = (
 
 
 def _cutoff() -> datetime:
-    return datetime.now(timezone.utc) - timedelta(days=_MAX_AGE_DAYS)
+    return datetime.now(timezone.utc) - timedelta(days=settings.scraping.lead_max_age_days)
 
 
 def _parse_date(s: str) -> datetime | None:
@@ -79,9 +68,10 @@ def _parse_date(s: str) -> datetime | None:
     Returns None if unparseable (caller treats as recent — include by default).
     """
     import re
-    if not s or not s.strip():
+    raw = s.strip()
+    if not raw:
         return None
-    s = s.strip().lower()
+    s = raw.lower()
 
     # ── Relative dates ───────────────────────────────────────────────
     now = datetime.now(timezone.utc)
@@ -107,8 +97,6 @@ def _parse_date(s: str) -> datetime | None:
         return now - delta if delta else None
 
     # ── Absolute dates ───────────────────────────────────────────────
-    # Normalise to titlecase so month names parse correctly
-    s_orig = s.strip()
     for fmt in (
         "%a, %d %b %Y %H:%M:%S %z",   # RFC 2822
         "%Y-%m-%dT%H:%M:%SZ",          # ISO 8601 Z
@@ -122,18 +110,19 @@ def _parse_date(s: str) -> datetime | None:
         "%d %B %Y",                     # 29 January 2025
     ):
         try:
-            dt = datetime.strptime(s_orig.strip(), fmt)
+            dt = datetime.strptime(raw, fmt)
             if dt.tzinfo is None:
                 dt = dt.replace(tzinfo=timezone.utc)
             return dt
         except ValueError:
             continue
 
+    _log.debug("date parse failed for %s", raw)
     return None  # unknown — caller will include the lead
 
 
 def _is_recent(date_str: str) -> bool:
-    """Return True if the date is within _MAX_AGE_DAYS, or if date is unknown."""
+    """Return True if the date is within the freshness window, or if date is unknown."""
     if not date_str:
         return True   # no date info → include (don't discard on uncertainty)
     dt = _parse_date(date_str)
@@ -158,7 +147,7 @@ def _lead_text(lead: dict) -> str:
         meta_text = ""
     return "\n".join(
         str(lead.get(key, ""))
-        for key in ("title", "company", "platform", "description", "posted_date")
+        for key in ("title", "company", "platform", "description", "location", "posted_date")
     ) + "\n" + meta_text
 
 
@@ -177,10 +166,6 @@ def _has_seniority_term(text: str, terms: tuple[str, ...]) -> bool:
         if re.search(rf"(?<![a-z0-9]){pattern}(?![a-z0-9])", text, flags=re.I):
             return True
     return False
-
-
-def _is_beginner_role(lead: dict) -> bool:
-    return classify_job_seniority(lead) in {"fresher", "junior"}
 
 
 def classify_job_seniority(lead: dict) -> str:
@@ -224,10 +209,6 @@ def _is_fresh_lead(lead: dict) -> bool:
     if visible_dates:
         return any(_is_strictly_recent(value) for value in visible_dates)
     return has_fresh_source_hint
-
-
-def _passes_beginner_job_filter(lead: dict) -> bool:
-    return _is_beginner_role(lead)
 
 
 def _h(u: str) -> str:
@@ -357,9 +338,10 @@ def _parse_wellfound(md: str, src: str) -> list:
     reraise=True,
 )
 async def apify(actor: str, inp: dict, tok: str) -> list:
-    async with httpx.AsyncClient(timeout=60) as cx:
+    async with httpx.AsyncClient(timeout=settings.scraping.timeouts.apify_run) as cx:
+        url = settings.scraping.api_urls.apify_run_sync.format(actor=actor)
         run = await cx.post(
-            f"https://api.apify.com/v2/acts/{actor}/run-sync-get-dataset-items",
+            url,
             headers={"Authorization": f"Bearer {tok}"},
             json=inp,
         )
@@ -369,13 +351,6 @@ async def apify(actor: str, inp: dict, tok: str) -> list:
             run.raise_for_status()
         run.raise_for_status()
         return run.json()
-
-
-def _ensure_scheme(u: str) -> str:
-    """Prepend https:// if the URL has no scheme — Playwright requires a full URL."""
-    if u.startswith("site:") or u.startswith("http://") or u.startswith("https://"):
-        return u
-    return "https://" + u
 
 
 def _is_rss_target(u: str) -> bool:
@@ -426,10 +401,6 @@ def _lead_source(item: dict) -> str:
         return platform
     url = str(item.get("url") or "")
     return _platform_from_url(url, "scout")
-
-
-def _source_cap(item: dict) -> int:
-    return _SOURCE_CAPS.get(_lead_source(item), 60)
 
 
 def _http_headers(source: str) -> dict:
@@ -528,15 +499,6 @@ def _rss_company_and_role(title: str, platform: str) -> tuple[str, str]:
     return "RSS Feed", clean
 
 
-def _is_ats_target(target: str) -> bool:
-    lower = target.lower()
-    if lower.startswith("ats:"):
-        return True
-    if not lower.startswith(("http://", "https://")):
-        return False
-    return any(host in lower for host in ("greenhouse.io", "lever.co", "ashbyhq.com", "workable.com"))
-
-
 async def _scrape_ats_target(target: str) -> list[dict]:
     from agents import free_scout
 
@@ -560,7 +522,7 @@ async def _scrape_rss(u: str) -> list:
     import xml.etree.ElementTree as ET
 
     platform = _platform_from_url(u, "rss")
-    async with httpx.AsyncClient(timeout=30, headers=_http_headers(platform), follow_redirects=True) as cx:
+    async with httpx.AsyncClient(timeout=settings.scraping.timeouts.rss_http, headers=_http_headers(platform), follow_redirects=True) as cx:
         r = await cx.get(u)
         if r.status_code == 429:
             retry_after = int(r.headers.get("Retry-After", 15))
@@ -602,9 +564,10 @@ async def _scrape_rss(u: str) -> list:
     reraise=True,
 )
 async def _scrape_remoteok() -> list:
+    ua = settings.scraping.user_agents.remoteok_fallback
     headers = _http_headers("remoteok")
-    headers["User-Agent"] = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-    async with httpx.AsyncClient(timeout=30, headers=headers) as cx:
+    headers["User-Agent"] = ua
+    async with httpx.AsyncClient(timeout=settings.scraping.timeouts.default_http, headers=headers) as cx:
         r = await cx.get("https://remoteok.com/api")
         if r.status_code == 429:
             retry_after = int(r.headers.get("Retry-After", 15))
@@ -656,7 +619,7 @@ async def _scrape_remoteok() -> list:
     reraise=True,
 )
 async def _scrape_remotive(u: str) -> list:
-    async with httpx.AsyncClient(timeout=30, headers=_http_headers("remotive"), follow_redirects=True) as cx:
+    async with httpx.AsyncClient(timeout=settings.scraping.timeouts.default_http, headers=_http_headers("remotive"), follow_redirects=True) as cx:
         r = await cx.get(u)
         if r.status_code == 429:
             retry_after = int(r.headers.get("Retry-After", 15))
@@ -709,7 +672,7 @@ async def _scrape_remotive(u: str) -> list:
     reraise=True,
 )
 async def _scrape_jobicy_api(u: str) -> list:
-    async with httpx.AsyncClient(timeout=30, headers=_http_headers("jobicy"), follow_redirects=True) as cx:
+    async with httpx.AsyncClient(timeout=settings.scraping.timeouts.default_http, headers=_http_headers("jobicy"), follow_redirects=True) as cx:
         r = await cx.get(u)
         if r.status_code == 429:
             retry_after = int(r.headers.get("Retry-After", 15))
@@ -867,13 +830,14 @@ def _hn_company_role(text: str, author: str = "") -> tuple[str, str]:
 )
 async def _scrape_hn_hiring() -> list:
     """Fetch the latest HN 'Who is hiring?' thread and extract job posts."""
-    search_url = "https://hn.algolia.com/api/v1/search"
+    search_url = settings.scraping.api_urls.hn_algolia_search
+    cutoff = settings.scraping.limits.hn_story_cutoff_days
     params = {
         "query": "Ask HN: Who is hiring?",
         "tags": "story,ask_hn",
-        "numericFilters": "created_at_i>" + str(int((datetime.now(timezone.utc) - timedelta(days=35)).timestamp())),
+        "numericFilters": "created_at_i>" + str(int((datetime.now(timezone.utc) - timedelta(days=cutoff)).timestamp())),
     }
-    async with httpx.AsyncClient(timeout=30) as cx:
+    async with httpx.AsyncClient(timeout=settings.scraping.timeouts.hn_search) as cx:
         r = await cx.get(search_url, params=params)
         if r.status_code == 429:
             retry_after = int(r.headers.get("Retry-After", 15))
@@ -889,8 +853,8 @@ async def _scrape_hn_hiring() -> list:
     story = max(stories, key=lambda s: s.get("created_at_i", 0))
     story_id = story["objectID"]
 
-    items_url = f"https://hn.algolia.com/api/v1/items/{story_id}"
-    async with httpx.AsyncClient(timeout=60) as cx:
+    items_url = settings.scraping.api_urls.hn_algolia_items.format(story_id=story_id)
+    async with httpx.AsyncClient(timeout=settings.scraping.timeouts.hn_items) as cx:
         r = await cx.get(items_url)
         if r.status_code == 429:
             retry_after = int(r.headers.get("Retry-After", 15))

@@ -130,8 +130,8 @@ def test_budget_parse_ignores_non_numeric_prefix():
 
 
 def test_date_parse_logs_debug_on_unparseable_string():
-    from agents.quality_gate import _parse_date
-    _, buf = _attach_handler("agents.quality_gate")
+    from agents.scout import _parse_date
+    _, buf = _attach_handler("agents.scout")
 
     result = _parse_date("not-a-real-date-value")
 
@@ -140,8 +140,8 @@ def test_date_parse_logs_debug_on_unparseable_string():
 
 
 def test_date_parse_logs_debug_with_raw_value():
-    from agents.quality_gate import _parse_date
-    _, buf = _attach_handler("agents.quality_gate")
+    from agents.scout import _parse_date
+    _, buf = _attach_handler("agents.scout")
 
     result = _parse_date("Zx7q_2026_invalid")
 
@@ -150,21 +150,19 @@ def test_date_parse_logs_debug_with_raw_value():
     assert "Zx7q_2026_invalid" in line
 
 
-def test_date_parse_succeeds_on_iso_format_with_initial_debug():
-    from agents.quality_gate import _parse_date
-    _, buf = _attach_handler("agents.quality_gate")
+def test_date_parse_succeeds_on_iso_format_without_debug():
+    from agents.scout import _parse_date
+    _, buf = _attach_handler("agents.scout")
 
     result = _parse_date("2026-05-14")
 
-    # Succeeds via strptime fallback after parsedate_to_datetime fails
     assert result is not None
-    # The first attempt (parsedate_to_datetime) emits DEBUG
-    assert_debug_emitted(buf, "date", "parse")
+    assert_no_logs_at_level(buf, "DEBUG", "date", "parse")
 
 
 def test_date_parse_succeeds_on_rfc2822_without_debug():
-    from agents.quality_gate import _parse_date
-    _, buf = _attach_handler("agents.quality_gate")
+    from agents.scout import _parse_date
+    _, buf = _attach_handler("agents.scout")
 
     result = _parse_date("Thu, 14 May 2026 12:00:00 +0000")
 
@@ -173,8 +171,8 @@ def test_date_parse_succeeds_on_rfc2822_without_debug():
 
 
 def test_date_parse_succeeds_on_relative_expression():
-    from agents.quality_gate import _parse_date
-    _, buf = _attach_handler("agents.quality_gate")
+    from agents.scout import _parse_date
+    _, buf = _attach_handler("agents.scout")
 
     result = _parse_date("3 days ago")
 

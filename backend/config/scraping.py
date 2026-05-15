@@ -47,6 +47,14 @@ class ScraperLimits(BaseModel):
     free_source_min_signal_score: int = 60  # free_scout.py:556
     free_source_min_signal_score_min: int = 0  # free_scout.py:574
     free_source_min_signal_score_max: int = 100  # free_scout.py:574
+    default_targets: list[str] = [
+        "ats:greenhouse:openai",
+        "ats:greenhouse:anthropic",
+        "ats:lever:perplexity",
+        "github:jobs hiring help wanted",
+        "hn:jobs remote hiring",
+        "reddit:forhire:hiring job remote",
+    ]
 
 
 class SourceCaps(BaseModel):
@@ -113,6 +121,20 @@ class ATSEndpoints(BaseModel):
     reddit_limit: str = "25"
 
 
+class XConfig(BaseModel):
+    # from backend/agents/x_scout.py
+    default_queries: list[str] = [
+        '("hiring" OR "job opening" OR "open role") ("AI engineer" OR "software engineer" OR "Python developer") lang:en -is:retweet',
+        '("we are hiring" OR "is hiring") ("React developer" OR "backend engineer" OR "full stack engineer") lang:en -is:retweet',
+        '("apply" OR "open role") (Python OR React OR FastAPI OR LLM) (remote OR hybrid) lang:en -is:retweet',
+    ]
+    watchlist_query: str = (
+        '(AI OR "AI agent" OR LLM OR RAG OR automation OR chatbot OR "web app" OR SaaS) '
+        '("hiring" OR "job opening" OR "open role" OR "we are hiring" OR "apply") '
+        'lang:en -is:retweet'
+    )
+
+
 class DescriptionLimits(BaseModel):
     # from backend/agents/scout.py, free_scout.py
     scout_extract: int = 1600  # scout.py:455 (default)
@@ -144,6 +166,7 @@ class ScrapingConfig(BaseModel):
     source_caps: SourceCaps = SourceCaps()
     api_urls: APISourceURLs = APISourceURLs()
     hn: HNConfig = HNConfig()
+    x: XConfig = XConfig()
     ats_endpoints: ATSEndpoints = ATSEndpoints()
     description_limits: DescriptionLimits = DescriptionLimits()
     user_agents: UserAgentConfig = UserAgentConfig()

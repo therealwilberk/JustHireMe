@@ -8,6 +8,8 @@ from urllib.parse import quote_plus, urlparse
 import httpx
 from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_exponential
 
+from config import settings
+
 from agents.lead_intel import (
     budget_from_text,
     clean_text,
@@ -32,17 +34,6 @@ _log = get_logger(__name__)
 LAST_ERRORS: list[str] = []
 LAST_USAGE: dict = {}
 
-DEFAULT_TARGETS = [
-    "ats:greenhouse:openai",
-    "ats:greenhouse:anthropic",
-    "ats:lever:perplexity",
-    "github:jobs hiring help wanted",
-    "hn:jobs remote hiring",
-    "reddit:forhire:hiring job remote",
-]
-
-_CONNECTOR_MAX_ITEMS = 60
-
 
 def split_lines(raw: str | None) -> list[str]:
     out: list[str] = []
@@ -56,7 +47,7 @@ def split_lines(raw: str | None) -> list[str]:
 def targets_from_settings(raw_targets: str | None, raw_watchlist: str | None) -> list[str]:
     targets = split_lines(raw_targets)
     targets.extend(_ats_targets_from_watchlist(raw_watchlist))
-    return targets or DEFAULT_TARGETS
+    return targets or settings.scraping.limits.default_targets
 
 
 def _dot_get(value, path: str, default=""):
@@ -113,7 +104,8 @@ async def _scrape_custom_connector(connector: dict, raw_headers: str | None = No
         **_connector_headers(raw_headers, name),
     }
     params = connector.get("params") if isinstance(connector.get("params"), dict) else None
-    async with httpx.AsyncClient(timeout=30, headers=headers, follow_redirects=True) as cx:
+    timeout = settings.scraping.timeouts.custom_connector
+    async with httpx.AsyncClient(timeout=timeout, headers=headers, follow_redirects=True) as cx:
         r = await cx.get(url, params=params)
         if r.status_code == 429:
             retry_after = int(r.headers.get("Retry-After", 15))
@@ -141,7 +133,8 @@ async def _scrape_custom_connector(connector: dict, raw_headers: str | None = No
     }
     mapping = {**defaults, **{str(k): str(v) for k, v in fields.items()}}
     results: list[dict] = []
-    for item in items[:_CONNECTOR_MAX_ITEMS]:
+    max_items = settings.scraping.limits.connector_max_items
+    for item in items[:max_items]:
         if not isinstance(item, dict):
             continue
         posted = str(_dot_get(item, mapping.get("posted_date", ""), "") or "")
@@ -246,7 +239,7 @@ async def _json_get(url: str, params: dict | None = None) -> dict | list:
         "User-Agent": "JustHireMe free-source scout",
         "Accept": "application/json",
     }
-    async with httpx.AsyncClient(timeout=30, headers=headers, follow_redirects=True) as cx:
+    async with httpx.AsyncClient(timeout=settings.scraping.timeouts.json_get, headers=headers, follow_redirects=True) as cx:
         r = await cx.get(url, params=params)
         if r.status_code == 429:
             retry_after = int(r.headers.get("Retry-After", 15))
@@ -257,7 +250,8 @@ async def _json_get(url: str, params: dict | None = None) -> dict | list:
 
 
 async def _scrape_greenhouse(slug: str) -> list[dict]:
-    data = await _json_get(f"https://boards-api.greenhouse.io/v1/boards/{slug}/jobs", {"content": "true"})
+    url = settings.scraping.ats_endpoints.greenhouse.format(slug=slug)
+    data = await _json_get(url, {"content": "true"})
     results = []
     for job in data.get("jobs", []):
         updated = job.get("updated_at") or ""
@@ -284,7 +278,8 @@ async def _scrape_greenhouse(slug: str) -> list[dict]:
 
 
 async def _scrape_lever(slug: str) -> list[dict]:
-    data = await _json_get(f"https://api.lever.co/v0/postings/{slug}", {"mode": "json"})
+    url = settings.scraping.ats_endpoints.lever.format(slug=slug)
+    data = await _json_get(url, {"mode": "json"})
     results = []
     for job in data if isinstance(data, list) else []:
         created = ""
@@ -313,7 +308,8 @@ async def _scrape_lever(slug: str) -> list[dict]:
 
 
 async def _scrape_ashby(slug: str) -> list[dict]:
-    data = await _json_get(f"https://api.ashbyhq.com/posting-api/job-board/{slug}")
+    url = settings.scraping.ats_endpoints.ashby.format(slug=slug)
+    data = await _json_get(url)
     jobs = data.get("jobs", []) if isinstance(data, dict) else []
     results = []
     for job in jobs:
@@ -339,9 +335,11 @@ async def _scrape_ashby(slug: str) -> list[dict]:
 
 async def _scrape_workable(slug: str) -> list[dict]:
     try:
-        data = await _json_get(f"https://www.workable.com/api/accounts/{slug}", {"details": "true"})
+        url = settings.scraping.ats_endpoints.workable_primary.format(slug=slug)
+        data = await _json_get(url, {"details": "true"})
     except Exception:
-        data = await _json_get(f"https://apply.workable.com/api/v1/widget/accounts/{slug}")
+        url = settings.scraping.ats_endpoints.workable_fallback.format(slug=slug)
+        data = await _json_get(url)
 
     if isinstance(data, list):
         jobs = data
@@ -401,11 +399,13 @@ def _github_query(raw: str) -> str:
 
 
 async def _scrape_github(raw: str) -> list[dict]:
-    data = await _json_get("https://api.github.com/search/issues", {
+    url = settings.scraping.api_urls.github_search_issues
+    per_page = settings.scraping.ats_endpoints.github_per_page
+    data = await _json_get(url, {
         "q": _github_query(raw),
         "sort": "updated",
         "order": "desc",
-        "per_page": "25",
+        "per_page": per_page,
     })
     results = []
     for item in data.get("items", []):
@@ -435,12 +435,15 @@ async def _scrape_github(raw: str) -> list[dict]:
 async def _scrape_hn(raw: str) -> list[dict]:
     query = raw.split(":", 1)[1].strip() if raw.lower().startswith("hn:") else raw.strip()
     query = query or "jobs remote hiring"
-    cutoff = int((datetime.now(timezone.utc) - timedelta(days=30)).timestamp())
-    data = await _json_get("https://hn.algolia.com/api/v1/search_by_date", {
+    cutoff_days = settings.scraping.limits.hn_cutoff_days
+    cutoff = int((datetime.now(timezone.utc) - timedelta(days=cutoff_days)).timestamp())
+    url = settings.scraping.api_urls.hn_algolia_search_by_date
+    hits = settings.scraping.hn.hn_hits_per_page
+    data = await _json_get(url, {
         "query": query,
         "tags": "comment",
         "numericFilters": f"created_at_i>{cutoff}",
-        "hitsPerPage": "30",
+        "hitsPerPage": str(hits),
     })
     results = []
     for hit in data.get("hits", []):
@@ -471,13 +474,14 @@ async def _scrape_reddit(raw: str) -> list[dict]:
     parts = raw.split(":", 2)
     subreddit = parts[1].strip("/") if len(parts) >= 2 and parts[1] else "forhire"
     query = parts[2].strip() if len(parts) >= 3 else "hiring job remote"
-    url = f"https://www.reddit.com/r/{subreddit}/search.json"
+    url = settings.scraping.api_urls.reddit_search.format(subreddit=subreddit)
+    limit = settings.scraping.ats_endpoints.reddit_limit
     data = await _json_get(url, {
         "q": query,
         "restrict_sr": "1",
         "sort": "new",
         "t": "month",
-        "limit": "25",
+        "limit": limit,
     })
     results = []
     for child in (data.get("data", {}) or {}).get("children", []):
@@ -560,10 +564,9 @@ def run(
     wanted = "job"
     if not raw_custom_headers:
         from config.secrets import resolve_secret
-        from config import settings as _cfg
         raw_custom_headers = resolve_secret(
             "CUSTOM_CONNECTOR_HEADERS",
-            _cfg.app.settings_key_names.custom_connector_headers,
+            settings.app.settings_key_names.custom_connector_headers,
         )
     all_targets = targets or targets_from_settings(raw_targets, raw_watchlist)
     custom_connectors = []
@@ -584,15 +587,7 @@ def run(
     leads: list[dict] = []
     seen: set[str] = set()
 
-    for target in all_targets[:cap]:
-        try:
-            batch = asyncio.run(_scrape_target(target))
-            LAST_USAGE["executed"] += 1
-        except Exception as exc:
-            detail = str(exc).strip() or type(exc).__name__
-            LAST_ERRORS.append(f"{target}: {detail}")
-            continue
-
+    def _save_batch(batch: list[dict], platform_fallback: str) -> None:
         for item in batch:
             if wanted and item.get("kind") != wanted:
                 LAST_USAGE["filtered"] += 1
@@ -602,7 +597,7 @@ def run(
             item = attach_quality_metadata(item, quality)
             if not quality.get("accepted"):
                 LAST_USAGE["filtered"] += 1
-                LAST_ERRORS.append(f"filtered {item.get('platform', 'free')}:{item.get('url', '')} - {quality.get('reason', 'quality gate')}")
+                LAST_ERRORS.append(f"filtered {item.get('platform', platform_fallback)}:{item.get('url', '')} - {quality.get('reason', 'quality gate')}")
                 continue
             if (item.get("signal_score") or 0) < min_score:
                 LAST_USAGE["filtered"] += 1
@@ -610,7 +605,7 @@ def run(
             url = item.get("url", "")
             if not url:
                 continue
-            jid = lead_id(item.get("platform", "free"), url)
+            jid = lead_id(item.get("platform", platform_fallback), url)
             if jid in seen or url_exists(jid):
                 continue
             seen.add(jid)
@@ -620,7 +615,7 @@ def run(
                 item.get("title", ""),
                 item.get("company", ""),
                 url,
-                item.get("platform", "free"),
+                item.get("platform", platform_fallback),
                 item.get("description", ""),
                 kind=item.get("kind", "job"),
                 budget=item.get("budget", ""),
@@ -644,6 +639,16 @@ def run(
             )
             LAST_USAGE["saved"] += 1
             leads.append(item)
+
+    for target in all_targets[:cap]:
+        try:
+            batch = asyncio.run(_scrape_target(target))
+            LAST_USAGE["executed"] += 1
+        except Exception as exc:
+            detail = str(exc).strip() or type(exc).__name__
+            LAST_ERRORS.append(f"{target}: {detail}")
+            continue
+        _save_batch(batch, "free")
 
     remaining = max(0, cap - LAST_USAGE["executed"])
     for connector in custom_connectors[:remaining]:
@@ -658,58 +663,7 @@ def run(
             detail = str(exc).strip() or type(exc).__name__
             LAST_ERRORS.append(f"{name}: {detail}")
             continue
-
-        for item in batch:
-            if wanted and item.get("kind") != wanted:
-                LAST_USAGE["filtered"] += 1
-                continue
-            item = rank_lead_by_feedback(item)
-            quality = evaluate_lead_quality(item, min_quality=min_score)
-            item = attach_quality_metadata(item, quality)
-            if not quality.get("accepted"):
-                LAST_USAGE["filtered"] += 1
-                LAST_ERRORS.append(f"filtered {item.get('platform', 'connector')}:{item.get('url', '')} - {quality.get('reason', 'quality gate')}")
-                continue
-            if (item.get("signal_score") or 0) < min_score:
-                LAST_USAGE["filtered"] += 1
-                continue
-            url = item.get("url", "")
-            if not url:
-                continue
-            jid = lead_id(item.get("platform", "connector"), url)
-            if jid in seen or url_exists(jid):
-                continue
-            seen.add(jid)
-            item["job_id"] = jid
-            save_lead(
-                jid,
-                item.get("title", ""),
-                item.get("company", ""),
-                url,
-                item.get("platform", "connector"),
-                item.get("description", ""),
-                kind=item.get("kind", "job"),
-                budget=item.get("budget", ""),
-                signal_score=item.get("signal_score", 0),
-                signal_reason=item.get("signal_reason", ""),
-                signal_tags=item.get("signal_tags", []),
-                outreach_reply=item.get("outreach_reply", ""),
-                outreach_dm=item.get("outreach_dm", ""),
-                outreach_email=item.get("outreach_email", ""),
-                proposal_draft=item.get("proposal_draft", ""),
-                fit_bullets=item.get("fit_bullets", []),
-                followup_sequence=item.get("followup_sequence", []),
-                proof_snippet=item.get("proof_snippet", ""),
-                tech_stack=item.get("tech_stack", []),
-                location=item.get("location", ""),
-                urgency=item.get("urgency", ""),
-                base_signal_score=item.get("base_signal_score"),
-                learning_delta=item.get("learning_delta"),
-                learning_reason=item.get("learning_reason", ""),
-                source_meta=item.get("source_meta", {}),
-            )
-            LAST_USAGE["saved"] += 1
-            leads.append(item)
+        _save_batch(batch, "connector")
 
     if len(all_targets) > cap:
         LAST_ERRORS.append(f"Free-source cap hit: ran {cap} of {len(all_targets)} targets")

@@ -3,8 +3,9 @@
 **File:** `docs/maps/backend-scrapers.md`
 **Codebase path(s):** `backend/agents/`
 **Files in scope:** 5
-**Total lines:** ~2,665
+**Total lines:** ~2,521 (net -144 from resolve pass)
 **Generated:** 2026-05-15
+**Resolved:** `fix/resolve-scrapers` — all P0-P2 items actioned. Detailed flag breakdown below is preserved as snapshot (may be stale).
 
 ---
 
@@ -18,11 +19,11 @@ This unit owns the "scouting" layer — every code path that discovers job leads
 
 | # | File | Lines | Purpose | Overall flag |
 |---|------|-------|---------|-------------|
-| 1 | `agents/scout.py` | 1,027 | Primary job-lead scraper: crawl, extract, save | 🟠 STALE — duplicates exist across `free_scout.py` and `quality_gate.py`; `_ensure_scheme` is defined twice |
-| 2 | `agents/free_scout.py` | 718 | Free-source signal scraper: ATS, GitHub, HN, Reddit, custom connectors | 🟡 SUSPECT — imports and re-uses private (`_`) functions from `scout.py`; large code duplication with `scout.py` run loop |
-| 3 | `agents/x_scout.py` | 478 | X/Twitter API v2 hiring-signal scanner | 🟢 CLEAN — well-structured single-responsibility module; minor hardcoded query/default issues |
-| 4 | `agents/quality_gate.py` | 203 | Deterministic lead quality evaluation | 🟡 SUSPECT — `_parse_date` duplicates `scout.py:_parse_date` with different implementation; not exported from a shared location |
-| 5 | `agents/query_gen.py` | 239 | Profile-tailored Google site: query generation | 🟡 SUSPECT — `_india_clause` is India-specific logic that may not belong in general query gen; fallback path may produce unusably broad queries |
+| 1 | `agents/scout.py` | 991 | Primary job-lead scraper: crawl, extract, save | 🟡 — dead code removed, hardcoded values wired to config, but `_crawl` timeout deferred |
+| 2 | `agents/free_scout.py` | 672 | Free-source signal scraper: ATS, GitHub, HN, Reddit, custom connectors | 🟡 — save logic deduplicated, ATS endpoints to config; still imports private (`_`) functions from `scout.py` (deferred) |
+| 3 | `agents/x_scout.py` | 465 | X/Twitter API v2 hiring-signal scanner | 🟢 CLEAN — well-structured, config-driven |
+| 4 | `agents/quality_gate.py` | 154 | Deterministic lead quality evaluation | 🟢 CLEAN — `_parse_date`/`_lead_text` deduplicated, `HOT_LEAD_THRESHOLD` removed |
+| 5 | `agents/query_gen.py` | 239 | Profile-tailored Google site: query generation | 🟡 SUSPECT — `_india_clause` is India-specific logic (deferred) |
 
 ---
 

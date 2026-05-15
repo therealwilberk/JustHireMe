@@ -656,7 +656,7 @@ This role is a great fit for customer-facing technical professionals. Apply here
         self.assertEqual(_hn_company_role(text), ("Baseten Labs", "Solution Architect"))
 
     def test_job_seniority_classifier_segregates_roles(self):
-        from agents.scout import _passes_beginner_job_filter, classify_job_seniority
+        from agents.scout import classify_job_seniority
 
         junior = {
             "title": "Junior AI Engineer",
@@ -678,8 +678,6 @@ This role is a great fit for customer-facing technical professionals. Apply here
             "description": "Requires 3+ years building APIs.",
         }), "mid")
         self.assertEqual(classify_job_seniority(unknown), "unknown")
-        self.assertTrue(_passes_beginner_job_filter(junior))
-        self.assertFalse(_passes_beginner_job_filter(senior))
 
     def test_job_targets_only_drop_freelance_sources(self):
         from services.job_targets import _job_targets

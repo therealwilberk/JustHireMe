@@ -15,22 +15,10 @@ from agents.lead_intel import (
 )
 from db.client import rank_lead_by_feedback, save_lead, url_exists
 
+from config import settings
 
-X_API_BASE = "https://api.x.com/2/tweets/search/recent"
 LAST_ERRORS: list[str] = []
 LAST_USAGE: dict = {}
-
-DEFAULT_QUERIES = [
-    '("hiring" OR "job opening" OR "open role") ("AI engineer" OR "software engineer" OR "Python developer") lang:en -is:retweet',
-    '("we are hiring" OR "is hiring") ("React developer" OR "backend engineer" OR "full stack engineer") lang:en -is:retweet',
-    '("apply" OR "open role") (Python OR React OR FastAPI OR LLM) (remote OR hybrid) lang:en -is:retweet',
-]
-
-WATCHLIST_QUERY = (
-    '(AI OR "AI agent" OR LLM OR RAG OR automation OR chatbot OR "web app" OR SaaS) '
-    '("hiring" OR "job opening" OR "open role" OR "we are hiring" OR "apply") '
-    'lang:en -is:retweet'
-)
 
 TECH_TERMS = (
     "ai", "agent", "agents", "llm", "rag", "chatbot", "automation", "openai",
@@ -95,7 +83,7 @@ def split_queries(raw: str | None) -> list[str]:
         if not line or line.startswith("#"):
             continue
         queries.append(line)
-    return queries or DEFAULT_QUERIES
+    return queries or settings.scraping.x.default_queries
 
 
 def split_watchlist(raw: str | None) -> list[str]:
@@ -115,7 +103,7 @@ def split_watchlist(raw: str | None) -> list[str]:
 
 
 def build_watchlist_queries(raw_watchlist: str | None) -> list[str]:
-    return [f"from:{handle} {WATCHLIST_QUERY}" for handle in split_watchlist(raw_watchlist)]
+    return [f"from:{handle} {settings.scraping.x.watchlist_query}" for handle in split_watchlist(raw_watchlist)]
 
 
 def build_queries(raw_queries: str | None = None, raw_watchlist: str | None = None) -> list[str]:
@@ -360,8 +348,8 @@ async def _search_recent(bearer_token: str, query: str, max_results: int = 50) -
         "user.fields": "name,username,verified,public_metrics,description,location,url",
     }
     headers = {"Authorization": f"Bearer {bearer_token}"}
-    url = f"{X_API_BASE}?{urlencode(params)}"
-    async with httpx.AsyncClient(timeout=30, headers=headers) as cx:
+    url = f"{settings.scraping.api_urls.x_api_base}?{urlencode(params)}"
+    async with httpx.AsyncClient(timeout=settings.scraping.timeouts.x_search, headers=headers) as cx:
         r = await cx.get(url)
         if r.status_code >= 400:
             detail = r.text[:500]
@@ -397,7 +385,6 @@ def run(
         "max_requests": max_requests,
     }
 
-    from config import settings
     from config.secrets import resolve_secret
     token = (
         bearer_token
