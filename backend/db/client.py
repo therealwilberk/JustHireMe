@@ -4,6 +4,7 @@ import sqlite3 as _sq
 import json
 from datetime import UTC, datetime, timedelta
 from logger import get_logger
+from config.scoring import LEAD_STATUSES, VALID_FEEDBACK, FEEDBACK_DISCARDED
 
 try:
     import kuzu
@@ -358,6 +359,9 @@ def update_lead_score(
     gaps: list | None = None,
     preserve_status: bool = False,
 ):
+    from config import settings
+
+    threshold = settings.scoring.quality_gate.score_threshold_matched
     c = get_sql_connection()
     row = c.execute("SELECT kind,status FROM leads WHERE job_id=?", (jid,)).fetchone()
     kind = row[0] if row else "job"
@@ -366,9 +370,9 @@ def update_lead_score(
     if preserve_status:
         status = current_status
     elif kind == "freelance":
-        status = "matched" if s >= 76 else "discarded"
+        status = "matched" if s >= threshold else "discarded"
     else:
-        status = "tailoring" if s >= 76 else "discarded"
+        status = "tailoring" if s >= threshold else "discarded"
 
     mp  = _json_dumps_list(match_points)
     gps = _json_dumps_list(gaps)
@@ -967,12 +971,7 @@ def delete_lead(jid: str):
 
 
 def update_lead_status(jid: str, status: str):
-    valid = {
-        "discovered", "evaluating", "tailoring", "approved",
-        "applied", "interviewing", "rejected", "accepted", "discarded",
-        "matched", "bidding", "proposal_sent", "awarded", "completed",
-    }
-    if status not in valid:
+    if status not in LEAD_STATUSES:
         raise ValueError(f"Invalid status: {status}")
     c = get_sql_connection()
     cur = c.execute("UPDATE leads SET status=? WHERE job_id=?", (status, jid))
@@ -988,13 +987,7 @@ def update_lead_status(jid: str, status: str):
 
 
 def save_lead_feedback(jid: str, feedback: str, note: str = "") -> dict:
-    valid = {
-        "good", "trash", "too_generic", "not_ai",
-        "not_freelance", "already_contacted",
-        "relevant", "not_relevant", "duplicate",
-        "low_quality", "incorrect_category",
-    }
-    if feedback not in valid:
+    if feedback not in VALID_FEEDBACK:
         raise ValueError(f"Invalid feedback: {feedback}")
 
     c = get_sql_connection()
@@ -1008,10 +1001,7 @@ def save_lead_feedback(jid: str, feedback: str, note: str = "") -> dict:
     new_status = status
     now = ""
     due = ""
-    if feedback in {
-        "trash", "too_generic", "not_ai", "not_freelance",
-        "not_relevant", "duplicate", "low_quality", "incorrect_category",
-    }:
+    if feedback in FEEDBACK_DISCARDED:
         new_status = "discarded"
     elif feedback == "already_contacted":
         now = _utc_timestamp()
